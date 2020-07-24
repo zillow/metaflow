@@ -1,8 +1,16 @@
 import kfp
 from kfp import dsl
 
-from .constants import DEFAULT_RUN_NAME, DEFAULT_EXPERIMENT_NAME, DEFAULT_FLOW_CODE_URL, DEFAULT_KFP_YAML_OUTPUT_PATH
+from .constants import DEFAULT_RUN_NAME, DEFAULT_EXPERIMENT_NAME, DEFAULT_FLOW_CODE_URL, DEFAULT_KFP_YAML_OUTPUT_PATH, \
+                    S3_BUCKET, S3_AWS_ARN
 from typing import NamedTuple
+
+def invoke(command, shell=True):
+    """
+    Helper to invoke a command
+    """
+    import subprocess
+    subprocess.call([command], shell=shell)
 
 def get_ordered_steps(graph):
     """
@@ -28,55 +36,56 @@ def get_ordered_steps(graph):
 
     return ordered_steps
 
-
-# def step_container_op(step_name, code_url=DEFAULT_FLOW_CODE_URL):
-#     """
-#     Method to create a kfp container op that corresponds to a single step in the flow.
-#
-#     TODO: This does not maintain state. The custom pre-start command used below would be removed once we have state accessible across KFP steps.
-#     TODO: The public docker is a copy of the internal docker image we were using (borrowed from aip-kfp-example). Check if any stage here may need to be further modified later.
-#     """
-#
-#     python_cmd = """ "python helloworld.py --datastore-root ", $1, " step {} --run-id ", $2, " --task-id ", $4, " --input-paths", $2"/"$5"/"$6 """.format(
-#         step_name)
-#     command_inside_awk = """ {{ print {0} }}""".format(python_cmd)
-#     final_run_cmd = """ python helloworld.py pre-start | awk 'END{}' | sh """.format(command_inside_awk)
-#
-#     return dsl.ContainerOp(
-#
-#         name='StepRunner-{}'.format(step_name),
-#         image='ssreejith3/mf_on_kfp:python-curl-git',
-#         command= ['sh', '-c'],
-#         arguments=[
-#             'curl -o helloworld.py {}' \
-#             ' && pip install git+https://github.com/zillow/metaflow.git@c722fceffa3011ecab68ce319cff98107cc49532' \
-#             ' && export USERNAME="kfp-user" ' \
-#             ' && {}'.format(code_url, final_run_cmd)
-#             ])
-
-def step_op_func(step_name: str, code_url: str, ds_root: str, run_id: str, task_id: str, prev_step_name: str, prev_task_id: str) -> NamedTuple('StepOutput', [('ds_root', str), ('run_id', str), ('next_step', str), ('next_task_id', str), ('current_step', str), ('current_task_id', str)]):
-    import subprocess
-    from collections import namedtuple
-
+def perform_common_setup(code_url):
     print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
-    subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
+    invoke("curl -o helloworld.py {}".format(code_url))
 
     print("\n----------RUNNING: KFP Installation---------------")
-    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
+    invoke("pip3 install kfp")  # Using this as a workaround until we add it to MF dependencies/our docker image
 
     print("\n----------RUNNING: METAFLOW INSTALLATION----------")
-    subprocess.call(["pip3 install --user git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
-                    shell=True)
+    invoke("pip3 install --user git+https://github.com/zillow/metaflow.git@s3-integ")
+
+
+def step_op_func(step_name: str,
+                 code_url: str,
+                 ds_root: str,
+                 run_id: str,
+                 task_id: str,
+                 prev_step_name: str,
+                 prev_task_id: str) -> NamedTuple('StepOutput', [('ds_root', str),
+                                                         ('run_id', str),
+                                                         ('next_step', str),
+                                                         ('next_task_id', str),
+                                                         ('current_step', str),
+                                                         ('current_task_id', str)]
+                                                      ):
+    """
+    Function used to create a kfp container op that corresponds to a single step in the flow.
+
+    """
+    import subprocess
+    from collections import namedtuple
+    perform_common_setup(code_url)
 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
-    python_cmd = "python helloworld.py --datastore-root {0} step {1} --run-id {2} --task-id {3} --input-paths {2}/{4}/{5}".format(
+    define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" '.format(S3_BUCKET, S3_AWS_ARN)
+    define_username = 'export USERNAME="kfp-user"'
+    python_cmd = "python helloworld.py --datastore s3 --datastore-root {0} step {1} --run-id {2} --task-id {3} --input-paths {2}/{4}/{5}".format(
         ds_root, step_name, run_id, task_id, prev_step_name, prev_task_id)
-    final_run_cmd = 'export USERNAME="kfp-user" && {}'.format(python_cmd)
+    final_run_cmd = f'{define_username} && {define_s3_env_vars} && {python_cmd}'
+    # python_cmd = 'export METAFLOW_DATASTORE_SYSROOT_S3="s3://workspace-zillow-analytics-stage/aip/metaflow" && export METAFLOW_AWS_ARN="arn:aws:iam::170606514770:role/dev-zestimate-role" && python helloworld.py --datastore s3 --datastore-root {0} step {1} --run-id {2} --task-id {3} --input-paths {2}/{4}/{5}'.format(
+    #     ds_root, step_name, run_id, task_id, prev_step_name, prev_task_id)
+    # final_run_cmd = 'export USERNAME="kfp-user" && {}'.format(python_cmd)
     print("COMMAND: ", final_run_cmd)
 
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) # Note: capture_output only works in python 3.7+
     proc_output = proc.stdout # .decode('ascii')
     proc_error = proc.stderr
+
+    # END is the final step and no outputs need to be returned
+    if step_name.lower() == 'end':
+        return None
 
     if len(proc_error) > 1:
         print("Printing proc error...")
@@ -97,9 +106,6 @@ def step_op_func(step_name: str, code_url: str, ds_root: str, run_id: str, task_
     if len(proc_error) > 1:
         print("Printing proc error...")
         print(proc_error)
-    # outputs = proc_output.split()
-    # step_output = namedtuple('StepOutput', ['ds', 'run_id', 'next_step', 'next_task_id', 'current_step', 'current_task_id'])
-    # print(step_output(outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5]))
 
     return step_output(outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5])
 
@@ -110,17 +116,26 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
 
     import subprocess
     from collections import namedtuple
-    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
-    subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
-
-    print("\n----------RUNNING: KFP Installation---------------")
-    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
-
-    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
-    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
-                    shell=True)
+    perform_common_setup(code_url)
+    # print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
+    # subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
+    #
+    # print("\n----------RUNNING: KFP Installation---------------")
+    # subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
+    #
+    # print("\n----------RUNNING: METAFLOW INSTALLATION----------")
+    # subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
+    #                 shell=True)
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
-    final_run_cmd = 'export USERNAME="kfp-user" && export METAFLOW_DATASTORE_SYSROOT_S3="s3://workspace-zillow-analytics-stage/aip/metaflow" && export METAFLOW_AWS_ARN="arn:aws:iam::170606514770:role/dev-zestimate-role" && python helloworld.py --datastore="s3" --datastore-root="s3://workspace-zillow-analytics-stage/aip/metaflow" pre-start'
+
+    define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" '.format(S3_BUCKET,
+                                                                                                             S3_AWS_ARN)
+    define_username = 'export USERNAME="kfp-user"'
+    python_cmd = 'python helloworld.py --datastore="s3" --datastore-root="{}" pre-start'.format(S3_BUCKET)
+    final_run_cmd = f'{define_username} && {define_s3_env_vars} && {python_cmd}'
+
+
+    # final_run_cmd = 'export USERNAME="kfp-user" && export METAFLOW_DATASTORE_SYSROOT_S3="s3://workspace-zillow-analytics-stage/aip/metaflow" && export METAFLOW_AWS_ARN="arn:aws:iam::170606514770:role/dev-zestimate-role" && python helloworld.py --datastore="s3" --datastore-root="s3://workspace-zillow-analytics-stage/aip/metaflow" pre-start'
     print("COMMAND: ", final_run_cmd)
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) # Note: capture_output only works in python 3.7+
 
@@ -152,10 +167,18 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
     return step_output(outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5])
 
 def step_container_op():
+    """
+
+    Note: The public docker image is a copy of the internal docker image we were using (borrowed from aip-kfp-example).
+    """
     step_op =  kfp.components.func_to_container_op(step_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
     return step_op
 
 def pre_start_container_op():
+    """
+
+    Note: The public docker image is a copy of the internal docker image we were using (borrowed from aip-kfp-example).
+    """
     pre_start_op = kfp.components.func_to_container_op(pre_start_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
     return pre_start_op
 

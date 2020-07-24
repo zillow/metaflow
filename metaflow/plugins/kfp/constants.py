@@ -7,5 +7,9 @@ DEFAULT_KFP_YAML_OUTPUT_PATH = 'kfp_pipeline.yaml'
 DEFAULT_RUN_NAME = 'run_mf_on_kfp'
 DEFAULT_EXPERIMENT_NAME = 'mf-on-kfp-experiments'
 
+# S3
+S3_BUCKET = "s3://workspace-zillow-analytics-stage/aip/metaflow"
+S3_AWS_ARN = "arn:aws:iam::170606514770:role/dev-zestimate-role"
+
 # TODO: This should (probably) be moved outside
 RUN_LINK_PREFIX = "https://kubeflow.corp.zillow-analytics-dev.zg-int.net/pipeline/#/runs/details/"
