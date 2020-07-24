@@ -61,6 +61,9 @@ def step_op_func(step_name: str,
                     shell=True)
 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
+    S3_BUCKET = "s3://workspace-zillow-analytics-stage/aip/metaflow"
+    S3_AWS_ARN = "arn:aws:iam::170606514770:role/dev-zestimate-role"
+
     define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" '.format(S3_BUCKET, S3_AWS_ARN)
     define_username = 'export USERNAME="kfp-user"'
     python_cmd = "python helloworld.py --datastore s3 --datastore-root {0} step {1} --run-id {2} --task-id {3} --input-paths {2}/{4}/{5}".format(
@@ -120,7 +123,9 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
                     shell=True)
 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
-
+    S3_BUCKET = "s3://workspace-zillow-analytics-stage/aip/metaflow"
+    S3_AWS_ARN = "arn:aws:iam::170606514770:role/dev-zestimate-role"
+    
     define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" '.format(S3_BUCKET,
                                                                                                           S3_AWS_ARN)
     define_username = 'export USERNAME="kfp-user"'
