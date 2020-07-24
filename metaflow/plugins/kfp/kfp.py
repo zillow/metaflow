@@ -1,8 +1,7 @@
 import kfp
 from kfp import dsl
 
-from .constants import DEFAULT_RUN_NAME, DEFAULT_EXPERIMENT_NAME, DEFAULT_FLOW_CODE_URL, DEFAULT_KFP_YAML_OUTPUT_PATH, \
-                    S3_BUCKET, S3_AWS_ARN
+from .constants import DEFAULT_RUN_NAME, DEFAULT_EXPERIMENT_NAME, DEFAULT_FLOW_CODE_URL, DEFAULT_KFP_YAML_OUTPUT_PATH
 from typing import NamedTuple
 
 def get_ordered_steps(graph):
@@ -125,7 +124,7 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
     S3_BUCKET = "s3://workspace-zillow-analytics-stage/aip/metaflow"
     S3_AWS_ARN = "arn:aws:iam::170606514770:role/dev-zestimate-role"
-    
+
     define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" '.format(S3_BUCKET,
                                                                                                           S3_AWS_ARN)
     define_username = 'export USERNAME="kfp-user"'
