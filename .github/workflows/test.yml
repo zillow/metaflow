@@ -3,9 +3,11 @@ on:
   push:
     branches:
     - master
+    - feature/kfp
   pull_request:
     branches:
     - master
+    - feature/kfp      
 jobs:
   test:
     name: Test on ${{ matrix.os }}
