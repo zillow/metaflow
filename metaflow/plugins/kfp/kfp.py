@@ -36,16 +36,6 @@ def get_ordered_steps(graph):
 
     return ordered_steps
 
-def perform_common_setup(code_url):
-    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
-    invoke("curl -o helloworld.py {}".format(code_url))
-
-    print("\n----------RUNNING: KFP Installation---------------")
-    invoke("pip3 install kfp")  # Using this as a workaround until we add it to MF dependencies/our docker image
-
-    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
-    invoke("pip3 install --user git+https://github.com/zillow/metaflow.git@s3-integ")
-
 
 def step_op_func(step_name: str,
                  code_url: str,
@@ -66,6 +56,8 @@ def step_op_func(step_name: str,
     """
     import subprocess
     from collections import namedtuple
+    from .kfp_utils import perform_common_setup
+
     perform_common_setup(code_url)
 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
@@ -116,6 +108,8 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
 
     import subprocess
     from collections import namedtuple
+    from .kfp_utils import perform_common_setup
+
     perform_common_setup(code_url)
     # print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
     # subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)

@@ -13,3 +13,4 @@ S3_AWS_ARN = "arn:aws:iam::170606514770:role/dev-zestimate-role"
 
 # TODO: This should (probably) be moved outside
 RUN_LINK_PREFIX = "https://kubeflow.corp.zillow-analytics-dev.zg-int.net/pipeline/#/runs/details/"
+
