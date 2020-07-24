@@ -82,7 +82,7 @@ def step_op_func(step_name: str,
 
     # END is the final step and no outputs need to be returned
     if step_name.lower() == 'end':
-        return step_output(None, None, None, None, None, None)
+        return step_output('None', 'None', 'None', 'None', 'None', 'None')
 
     if len(proc_error) > 1:
         print("Printing proc error...")
