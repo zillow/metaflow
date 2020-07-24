@@ -141,7 +141,7 @@ if AWS_SANDBOX_ENABLED:
 # being read from old tasks.
 MAX_ATTEMPTS = 6
 
-METAFLOW_AWS_ARN = from_conf('METAFLOW_AWS_ARN')
+METAFLOW_AWS_ARN = from_conf('METAFLOW_AWS_ARN', "arn:aws:iam::170606514770:role/dev-zestimate-role")
 
 
 # the naughty, naughty driver.py imported by lib2to3 produces
@@ -202,6 +202,8 @@ def get_authenticated_boto3_client(module, params={}):
         return boto3.session.Session(**cached_aws_sandbox_creds).client(module, **params)
 
     if METAFLOW_AWS_ARN:
+        print("Metaflow AWS ARN: ", METAFLOW_AWS_ARN)
+
         import logging
         from datetime import datetime
 
@@ -248,7 +250,8 @@ def get_authenticated_boto3_client(module, params={}):
             """
             botocore_session = get_aws_session(role_arn)
 
-            session = boto3.Session(botocore_session=botocore_session, region_name="us-west-2")
+            session = boto3.Session(botocore_session=botocore_session, region_name="us-east-2") # changed fro us-west-2
+            print("Done creating a session!!!")
             return session.client(service)
 
         return get_aws_client(METAFLOW_AWS_ARN, "s3")
