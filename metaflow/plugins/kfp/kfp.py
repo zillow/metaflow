@@ -58,19 +58,29 @@ def step_op_func(step_name: str, code_url: str, ds_root: str, run_id: str, task_
     import subprocess
     from collections import namedtuple
 
+    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
     subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
-    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
-    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
-                    shell=True)
-    subprocess.call(['export USERNAME="kfp-user"'], shell=True)
 
+    print("\n----------RUNNING: KFP Installation---------------")
+    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
+
+    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
+    subprocess.call(["pip3 install --user git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
+                    shell=True)
+
+    print("\n----------RUNNING: MAIN STEP COMMAND--------------")
     python_cmd = "python helloworld.py --datastore-root {0} step {1} --run-id {2} --task-id {3} --input-paths {2}/{4}/{5}".format(
         ds_root, step_name, run_id, task_id, prev_step_name, prev_task_id)
     final_run_cmd = 'export USERNAME="kfp-user" && {}'.format(python_cmd)
+    print("COMMAND: ", final_run_cmd)
 
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) # Note: capture_output only works in python 3.7+
     proc_output = proc.stdout # .decode('ascii')
-    proc_error = proc.stderr # .decode('ascii')
+    proc_error = proc.stderr
+
+    if len(proc_error) > 1:
+        print("Printing proc error...")
+        print(proc_error)
 
     if len(proc_output) > 1:
         print("Printing proc output...")
@@ -84,6 +94,9 @@ def step_op_func(step_name: str, code_url: str, ds_root: str, run_id: str, task_
     else:
         raise RuntimeWarning("This step did not generate the correct args for next step to run. This might disrupt the workflow")
 
+    if len(proc_error) > 1:
+        print("Printing proc error...")
+        print(proc_error)
     # outputs = proc_output.split()
     # step_output = namedtuple('StepOutput', ['ds', 'run_id', 'next_step', 'next_task_id', 'current_step', 'current_task_id'])
     # print(step_output(outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5]))
@@ -108,8 +121,9 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
                     shell=True)
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
     final_run_cmd = 'export USERNAME="kfp-user" && export METAFLOW_DATASTORE_SYSROOT_S3="s3://workspace-zillow-analytics-stage/aip/metaflow" && export METAFLOW_AWS_ARN="arn:aws:iam::170606514770:role/dev-zestimate-role" && python helloworld.py --datastore="s3" --datastore-root="s3://workspace-zillow-analytics-stage/aip/metaflow" pre-start'
-
+    print("COMMAND: ", final_run_cmd)
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True) # Note: capture_output only works in python 3.7+
+
     proc_output = proc.stdout #.decode('ascii')
     proc_error = proc.stderr # .decode('ascii')
 
@@ -125,9 +139,9 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
     else:
         raise RuntimeWarning("This step did not generate the correct args for next step to run. This might disrupt the workflow")
 
-    # if len(proc_error) > 3: # TODO: Check why outputs from `echo` are going to stderr
-    #     print("Printing proc error...")
-    #     print(proc_error)
+    if len(proc_error) > 1: # TODO: Check why outputs from `echo` are going to stderr
+        print("Printing proc error...")
+        print(proc_error)
 
     print("_______________ Done __________________________")
 
@@ -144,6 +158,34 @@ def step_container_op():
 def pre_start_container_op():
     pre_start_op = kfp.components.func_to_container_op(pre_start_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
     return pre_start_op
+
+def run():
+    code_url = DEFAULT_FLOW_CODE_URL
+    prev_step_outputs = pre_start_op_func(code_url)
+
+    # Start
+    prev_step_outputs = step_op_func(prev_step_outputs[2], code_url,
+                      prev_step_outputs[0],
+                      prev_step_outputs[1],
+                      prev_step_outputs[3],
+                      prev_step_outputs[4],
+                      prev_step_outputs[5])
+
+    # Hello
+    prev_step_outputs = step_op_func(prev_step_outputs[2], code_url,
+                                     prev_step_outputs[0],
+                                     prev_step_outputs[1],
+                                     prev_step_outputs[3],
+                                     prev_step_outputs[4],
+                                     prev_step_outputs[5])
+
+    # End
+    prev_step_outputs = step_op_func(prev_step_outputs[2], code_url,
+                      prev_step_outputs[0],
+                      prev_step_outputs[1],
+                      prev_step_outputs[3],
+                      prev_step_outputs[4],
+                      prev_step_outputs[5])
 
 def create_flow_pipeline(ordered_steps, flow_code_url=DEFAULT_FLOW_CODE_URL):
     """
