@@ -202,8 +202,6 @@ def get_authenticated_boto3_client(module, params={}):
         return boto3.session.Session(**cached_aws_sandbox_creds).client(module, **params)
 
     if METAFLOW_AWS_ARN:
-        # print("Metaflow AWS ARN: ", METAFLOW_AWS_ARN)
-
         import logging
         from datetime import datetime
 
