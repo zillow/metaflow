@@ -20,7 +20,7 @@ setup(name='metaflow',
         'requests',
         'boto3',
         'pylint<2.5.0',
-        'kfp==1.0.0'
+        'kfp'
       ],
       tests_require = [
         'coverage'
