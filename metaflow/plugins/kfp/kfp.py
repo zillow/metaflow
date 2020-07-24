@@ -5,13 +5,6 @@ from .constants import DEFAULT_RUN_NAME, DEFAULT_EXPERIMENT_NAME, DEFAULT_FLOW_C
                     S3_BUCKET, S3_AWS_ARN
 from typing import NamedTuple
 
-def invoke(command, shell=True):
-    """
-    Helper to invoke a command
-    """
-    import subprocess
-    subprocess.call([command], shell=shell)
-
 def get_ordered_steps(graph):
     """
     Returns the ordered step names in the graph (FlowGraph) from start step to end step as a list of strings containing the
@@ -56,9 +49,16 @@ def step_op_func(step_name: str,
     """
     import subprocess
     from collections import namedtuple
-    from .kfp_utils import perform_common_setup
 
-    perform_common_setup(code_url)
+    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
+    subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
+
+    print("\n----------RUNNING: KFP Installation---------------")
+    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
+
+    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
+    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
+                    shell=True)
 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
     define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" '.format(S3_BUCKET, S3_AWS_ARN)
@@ -108,22 +108,21 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
 
     import subprocess
     from collections import namedtuple
-    from .kfp_utils import perform_common_setup
 
-    perform_common_setup(code_url)
-    # print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
-    # subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
-    #
-    # print("\n----------RUNNING: KFP Installation---------------")
-    # subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
-    #
-    # print("\n----------RUNNING: METAFLOW INSTALLATION----------")
-    # subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
-    #                 shell=True)
+    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
+    subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
+
+    print("\n----------RUNNING: KFP Installation---------------")
+    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
+
+    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
+    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
+                    shell=True)
+
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
 
     define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" '.format(S3_BUCKET,
-                                                                                                             S3_AWS_ARN)
+                                                                                                          S3_AWS_ARN)
     define_username = 'export USERNAME="kfp-user"'
     python_cmd = 'python helloworld.py --datastore="s3" --datastore-root="{}" pre-start'.format(S3_BUCKET)
     final_run_cmd = f'{define_username} && {define_s3_env_vars} && {python_cmd}'
