@@ -77,9 +77,12 @@ def step_op_func(step_name: str,
     proc_output = proc.stdout # .decode('ascii')
     proc_error = proc.stderr
 
+    step_output = namedtuple('StepOutput',
+                             ['ds_root', 'run_id', 'next_step', 'next_task_id', 'current_step', 'current_task_id'])
+
     # END is the final step and no outputs need to be returned
     if step_name.lower() == 'end':
-        return None
+        return step_output(None, None, None, None, None, None)
 
     if len(proc_error) > 1:
         print("Printing proc error...")
@@ -91,8 +94,6 @@ def step_op_func(step_name: str,
         print("Lines: ", len(proc_output.split("\n")), proc_output.split("\n"))
         print("LAST LINE: ", proc_output.split("\n")[-2])
         outputs = (proc_output.split("\n")[-2]).split() # this contains the args needed for next step to run
-        step_output = namedtuple('StepOutput',
-                                 ['ds_root', 'run_id', 'next_step', 'next_task_id', 'current_step', 'current_task_id'])
         print(step_output(outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5]))
     else:
         raise RuntimeWarning("This step did not generate the correct args for next step to run. This might disrupt the workflow")
@@ -157,10 +158,6 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
 
     print("_______________ Done __________________________")
 
-    # outputs = proc_output.split()
-    # step_output = namedtuple('StepOutput', ['ds_root', 'run_id', 'next_step', 'next_task_id', 'current_step', 'current_task_id'])
-    # print(step_output(outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5]))
-
     return step_output(outputs[0], outputs[1], outputs[2], outputs[3], outputs[4], outputs[5])
 
 def step_container_op():
@@ -209,7 +206,7 @@ def run():
 
 def create_flow_pipeline(ordered_steps, flow_code_url=DEFAULT_FLOW_CODE_URL):
     """
-    Function that creates the KFP flow pipeline and returns the path to the YAML file containing the pipeline specification.
+    Function used to create the KFP flow pipeline. Return the function defining the KFP equivalent of the flow
     """
 
     steps = ordered_steps
@@ -245,38 +242,6 @@ def create_flow_pipeline(ordered_steps, flow_code_url=DEFAULT_FLOW_CODE_URL):
             step_container_ops[-1].after(step_container_ops[-2])
 
     return kfp_pipeline_from_flow
-
-
-# def create_flow_pipeline(ordered_steps, flow_code_url=DEFAULT_FLOW_CODE_URL):
-#     """
-#     Function that creates the KFP flow pipeline and returns the path to the YAML file containing the pipeline specification.
-#     """
-#
-#     steps = ordered_steps
-#     code_url = flow_code_url
-#     print("\nCreating the pipeline definition needed to run the flow on KFP...\n")
-#     print("\nCode URL of the flow to be converted to KFP: {0}\n", flow_code_url)
-#
-#     @dsl.pipeline(
-#         name='MF on KFP Pipeline',
-#         description='Pipeline defining KFP equivalent of the Metaflow flow'
-#     )
-#     def kfp_pipeline_from_flow():
-#         """
-#         This function converts the flow steps to kfp container op equivalents
-#         by invoking `step_container_op` for every step in the flow and handling the order of steps.
-#         """
-#
-#         # Store the list of steps in reverse order
-#         step_container_ops = [step_container_op(step, code_url) for step in reversed(steps)]
-#
-#         # Each step in the list can only be executed after the next step in the list, i.e., list[-1] is executed first, followed
-#         # by list[-2] and so on.
-#         for i in range(len(steps) - 1):
-#             step_container_ops[i].after(step_container_ops[i + 1])
-#
-#     return kfp_pipeline_from_flow
-
 
 def create_run_on_kfp(flowgraph, code_url, experiment_name, run_name):
     """
