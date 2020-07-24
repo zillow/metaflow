@@ -200,6 +200,7 @@ def get_authenticated_boto3_client(module, params={}):
             except requests.exceptions.HTTPError as e:
                 raise MetaflowException(repr(e))
         return boto3.session.Session(**cached_aws_sandbox_creds).client(module, **params)
+
     if METAFLOW_AWS_ARN:
         import logging
         from datetime import datetime
@@ -238,7 +239,7 @@ def get_authenticated_boto3_client(module, params={}):
 
         def get_aws_client(role_arn: str, service: str):
             """
-            Args:
+            Args:s
                 role_arn: AWS ARN
                 service: AWS service, example: "s3"
 
@@ -250,5 +251,5 @@ def get_authenticated_boto3_client(module, params={}):
             session = boto3.Session(botocore_session=botocore_session, region_name="us-west-2")
             return session.client(service)
 
-        return get_aws_client(AWS_ARN, "s3")
+        return get_aws_client(METAFLOW_AWS_ARN, "s3")
     return boto3.client(module, **params)

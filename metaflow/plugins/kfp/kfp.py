@@ -59,7 +59,8 @@ def step_op_func(step_name: str, code_url: str, ds_root: str, run_id: str, task_
     from collections import namedtuple
 
     subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
-    subprocess.call(["pip install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
+    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
+    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
                     shell=True)
     subprocess.call(['export USERNAME="kfp-user"'], shell=True)
 
@@ -90,10 +91,11 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
     from collections import namedtuple
 
     subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
-    subprocess.call(["pip install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
+    subprocess.call(["pip3 install kfp"], shell=True) # Using this to overcome the "module not found error when it encounters the kfp imports in code
+    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-integ"], # c722fceffa3011ecab68ce319cff98107cc49532 is the commit that works well; TODO: Debug why later commits are erroring out
                     shell=True)
     subprocess.call(['export USERNAME="kfp-user"'], shell=True)
-    final_run_cmd = 'export USERNAME="kfp-user" && export METAFLOW_DATASTORE_SYSROOT_S3="s3://aip-metaflow-trials" && python helloworld.py --datastore s3 pre-start'
+    final_run_cmd = 'export USERNAME="kfp-user" && export METAFLOW_DATASTORE_SYSROOT_S3="s3://aip-metaflow-trials" && export METAFLOW_AWS_ARN="arn:aws:iam::170606514770:role/dev-zestimate-role" python helloworld.py --datastore="s3" --datastore-root="s3://aip-metaflow-trials" pre-start'
 
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) # Note: capture_output only works in python 3.7+
     proc_output = proc.stdout.decode('ascii')
