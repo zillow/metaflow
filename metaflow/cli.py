@@ -434,7 +434,7 @@ def step(obj,
                       retry_count,
                       max_user_code_retries)
 
-    echo('Success', fg='green', bold=True, indent=True)
+    print('Success', fg='green', bold=True, indent=True)
 
     # Note: Leaving below statement as we use it to run and test the flow easily using CLI (locally) and to demo
     # the ability to orchestrate without using the MF local orchestrator.
@@ -676,7 +676,7 @@ def pre_start(obj,
     # 2) Use a KFP run_id
     # TODO: Remove once above criteria are met.
     # OUTPUT FORMAT: ($1)datastore_root location \t ($2)run_id \t ($3)next_step_to_run \t ($4)task_id(of next step) \t ($5)current step \t ($6)task_id(of current step)
-    echo("{0}\t{1}\tstart\t1\t_parameters\t0".format(obj.datastore.datastore_root, runtime.run_id))
+    print("{0}\t{1}\tstart\t1\t_parameters\t0".format(obj.datastore.datastore_root, runtime.run_id))
 
 
 @cli.command(help='Create a run on KF pipelines. This method converts the MF flow to a KFP run and outputs a link to the KFP run. '
@@ -882,8 +882,6 @@ def start(ctx,
                                                   ctx.obj.monitor)
     ctx.obj.datastore = DATASTORES[datastore]
     ctx.obj.datastore_root = datastore_root
-
-    print(ctx.obj.datastore, ctx.obj.datastore_root)
 
     current._set_env(flow_name=ctx.obj.flow.name, is_running=False)
     if ctx.invoked_subcommand not in ('run', 'resume'):

@@ -202,7 +202,7 @@ def get_authenticated_boto3_client(module, params={}):
         return boto3.session.Session(**cached_aws_sandbox_creds).client(module, **params)
 
     if METAFLOW_AWS_ARN:
-        print("Metaflow AWS ARN: ", METAFLOW_AWS_ARN)
+        # print("Metaflow AWS ARN: ", METAFLOW_AWS_ARN)
 
         import logging
         from datetime import datetime
@@ -250,8 +250,7 @@ def get_authenticated_boto3_client(module, params={}):
             """
             botocore_session = get_aws_session(role_arn)
 
-            session = boto3.Session(botocore_session=botocore_session, region_name="us-east-2") # changed fro us-west-2
-            print("Done creating a session!!!")
+            session = boto3.Session(botocore_session=botocore_session, region_name="us-west-2")
             return session.client(service)
 
         return get_aws_client(METAFLOW_AWS_ARN, "s3")
