@@ -28,6 +28,19 @@ def get_ordered_steps(graph):
 
     return ordered_steps
 
+def common_setup(code_url):
+    import subprocess
+
+    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
+    subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
+
+    print("\n----------RUNNING: KFP Installation---------------")
+    subprocess.call(["pip3 install kfp"], shell=True) # TODO: Remove this once KFP is added to dependencies
+
+    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
+    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@s3-refactor"],
+                    shell=True)
+
 
 def step_op_func(step_name: str,
                  code_url: str,
@@ -48,16 +61,17 @@ def step_op_func(step_name: str,
     """
     import subprocess
     from collections import namedtuple
-
-    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
-    subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
-
-    print("\n----------RUNNING: KFP Installation---------------")
-    subprocess.call(["pip3 install kfp"], shell=True) # TODO: Remove this once KFP is added to dependencies
-
-    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
-    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@state-integ-s3"],
-                    shell=True)
+    from metaflow.plugins.kfp.kfp import common_setup
+    common_setup(code_url)
+    # print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
+    # subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
+    #
+    # print("\n----------RUNNING: KFP Installation---------------")
+    # subprocess.call(["pip3 install kfp"], shell=True) # TODO: Remove this once KFP is added to dependencies
+    #
+    # print("\n----------RUNNING: METAFLOW INSTALLATION----------")
+    # subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@state-integ-s3"],
+    #                 shell=True)
 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
     S3_BUCKET = "s3://workspace-zillow-analytics-stage/aip/metaflow"
@@ -115,16 +129,17 @@ def pre_start_op_func(code_url)  -> NamedTuple('StepOutput', [('ds_root', str), 
 
     import subprocess
     from collections import namedtuple
-
-    print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
-    subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
-
-    print("\n----------RUNNING: KFP Installation---------------")
-    subprocess.call(["pip3 install kfp"], shell=True) # TODO: Remove this once KFP is added to dependencies
-
-    print("\n----------RUNNING: METAFLOW INSTALLATION----------")
-    subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@state-integ-s3"],
-                    shell=True)
+    from metaflow.plugins.kfp.kfp import common_setup
+    common_setup(code_url)
+    # print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
+    # subprocess.call(["curl -o helloworld.py {}".format(code_url)], shell=True)
+    #
+    # print("\n----------RUNNING: KFP Installation---------------")
+    # subprocess.call(["pip3 install kfp"], shell=True) # TODO: Remove this once KFP is added to dependencies
+    #
+    # print("\n----------RUNNING: METAFLOW INSTALLATION----------")
+    # subprocess.call(["pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@state-integ-s3"],
+    #                 shell=True)
 
     print("\n----------RUNNING: MAIN STEP COMMAND--------------")
     S3_BUCKET = "s3://workspace-zillow-analytics-stage/aip/metaflow"
