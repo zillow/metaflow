@@ -23,8 +23,9 @@ def step_op_func(python_cmd_template, step_name: str,
     import subprocess
     import os
 
-    MODIFIED_METAFLOW_URL = 'git+https://github.com/zillow/metaflow.git@branch-and-join'
-    DEFAULT_DOWNLOADED_FLOW_FILENAME = 'downloaded_flow.py'
+    from metaflow.plugins.kfp.constants import MODIFIED_METAFLOW_URL, DEFAULT_DOWNLOADED_FLOW_FILENAME
+    # MODIFIED_METAFLOW_URL = 'git+https://github.com/zillow/metaflow.git@branch-and-join'
+    # DEFAULT_DOWNLOADED_FLOW_FILENAME = 'downloaded_flow.py'
 
     print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
     subprocess.call(
@@ -86,9 +87,9 @@ def initial_setup_op_func(code_url: str)  -> StepOutput:
     import subprocess
     import os
     from collections import namedtuple
-
-    MODIFIED_METAFLOW_URL = 'git+https://github.com/zillow/metaflow.git@branch-and-join'
-    DEFAULT_DOWNLOADED_FLOW_FILENAME = 'downloaded_flow.py'
+    from metaflow.plugins.kfp.constants import MODIFIED_METAFLOW_URL, DEFAULT_DOWNLOADED_FLOW_FILENAME
+    # MODIFIED_METAFLOW_URL = 'git+https://github.com/zillow/metaflow.git@branch-and-join'
+    # DEFAULT_DOWNLOADED_FLOW_FILENAME = 'downloaded_flow.py'
 
     print("\n----------RUNNING: CODE DOWNLOAD from URL---------")
     subprocess.call(
