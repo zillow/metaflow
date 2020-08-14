@@ -82,3 +82,59 @@ We execute the above local orchestration commands after performing the necessary
 - Install the modified metaflow version (from Zillow's fork of Metaflow where we are pushing our changes)
 - Set a KFP user
 - Run the step command
+
+
+#### Executing flow containing foreach locally using manual orchestration (Work in progress)
+
+The foreach case is special as the number of splits at the end of a
+node that defines a `foreach` transition is only known at runtime when the 
+transition is encountered. 
+
+During the execution of a metaflow step, when the `self.next` statement defining a `foreach` is encountered,
+a private variable of the flow object (i.e., `_foreach_num_splits`) gets set which specifies the number of 
+splits that result from the foreach. In other words this is the length of the iterable on which the foreach is
+called. Knowing this value is key to defining the commands needed to execute the next steps.
+
+For eg., in `foreach_flow.py`, the `start` step is a `foreach` node that 
+invokes the `explore` node. To know the number of such invocations, we print out the value
+of the `_foreach_num_splits` variable at the end of the start step. 
+
+Now, based on this, we can invoke the `explore` step with the correct `--split-index` values ranging from
+`0` to `_foreach_num_splits - 1`.
+
+An example of foreach execution done by manual orchestration looks as follows 
+(Note: Make sure to use different run_ids for each trial)
+
+1. First, `init` is invoked to initialise the run
+    ```
+   python foreach_flow.py --datastore local init --run-id 1 --task-id 0
+    ```
+2. Then, we invoke the `start` step as follows:
+    ```
+   python foreach_flow.py --datastore local step start --run-id 1 --task-id 1 --input-paths 1/_parameters/0
+    ```
+   This step in `foreach_flow.py` is a `foreach` node and will print the value of `_foreach_num_splits` like below:
+    ```
+    foreach-numsplits:  4
+   ```
+   We can then use this value to invoke the next commands.
+3. ```
+   python foreach_flow.py --datastore local step explore 
+                        --run-id 1 --task-id 2 
+                        --input-paths 1/start/1 
+                        --split-index 0 (use --split-index 1,2 and 3 to cover the remaining splits)
+   ```
+4. Then, we have a join. The `foreach join` works similar to the `branch join` but will need to be passed
+a slightly different input path as we now have have multiple parent task-ids but from the same parent step.
+So, the join command looks as follows:
+    ```
+    python foreach_flow.py --datastore local step join 
+                        --run-id 1 --task-id 6 
+                        --input-paths 1/explore/:2,3,4,5 (where 2,3,4,5 are the task_ids of the explore steps that were previously executed)
+    ```
+5. Finally, we have the end step which works the usual way as follows:
+    ```
+    python foreach_flow.py --datastore local step end 
+                          --run-id 1 --task-id 9 
+                          --input-paths 1/join/6   
+    ```

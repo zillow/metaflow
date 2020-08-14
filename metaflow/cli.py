@@ -452,6 +452,15 @@ def step(obj,
 
     echo('Success', fg='green', bold=True, indent=True, err=False)
 
+    # The foreach case is special. Whenever we see encounter a foreach node (i.e., node defining the foreach
+    # transition), the flow object's `_foreach_num_splits` private variable gets set giving us the number of
+    # splits in the foreach transition. This is a key detail we require (outside of the `Flowgraph`) in order to
+    # to orchestrate the flow. It's worth noting that this value is set only when the `self.next` transition defining the
+    # foreach split is encountered. See `flowspec.py` for the exact details.
+    node = obj.flow._graph.nodes[step_name]
+    if node.type == 'foreach':
+        print("(Manual orchestration) Foreach fanout - numsplits: ", obj.flow._foreach_num_splits)
+
 @parameters.add_custom_parameters(deploy_mode=False)
 @cli.command(help="Internal command to initialize a run.")
 @click.option('--run-id',
