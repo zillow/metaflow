@@ -62,6 +62,7 @@ class S3DataStore(MetaflowDataStore):
             buf = BytesIO(blob)
         if self.monitor:
             with self.monitor.measure("metaflow.s3.put_object"):
+                print(f"Buf: {buf}, url netloc: {url.netloc}, url path: {url.path.lstrip('/')}")
                 self.s3.upload_fileobj(buf, url.netloc, url.path.lstrip('/'))
         else:
             self.s3.upload_fileobj(buf, url.netloc, url.path.lstrip('/'))
