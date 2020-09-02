@@ -17,6 +17,8 @@ def step_op_func(python_cmd_template, step_name: str,
     import subprocess
     import os
 
+    print("METAFLOW_AWS_ARN: {METAFLOW_AWS_ARN}")
+
     MODIFIED_METAFLOW_URL = 'git+https://github.com/zillow/metaflow.git@bug/boto3_access_issue'
     DEFAULT_DOWNLOADED_FLOW_FILENAME = 'downloaded_flow.py'
 
