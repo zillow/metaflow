@@ -7,6 +7,7 @@ from datetime import datetime
 import posixpath
 
 import click
+import pdb
 
 from . import current
 from . import lint
@@ -673,7 +674,7 @@ def run_on_kfp(obj,
         api_namespace=KFP_SDK_API_NAMESPACE,
         userid=KFP_SDK_USERID
         ):
-
+    pdb.set_trace()
     if namespace is None or userid is None:
         raise Exception("Both namespace and userid must be defined, either through the CLI or as environment variables.")
     

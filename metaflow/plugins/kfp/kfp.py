@@ -216,10 +216,10 @@ def create_command_templates_from_graph(graph):
     step_to_command_template_map = {}
 
     while len(steps_deque) > 0:
-        current_step = steps_deque.popleft()
+        current_step = steps_deque.popleft() # e.g. 'start'
         current_task_id += 1
-        step_to_task_id_map[current_step] = current_task_id
-        current_node = graph.nodes[current_step]
+        step_to_task_id_map[current_step] = current_task_id # e.g. {'start': 1}
+        current_node = graph.nodes[current_step] # node object, node.type = 'linear', 'join', etc
 
         # Generate the correct input_path for each step. Note: input path depends on a step's parents (i.e., in_funcs)
         # Format of the input-paths for reference:
@@ -240,7 +240,7 @@ def create_command_templates_from_graph(graph):
                 cur_input_path = "{{run_id}}/{parent}/{parent_task_id}".format(parent=parent_step,
                                                                                parent_task_id=str(step_to_task_id_map[parent_step]))
 
-        step_to_command_template_map[current_step] = build_cmd_template(current_step, current_task_id, cur_input_path)
+        step_to_command_template_map[current_step] = build_cmd_template(current_step, current_task_id, cur_input_path) # e.g. {'start': 'python downloaded_flow.py --datastore s3 --datastore-root {ds_root} step start --run-id {run_id} --task-id 1 --input-paths {run_id}/_parameters/0'}
 
         for step in current_node.out_funcs:
             if step not in seen_steps:
