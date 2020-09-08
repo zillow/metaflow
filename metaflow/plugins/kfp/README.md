@@ -1,6 +1,6 @@
 ### Commands used and References
 
-###### Last Updated: Aug 12th:
+##### Updated Commands (July 17th):
 
 #### Steps to run Metaflow on Kubeflow: 
 
@@ -29,13 +29,10 @@ You can export the required variables* individually and run the python command:
 
 *Required keys in `config_<profile-name>.json` to run on KFP are mentioned below:
 
+**To run from the terminal**:
 ```
-{
-    "METAFLOW_DATASTORE_SYSROOT_S3": "s3://<path-to-s3-bucket-root>",
-    "METAFLOW_DEFAULT_DATASTORE": "s3",
-
-    "METAFLOW_AWS_ARN" : "...", # required to be able to read s3 data when running within KFP
-    "METAFLOW_AWS_S3_REGION" : "...", # specify s3 region being used
+python 00-helloworld/hello.py run-on-kfp --experiment-name "MF-on-KFP-P2" --run-name "hello_run" --code-url https://raw.githubusercontent.com/zillow/metaflow/mf-on-kfp-2/metaflow/tutorials/00-helloworld/hello.py
+```
 
     "KFP_RUN_URL_PREFIX" : "https://kubeflow.corp.dev.zg-aip.net" # prefix of the URL preceeding the run-id to generate correct links to the generated runs on your cluster
 
@@ -54,13 +51,11 @@ or through the CLI, and the CLI value will take precedence. However, if you don'
 
 Config file: `config_sree.json` (to be saved under `~/.metaflowconfig`):
 Contents of the config file:
+**To generate just the pipeline YAML file**:
 ```
-{
-    "METAFLOW_DATASTORE_SYSROOT_S3": "s3://workspace-zillow-analytics-stage/aip/metaflow",
-    "METAFLOW_DEFAULT_DATASTORE": "s3",
+python 00-helloworld/hello.py generate-kfp-yaml --code-url https://raw.githubusercontent.com/zillow/metaflow/mf-on-kfp-2/metaflow/tutorials/00-helloworld/hello.py
+```
 
-    "METAFLOW_AWS_ARN" : "arn:aws:iam::170606514770:role/dev-zestimate-role",
-    "METAFLOW_AWS_S3_REGION" : "us-west-2",
 
     "KFP_RUN_URL_PREFIX" : "https://kubeflow.corp.dev.zg-aip.net"
 
@@ -79,17 +74,19 @@ python 00-helloworld/hello.py run-on-kfp
     --namespace "example_namespace"
     --userid "example@email.com"
 ```
+##### Commands used for local orchestration:
 
-To `generate-kfp-yaml` using this profile:
+For example: To run *pre-start* followed by *start* step:
+
 ```
 export METAFLOW_PROFILE=sree && 
 python 00-helloworld/hello.py generate-kfp-yaml
       --code-url https://raw.githubusercontent.com/zillow/metaflow/mf-on-kfp-2/metaflow/tutorials/00-helloworld/hello.py
       --namespace "example_namespace" --userid "example@email.com"
+python 00-helloworld/hello.py pre-start | awk 'END{print "python 00-helloworld/hello.py --datastore-root ", $1, " step ", $3, "--run-id", $2, "--task-id", $4, "--input-paths", $2"/"$5"/"$6}' | sh
 ```
 
-
-#####  Example of `run-on-kfp` without configuring a profile (option 2):
+For example: To run *pre-start* followed by *start* step followed by the next step:
 ```
 export METAFLOW_AWS_ARN="arn:aws:iam::170606514770:role/dev-zestimate-role" && 
 export METAFLOW_AWS_S3_REGION="us-west-2" && 
@@ -98,9 +95,10 @@ export KFP_RUN_URL_PREFIX="https://kubeflow.corp.dev.zg-aip.net" &&
 python 00-helloworld/hello.py run-on-kfp 
     --code-url="https://raw.githubusercontent.com/zillow/metaflow/state-integ-s3/metaflow/tutorials/00-helloworld/hello.py"
     --namespace "example_namespace" --userid "example@email.com"
+python 00-helloworld/hello.py pre-start | awk 'END{print "python 00-helloworld/hello.py --datastore-root ", $1, " step ", $3, "--run-id", $2, "--task-id", $4, "--input-paths", $2"/"$5"/"$6}' | sh | awk 'END{print "python 00-helloworld/hello.py --datastore-root ", $1, " step ", $3, "--run-id", $2, "--task-id", $4, "--input-paths", $2"/"$5"/"$6}' | sh
 ```
 
-#### What's happening inside the step_container_op:
+##### What's happening inside the step_container_op:
 
 We execute the above local orchestration commands after performing the necessary setup. The current setup includes the following:
 
