@@ -47,7 +47,6 @@ def step_op_func(python_cmd_template, step_name: str,
                                                                                        define_s3_env_vars=define_s3_env_vars,
                                                                                        python_cmd=python_cmd)
 
-    print("RUNNING COMMAND: ", final_run_cmd)
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     proc_output = proc.stdout
     proc_error = proc.stderr
@@ -254,6 +253,9 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
 
     step_to_command_template_map = create_command_templates_from_graph(flow_graph)
 
+    import pdb
+    pdb.set_trace()
+
     @dsl.pipeline(
         name='MF on KFP Pipeline',
         description='Pipeline defining KFP equivalent of the Metaflow flow. Currently supports linear flows and flows '
@@ -263,20 +265,34 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
         kfp_run_id = 'kfp-' + dsl.RUN_ID_PLACEHOLDER
         # Start step (start is a special step as additional initialisation is done internally)
         step_to_container_op_map = {}
-        step_to_container_op_map['start'] = (start_container_op())(step_to_command_template_map['start'],
+
+        foreach_encountered = False
+        previous_step_type = None
+        # Define container ops for remaining steps
+        for step, cmd in step_to_command_template_map.items():
+            if step == 'start':
+                step_to_container_op_map['start'] = (start_container_op())(step_to_command_template_map['start'],
                                                                       code_url,
                                                                       kfp_run_id
                                                                     ).set_display_name('start')
-
-        # Define container ops for remaining steps
-        for step, cmd in step_to_command_template_map.items():
-            if step != 'start':
+            elif flow_graph.nodes[step].type == 'join' and foreach_encountered:
+                # TODO: maybe nothing special needs to be done here if KFP can handle it
+                pass
+            elif previous_step_type == "foreach":
+                # TODO: fanout here
+                pass
+            else:
                 step_to_container_op_map[step] = (step_container_op())(
                                                     step_to_command_template_map[step],
                                                     step,
                                                     code_url,
                                                     kfp_run_id
                                                 ).set_display_name(step)
+            
+            current_step_type = flow_graph.nodes[step].type
+            if current_step_type == 'foreach':
+                foreach_encountered = True
+            previous_step_type = current_step_type
 
         # Add environment variables to all ops
         dsl.get_pipeline_conf().add_op_transformer(add_env_variables_transformer)
