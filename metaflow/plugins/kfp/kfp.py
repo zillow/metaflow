@@ -5,6 +5,9 @@ from kubernetes.client.models import V1EnvVar
 from .constants import DEFAULT_FLOW_CODE_URL, DEFAULT_KFP_YAML_OUTPUT_PATH, DEFAULT_DOWNLOADED_FLOW_FILENAME
 from metaflow.metaflow_config import METAFLOW_AWS_ARN, METAFLOW_AWS_S3_REGION, DATASTORE_SYSROOT_S3
 
+from metaflow.task import MetaflowTask
+from metaflow.plugins.kfp.ast_parsing_utils import return_iterable_length
+
 from collections import deque
 
 def step_op_func(python_cmd_template, step_name: str,
@@ -42,6 +45,8 @@ def step_op_func(python_cmd_template, step_name: str,
                          '&& export METAFLOW_AWS_S3_REGION="{}"'.format(S3_BUCKET, S3_AWS_ARN, S3_AWS_REGION)
     define_username = 'export USERNAME="kfp-user"' # TODO: Map username to KFP specific user/profile/namespace
     python_cmd = python_cmd_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id)
+
+    print("FINAL PYTHON COMMAND: ", python_cmd)
 
     final_run_cmd = "{define_username} && {define_s3_env_vars} && {python_cmd}".format(define_username=define_username,
                                                                                        define_s3_env_vars=define_s3_env_vars,
@@ -172,6 +177,15 @@ def add_env_variables_transformer(container_op):
     return container_op
 
 
+def parse_ast_foreach_params(func_ast):
+    """
+    This function takes the AST of a function known to be a foreach step, parses it, and returns the foreach
+    parameters. Specifically, it will obtain the `number of splits`, which is the length of the iterable the
+    foreach step uses.
+    """
+    pass
+
+# `flow_graph` from below and `graph` here are the same
 def create_command_templates_from_graph(graph):
     """
     Create a map of steps to their corresponding command templates. These command templates help define the command
@@ -185,7 +199,7 @@ def create_command_templates_from_graph(graph):
     # highest task id. So the paths in the datastore look like: {run-id}/start/1, {run-id}/next-step/2, and so on)
     """
 
-    def build_cmd_template(step_name, task_id, input_paths):
+    def build_cmd_template(step_name, task_id, input_paths, split_index=None):
         """
         Returns the python command template to be used for each step.
 
@@ -203,6 +217,10 @@ def create_command_templates_from_graph(graph):
                      "step {step_name} --run-id {{run_id}} --task-id {task_id} " \
                      "--input-paths {input_paths}".format(downloaded_file_name=DEFAULT_DOWNLOADED_FLOW_FILENAME,
                                                             step_name=step_name, task_id=task_id, input_paths=input_paths)
+
+        if split_index is not None: # foreach branch
+            python_cmd += " --split-index {split_index}".format(split_index=split_index)
+
         return python_cmd
 
     steps_deque = deque(['start']) # deque to process the DAG in level order
@@ -215,37 +233,78 @@ def create_command_templates_from_graph(graph):
     # Mapping of steps to their command templates
     step_to_command_template_map = {}
 
+    previous_node = None
+    foreach_join_flag = False
+    fan_out = 4 # TODO: the number `3` will be received by parsing the function AST. Currently hard-coded.
+
+    # import pdb
+    # pdb.set_trace()
+
     while len(steps_deque) > 0:
         current_step = steps_deque.popleft() # e.g. 'start'
         current_task_id += 1
         step_to_task_id_map[current_step] = current_task_id # e.g. {'start': 1}
         current_node = graph.nodes[current_step] # node object, node.type = 'linear', 'join', etc
+        # print(f"Current node's AST: {current_node.func_ast.name}")
+        foreach_seen = False
 
         # Generate the correct input_path for each step. Note: input path depends on a step's parents (i.e., in_funcs)
         # Format of the input-paths for reference:
         # non-join nodes: "run-id/parent-step/parent-task-id",
         # branch-join node: "run-id/:p1/p1-task-id,p2/p2-task-id,..."
         # foreach node: TODO: foreach is not considered here
+
         if current_task_id == 1: # start step
             cur_input_path = '{run_id}/_parameters/0' # this is the standard input path for the `start` step
         else:
-            if current_node.type == 'join':
-                cur_input_path = '{run_id}/:'
-                for parent_step in current_node.in_funcs:
-                    cur_input_path += "{parent}/{parent_task_id},".format(parent=parent_step,
-                                                                          parent_task_id=str(step_to_task_id_map[parent_step]))
-                cur_input_path = cur_input_path.strip(',')
+            if previous_node and previous_node.type == 'foreach': # the step right after a foreach
+                foreach_seen = True # we have multiple substeps in a foreach branch, so we add the templates here directly
+                foreach_join_flag = True # we have encountered a foreach, so the next join must join this foreach (rather than regular branch)
+                step_to_command_template_map[current_step] = []
+                parent_step = current_node.in_funcs[0]
+                cur_input_path = "{{run_id}}/{parent}/{parent_task_id}".format(parent=parent_step,
+                                                                               parent_task_id=str(step_to_task_id_map[parent_step])) 
+                for split_index in range(fan_out):
+                    cmd_template = build_cmd_template(current_step, current_task_id, cur_input_path, split_index=split_index)
+                    # graph.nodes[substep] = [previous_node.name]
+                    step_to_command_template_map[current_step].append(cmd_template)
+                    current_task_id += 1
+                current_task_id -= 1
+            elif current_node.type == 'join':
+                if foreach_join_flag: # foreach join
+                    in_func = current_node.in_funcs[0] # only one in_func for a foreach join
+                    cur_input_path = '{run_id}/'
+                    cur_input_path += "{in_func}/:".format(in_func=in_func)
+                    for split_index in reversed(range(1, fan_out + 1)):
+                        cur_input_path += "{task_id},".format(task_id=current_task_id - split_index)
+                    cur_input_path = cur_input_path[:-1] # remove the final ',' (comma)
+                    foreach_join_flag = False
+                else: # non foreach join
+                    cur_input_path = '{run_id}/:'
+                    for parent_step in current_node.in_funcs:
+                        cur_input_path += "{parent}/{parent_task_id},".format(parent=parent_step,
+                                                                            parent_task_id=str(step_to_task_id_map[parent_step]))
+                    cur_input_path = cur_input_path.strip(',')
             else:
                 parent_step = current_node.in_funcs[0]
                 cur_input_path = "{{run_id}}/{parent}/{parent_task_id}".format(parent=parent_step,
                                                                                parent_task_id=str(step_to_task_id_map[parent_step]))
+        
+        # if current_node.type == "foreach":
+        #     fan_out = return_iterable_length(current_node.func_ast)
 
-        step_to_command_template_map[current_step] = build_cmd_template(current_step, current_task_id, cur_input_path) # e.g. {'start': 'python downloaded_flow.py --datastore s3 --datastore-root {ds_root} step start --run-id {run_id} --task-id 1 --input-paths {run_id}/_parameters/0'}
+        if not foreach_seen: # if we see a foreach branch, we add the command templates above
+            step_to_command_template_map[current_step] = build_cmd_template(current_step, current_task_id, cur_input_path) # e.g. {'start': 'python downloaded_flow.py --datastore s3 --datastore-root {ds_root} step start --run-id {run_id} --task-id 1 --input-paths {run_id}/_parameters/0'}
 
         for step in current_node.out_funcs:
             if step not in seen_steps:
                 steps_deque.append(step)
                 seen_steps.add(step)
+        
+        previous_node = current_node
+    
+    # print(step_to_command_template_map)
+    # exit(0)
 
     return step_to_command_template_map
 
@@ -271,21 +330,40 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
         # Define container ops for remaining steps
         for step, cmd in step_to_command_template_map.items():
             if step != 'start':
-                step_to_container_op_map[step] = (step_container_op())(
-                                                    step_to_command_template_map[step],
-                                                    step,
-                                                    code_url,
-                                                    kfp_run_id
-                                                ).set_display_name(step)
+                if isinstance(step_to_command_template_map[step], list): # linear step that is processing n splits directly from a foreach
+                    step_to_container_op_map[step] = []
+                    for command_template in step_to_command_template_map[step]:
+                        step_to_container_op_map[step].append(
+                            (step_container_op())(
+                                command_template,
+                                step,
+                                code_url,
+                                kfp_run_id
+                            ).set_display_name(step)
+                        )                        
+                else:
+                    step_to_container_op_map[step] = (step_container_op())(
+                                                        step_to_command_template_map[step],
+                                                        step,
+                                                        code_url,
+                                                        kfp_run_id
+                                                    ).set_display_name(step)
 
         # Add environment variables to all ops
         dsl.get_pipeline_conf().add_op_transformer(add_env_variables_transformer)
 
         # Define ordering of container op execution
-        for step in flow_graph.nodes.keys():
+        for step in step_to_command_template_map.keys(): # changes from `flow_graph.nodes.keys()` because it doesn't include substeps
             if step != 'start':
                 for parent in flow_graph.nodes[step].in_funcs:
-                    step_to_container_op_map[step].after(step_to_container_op_map[parent])
+                    if isinstance(step_to_container_op_map[step], list): # when the current step has been branched by a foreach
+                        for container_op in step_to_container_op_map[step]:
+                            container_op.after(step_to_container_op_map[parent])
+                    elif isinstance(step_to_container_op_map[parent], list): # when the current step joins parent which was branched by a foreach
+                        for container_op in step_to_container_op_map[parent]:
+                            step_to_container_op_map[step].after(container_op)
+                    else:
+                        step_to_container_op_map[step].after(step_to_container_op_map[parent])
 
     return kfp_pipeline_from_flow
 
