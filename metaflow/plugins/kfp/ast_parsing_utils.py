@@ -1,4 +1,5 @@
 import ast
+import pdb
 
 """
 This file will provide useful utilities to parse ASTs of Metaflow functions.
@@ -13,11 +14,15 @@ def return_iterable_length_from_identifier(func_ast, identifier):
     dictionary, set, etc), and return the length of the iterable.
     NOTE: currently only supports lists created by comprehension.
     """
+    pdb.set_trace()
     for statement in func_ast.body:
         if isinstance(statement, ast.Assign):
             for i, target in enumerate(statement.targets):
-                if target.attr == identifier:
-                    return statement.value.generators[i].iter.args[0].n # TODO: add support for lists and dictionaries here
+                try:
+                    if target.attr == identifier:
+                        return statement.value.generators[i].iter.args[0].n # TODO: add support for lists and dictionaries here
+                except:
+                    pass
     
     raise ValueError("Error: no valid iterable defined. Please use a list by comprehension \
                         and specify the iterable in one line with no tuples. \

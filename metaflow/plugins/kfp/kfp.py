@@ -235,7 +235,7 @@ def create_command_templates_from_graph(graph):
 
     previous_node = None
     foreach_join_flag = False
-    fan_out = None
+    fan_out = 3
 
     import pdb
     # pdb.set_trace()
@@ -291,8 +291,8 @@ def create_command_templates_from_graph(graph):
                                                                                parent_task_id=str(step_to_task_id_map[parent_step]))
         
         # pdb.set_trace()
-        if current_node.type == "foreach":
-            fan_out = return_iterable_length(current_node.func_ast)
+        # if current_node.type == "foreach":
+        #     fan_out = return_iterable_length(current_node.func_ast)
 
         if not foreach_seen: # if we see a foreach branch, we add the command templates above
             step_to_command_template_map[current_step] = build_cmd_template(current_step, current_task_id, cur_input_path) # e.g. {'start': 'python downloaded_flow.py --datastore s3 --datastore-root {ds_root} step start --run-id {run_id} --task-id 1 --input-paths {run_id}/_parameters/0'}

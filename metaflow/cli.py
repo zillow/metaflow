@@ -406,8 +406,6 @@ def step(obj,
     if user_namespace is not None:
         namespace(user_namespace or None)
 
-    print("ENTERED STEP.")
-
     func = None
     try:
         func = getattr(obj.flow, step_name)
@@ -815,6 +813,8 @@ def start(ctx,
         echo = echo_dev_null
     else:
         echo = echo_always
+
+    datastore = "local"
 
     ctx.obj.version = metaflow_version.get_version()
     version = ctx.obj.version
