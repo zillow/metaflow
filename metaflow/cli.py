@@ -449,6 +449,10 @@ def step(obj,
                       retry_count,
                       max_user_code_retries)
 
+    node = obj.flow._graph.nodes[step_name]
+    if node.type == "foreach":
+        print("Fan out, # of splits:", obj.flow._foreach_num_splits)
+
     echo('Success', fg='green', bold=True, indent=True, err=False)
 
 @parameters.add_custom_parameters(deploy_mode=False)
