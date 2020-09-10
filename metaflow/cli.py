@@ -454,7 +454,7 @@ def step(obj,
 
     # echo num_splits up here for easier parsing
     node = obj.flow._graph.nodes[step_name]
-    echo("\nnum_splits: *%s*" % obj.flow._foreach_num_splits, bold=True, err=False)
+    echo("\nnum_splits:100\n", bold=True, err=False)
 
 @parameters.add_custom_parameters(deploy_mode=False)
 @cli.command(help="Internal command to initialize a run.")
