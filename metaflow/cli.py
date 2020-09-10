@@ -450,8 +450,7 @@ def step(obj,
                       max_user_code_retries)
 
     node = obj.flow._graph.nodes[step_name]
-    if node.type == "foreach":
-        echo("num_splits: *%s*" % obj.flow._foreach_num_splits)
+    echo("num_splits: *%s*" % obj.flow._foreach_num_splits)
 
     echo('Success', fg='green', bold=True, indent=True, err=False)
 
