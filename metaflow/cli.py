@@ -451,7 +451,7 @@ def step(obj,
 
     node = obj.flow._graph.nodes[step_name]
     if node.type == "foreach":
-        print("Fan out, # of splits:", obj.flow._foreach_num_splits)
+        echo("num_splits: *%s*" % obj.flow._foreach_num_splits)
 
     echo('Success', fg='green', bold=True, indent=True, err=False)
 
