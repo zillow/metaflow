@@ -411,6 +411,10 @@ def step(obj,
         raise CommandException("Step *%s* doesn't exist." % step_name)
     if not func.is_step:
         raise CommandException("Function *%s* is not a step." % step_name)
+    # echo num_splits up here for easier parsing
+    node = obj.flow._graph.nodes[step_name]
+    echo("num_splits: *%s*" % obj.flow._foreach_num_splits, bold=True, err=False)
+
     echo('Executing a step, *%s*' % step_name,
          fg='magenta',
          bold=False,
@@ -448,9 +452,6 @@ def step(obj,
                       split_index,
                       retry_count,
                       max_user_code_retries)
-
-    node = obj.flow._graph.nodes[step_name]
-    echo("num_splits: *%s*" % obj.flow._foreach_num_splits, bold=True, err=False)
 
     echo('Success', fg='green', bold=True, indent=True, err=False)
 
