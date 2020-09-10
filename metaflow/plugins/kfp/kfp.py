@@ -2,20 +2,54 @@ import kfp
 from kfp import dsl
 from kubernetes.client.models import V1EnvVar
 
+import functools
+
 from .constants import DEFAULT_FLOW_CODE_URL, DEFAULT_KFP_YAML_OUTPUT_PATH, DEFAULT_DOWNLOADED_FLOW_FILENAME
 from metaflow.metaflow_config import METAFLOW_AWS_ARN, METAFLOW_AWS_S3_REGION, DATASTORE_SYSROOT_S3
 
-from collections import deque
+from collections import deque, namedtuple
+from typing import NamedTuple, Iterable, Optional
 
-def step_op_func(python_cmd_template, step_name: str,
+def foreach_op_func(python_cmd_template, step_name: str,
                  code_url: str,
                  kfp_run_id: str,
-                 ):
+                 task_id: int) -> NamedTuple('output', [('iterable', Iterable), ('length', int), ('task_id', int)]):
     """
     Function used to create a KFP container op (see: `step_container_op`) that corresponds to a single step in the flow.
     """
     import subprocess
     import os
+    from collections import namedtuple
+
+    def execute(cmd):
+        """
+        Helper function to run the given command and print `stderr` and `stdout`.
+        """
+        proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        proc_output = proc.stdout
+        proc_error = proc.stderr
+
+        if len(proc_error) > 1:
+            print("_____________ STDERR:_____________________________")
+            print(proc_error)
+
+        if len(proc_output) > 1:
+            print("______________ STDOUT:____________________________")
+            print(proc_output)
+    
+    def parse_stdout_for_numsplits(stdout: str) -> int:
+        numeral_string = "" # holds the value of the numeral num_splits
+        flag = False
+        for idx, char in enumerate(stdout):
+            if flag:
+                if char == '\n':
+                    return int(numeral_string)
+                else:
+                    numeral_string = numeral_string + char # could be multiple digits long
+            if char == ':' and idx >= 10:
+                if stdout[idx - 10:idx + 1] == "num_splits:":
+                    flag = True
+        return -1 # -1 indicates num_splits couldn't be found
 
     MODIFIED_METAFLOW_URL = 'git+https://github.com/zillow/metaflow.git@feature/for_each_flow'
     DEFAULT_DOWNLOADED_FLOW_FILENAME = 'downloaded_flow.py'
@@ -41,12 +75,19 @@ def step_op_func(python_cmd_template, step_name: str,
     define_s3_env_vars = 'export METAFLOW_DATASTORE_SYSROOT_S3="{}" && export METAFLOW_AWS_ARN="{}" ' \
                          '&& export METAFLOW_AWS_S3_REGION="{}"'.format(S3_BUCKET, S3_AWS_ARN, S3_AWS_REGION)
     define_username = 'export USERNAME="kfp-user"' # TODO: Map username to KFP specific user/profile/namespace
-    python_cmd = python_cmd_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id)
+    init_cmd = 'python {0} --datastore="s3" --datastore-root="{1}" init --run-id={2} --task-id=0'.format(DEFAULT_DOWNLOADED_FLOW_FILENAME,
+                                                                                                         S3_BUCKET, kfp_run_id)
+    final_init_cmd = "{define_username} && {define_s3_env_vars} && {init_cmd}".format(define_username=define_username,
+                                                                                      define_s3_env_vars=define_s3_env_vars,
+                                                                                      init_cmd=init_cmd)
+    
+    if step_name == "start":
+        execute(final_init_cmd)
 
+    python_cmd = python_cmd_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id)
     final_run_cmd = "{define_username} && {define_s3_env_vars} && {python_cmd}".format(define_username=define_username,
                                                                                        define_s3_env_vars=define_s3_env_vars,
                                                                                        python_cmd=python_cmd)
-
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     proc_output = proc.stdout
     proc_error = proc.stderr
@@ -61,17 +102,32 @@ def step_op_func(python_cmd_template, step_name: str,
 
     # TODO: Metadata needed for client API to run needs to be persisted outside before return
 
+    print("___________PRODUCING OUTPUTS OF FOREACH STEP__________")
+    # print(f"NUM SPLITS PRINT: {parse_stdout_for_numsplits(proc_output)}")
+    num_splits = parse_stdout_for_numsplits(proc_output)    
+    iterable_length_output = namedtuple('output', ['iterable', 'length', 'task_id'])
+    iterable_len = num_splits
+    iterable_indices = list(range(iterable_len))
+    task_id = task_id + 1
+
     print("_______________ Done _________________________________")
     # END is the final step
     if step_name.lower() == 'end':
         print("_______________ FLOW RUN COMPLETE ________________")
+    return iterable_length_output(iterable_indices, iterable_len, task_id + 1)
+    
 
-
-def start_op_func(start_command_template: str, code_url: str, kfp_run_id: str):
+def step_op_func(python_cmd_template, step_name: str,
+                 code_url: str,
+                 kfp_run_id: str,
+                 task_id: int = None,
+                 split_index: int = None,
+                 special_type: str = None,
+                 results: Iterable = None,
+                 length_of_iterable: int = None
+                 ):
     """
-    Function used to create a KFP container op corresponding to the 'start' step of the flow.
-    This function also defines the execution of an init step which is needed before the 'start' step
-    executes in order to persist parameters of the flow (i.e., class level variables).
+    Function used to create a KFP container op (see: `step_container_op`) that corresponds to a single step in the flow.
     """
     import subprocess
     import os
@@ -107,7 +163,7 @@ def start_op_func(start_command_template: str, code_url: str, kfp_run_id: str):
     subprocess.call(["pip3 install --user --upgrade {modified_metaflow_git_url}".format(
         modified_metaflow_git_url=MODIFIED_METAFLOW_URL)], shell=True)
 
-    print("\n----------RUNNING: INIT COMMAND-------------------")
+    print("\n----------RUNNING: MAIN STEP COMMAND--------------")
 
     S3_BUCKET = os.getenv("S3_BUCKET")
     S3_AWS_ARN = os.getenv("S3_AWS_ARN")
@@ -121,22 +177,34 @@ def start_op_func(start_command_template: str, code_url: str, kfp_run_id: str):
     final_init_cmd = "{define_username} && {define_s3_env_vars} && {init_cmd}".format(define_username=define_username,
                                                                                       define_s3_env_vars=define_s3_env_vars,
                                                                                       init_cmd=init_cmd)
+    
+    if step_name == "start":
+        execute(final_init_cmd)
 
-    print("RUNNING COMMAND: ", final_init_cmd)
-    execute(final_init_cmd)
+    python_cmd = python_cmd_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id)
+    final_run_cmd = "{define_username} && {define_s3_env_vars} && {python_cmd}".format(define_username=define_username,
+                                                                                       define_s3_env_vars=define_s3_env_vars,
+                                                                                       python_cmd=python_cmd)
+    proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    proc_output = proc.stdout
+    proc_error = proc.stderr
 
-    print("\n----------RUNNING: MAIN STEP COMMAND----------------")
-    start_cmd = start_command_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id)
-    final_run_cmd = "{define_username} && {define_s3_env_vars} && {start_cmd}".format(define_username=define_username,
-                                                                                      define_s3_env_vars=define_s3_env_vars,
-                                                                                      start_cmd=start_cmd)
-    print("RUNNING COMMAND: ", final_run_cmd)
-    execute(final_run_cmd)
+    if len(proc_error) > 1:
+        print("_______________STDERR:_____________________________")
+        print(proc_error)
+
+    if len(proc_output) > 1:
+        print("_______________STDOUT:_____________________________")
+        print(proc_output)
 
     # TODO: Metadata needed for client API to run needs to be persisted outside before return
 
-    print("_______________ Done __________________________")
-
+    if special_type == "fanout_linear": # the step immediately following a foreach step
+        return
+    elif special_type == "foreach_join": # join step following a foreach step
+        return task_id + length_of_iterable + 1
+    else: # a normal step where we simply increment task_id
+        return task_id + 1
 
 def step_container_op():
     """
@@ -144,21 +212,9 @@ def step_container_op():
 
     Note: The public docker image is a copy of the internal docker image we were using (borrowed from aip-kfp-example).
     """
-
+    #step_op_partial = functools.partial(step_op_func, num_splits=num_splits, special_type=special_type, split_index=split_index)
     step_op = kfp.components.func_to_container_op(step_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
     return step_op
-
-
-def start_container_op():
-    """
-    Container op that corresponds to the 'start' step of Metaflow.
-
-    Note: The public docker image is a copy of the internal docker image we were using (borrowed from aip-kfp-example).
-    """
-
-    start_op = kfp.components.func_to_container_op(start_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
-    return start_op
-
 
 def add_env_variables_transformer(container_op):
     """
@@ -241,6 +297,8 @@ def create_command_templates_from_graph(graph):
 
         step_to_command_template_map[current_step] = build_cmd_template(current_step, current_task_id, cur_input_path)
 
+        print(f"Step: {current_step}, task ID: {current_task_id}")
+
         for step in current_node.out_funcs:
             if step not in seen_steps:
                 steps_deque.append(step)
@@ -254,7 +312,6 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
     step_to_command_template_map = create_command_templates_from_graph(flow_graph)
 
     import pdb
-    pdb.set_trace()
 
     @dsl.pipeline(
         name='MF on KFP Pipeline',
@@ -266,33 +323,20 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
         # Start step (start is a special step as additional initialisation is done internally)
         step_to_container_op_map = {}
 
-        foreach_encountered = False
-        previous_step_type = None
         # Define container ops for remaining steps
         for step, cmd in step_to_command_template_map.items():
-            if step == 'start':
-                step_to_container_op_map['start'] = (start_container_op())(step_to_command_template_map['start'],
-                                                                      code_url,
-                                                                      kfp_run_id
-                                                                    ).set_display_name('start')
-            elif flow_graph.nodes[step].type == 'join' and foreach_encountered:
-                # TODO: maybe nothing special needs to be done here if KFP can handle it
-                pass
-            elif previous_step_type == "foreach":
-                # TODO: fanout here
-                pass
-            else:
-                step_to_container_op_map[step] = (step_container_op())(
-                                                    step_to_command_template_map[step],
-                                                    step,
-                                                    code_url,
-                                                    kfp_run_id
-                                                ).set_display_name(step)
-            
-            current_step_type = flow_graph.nodes[step].type
-            if current_step_type == 'foreach':
-                foreach_encountered = True
-            previous_step_type = current_step_type
+            # if step == 'start':
+            #     step_to_container_op_map['start'] = (start_container_op())(step_to_command_template_map['start'],
+            #                                                             code_url,
+            #                                                             kfp_run_id
+            #                                                         ).set_display_name('start')          
+            # else: # normal step
+            step_to_container_op_map[step] = (step_container_op())(
+                                                step_to_command_template_map[step],
+                                                step,
+                                                code_url,
+                                                kfp_run_id
+                                            ).set_display_name(step)
 
         # Add environment variables to all ops
         dsl.get_pipeline_conf().add_op_transformer(add_env_variables_transformer)
