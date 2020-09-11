@@ -85,9 +85,7 @@ def foreach_op_func(python_cmd_template, step_name: str,
     
     if step_name == "start":
         execute(final_init_cmd)
-        parent_task_id = 0
-        parent_step_name = "_parameter"
-        cur_input_path = f"{kfp_run_id}/{parent_step_name}/{parent_task_id}"
+        cur_input_path = f"{kfp_run_id}/_parameter/0"
     else:
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]}"
 
@@ -133,7 +131,7 @@ def step_op_func(python_cmd_template, step_name: str,
                  special_type: str = None,
                  iterable_length: int = None,
                  parent_task_ids: List[str] = None,
-                 parent_step_names: List[str] = None) -> NamedTuple('output', [('task_id', int), ('step_name', str)]):
+                 parent_step_names: List[str] = None) -> int:
     """
     Function used to create a KFP container op (see: `step_container_op`) that corresponds to a single step in the flow.
     """
@@ -187,29 +185,27 @@ def step_op_func(python_cmd_template, step_name: str,
                                                                                       init_cmd=init_cmd)
     
 
-    task_id_step_name_output = namedtuple('output', ['task_id', 'step_name'])
-
     if step_name == "start":
         execute(final_init_cmd)
         cur_input_path = f"{kfp_run_id}/_parameter/0"
-        return_val = task_id_step_name_output(task_id + 1, step_name) # must return (2, "start")
+        return_val = task_id + 1
     elif special_type == "fanout_linear": # the step immediately following a foreach step
         task_id = task_id + split_index
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]} --split-index {split_index}"
-        return_val = task_id_step_name_output(-1, "") # essentially, return nothing
+        return_val = -1 # we don't use this output
     elif special_type == "foreach_join": # join step following a foreach step
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/:{','.join([str(idx) for idx in (range(task_id, task_id + iterable_length))])}"
-        task_id = task_id + split_index
-        return_val = task_id_step_name_output(task_id + iterable_length + 1, step_name)
+        task_id = task_id + iterable_length
+        return_val = task_id + 1 # == task_id + iterable_length + 1
     elif special_type == "join":
         cur_input_path = f"{kfp_run_id}/:"
         for parent_task_id, parent in zip(parent_task_ids, parent_step_names):
             cur_input_path += f"{parent}/{parent_task_id},"
         cur_input_path = cur_input_path.strip(',')
-        return_val = task_id_step_name_output(task_id + 1, step_name)
+        return_val = task_id + 1
     else: # a simple linear step where we simply increment task_id
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]}"
-        return_val = task_id_step_name_output(task_id + 1, step_name)
+        return_val = task_id + 1
 
     python_cmd = python_cmd_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id, task_id=task_id, input_paths=cur_input_path)
     final_run_cmd = "{define_username} && {define_s3_env_vars} && {python_cmd}".format(define_username=define_username,
@@ -236,7 +232,6 @@ def step_container_op():
 
     Note: The public docker image is a copy of the internal docker image we were using (borrowed from aip-kfp-example).
     """
-    #step_op_partial = functools.partial(step_op_func, num_splits=num_splits, special_type=special_type, split_index=split_index)
     step_op = kfp.components.func_to_container_op(step_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
     return step_op
 
@@ -246,7 +241,6 @@ def foreach_container_op():
 
     Note: The public docker image is a copy of the internal docker image we were using (borrowed from aip-kfp-example).
     """
-    #step_op_partial = functools.partial(step_op_func, num_splits=num_splits, special_type=special_type, split_index=split_index)
     step_op = kfp.components.func_to_container_op(foreach_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
     return step_op
 
@@ -345,8 +339,8 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
 
     step_to_command_template_map = create_command_templates_from_graph(flow_graph)
 
-    import pdb
-    pdb.set_trace()
+    # import pdb
+    # pdb.set_trace()
 
     @dsl.pipeline(
         name='MF on KFP Pipeline',
@@ -367,8 +361,8 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                 task_id = 1
         
             task_id_storage[step] = task_id
-            parent_step_names [parent for parent in flow_graph.nodes[step].in_funcs]
-            parent_task_ids = [task_id_storage[parent] for parent in parent_step_names]
+            parent_step_names = flow_graph.nodes[step].in_funcs # list of strings
+            parent_task_ids = [task_id_storage[parent] for parent in parent_step_names] # list of pipelines params, except for '1', which is hardcoded above
 
             if flow_graph.nodes[step].type == "foreach": # foreach step
                 container_op = (foreach_container_op())(
@@ -376,26 +370,36 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                                                     parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
                                                 ).set_display_name(step)
                 iterable, iterable_length, task_id = container_op.outputs["iterable"], container_op.outputs["length"], container_op.outputs["task_id"]
-            elif previous_step and flow_graph.nodes[previous_step].type == "foreach": # fanout linear step
-                container_op = (step_container_op())(
-                                                    step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="fanout_linear",
-                                                    parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
-                                                ).set_display_name(step)
-                foreach_op = step_to_container_op_map[previous_step]
+                foreach_op = container_op
+            elif foreach_op and flow_graph.nodes[step].type != "join": # fanout linear step, a foreach hasn't been joined yet
+                # TODO: doesn't yet work for multiple successive fanouts
+                with kfp.dsl.ParallelFor(foreach_op.outputs["iterable"]) as split_index: #TODO update this line
+                    container_op = (step_container_op())(
+                                                        step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="fanout_linear",
+                                                        parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
+                                                    ).set_display_name(step)
                 # we don't update task_id here
             elif flow_graph.nodes[step].type == "join":
                 if foreach_op: # foreach join step
-                    with kfp.dsl.ParallelFor(foreach_op.output["iterable"]) as split_index: #TODO update this line
-                        container_op = (step_container_op())(
-                                                        step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="foreach_join",
-                                                        iterable_length=iterable_length, split_index=split_index, parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
-                                                    ).set_display_name(step)
+                    container_op = (step_container_op())(
+                                                    step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="foreach_join",
+                                                    iterable_length=iterable_length, split_index=split_index, parent_task_ids=parent_task_ids, 
+                                                    parent_step_names=parent_step_names
+                                                ).set_display_name(step)
                     foreach_op = None
+                    task_id = container_op.output
                 else: # standard join step
                     container_op = (step_container_op())(
                                                     step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="join",
                                                     parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
                                                 ).set_display_name(step)
+                    task_id = container_op.output
+            else: # normal linear step
+                    container_op = (step_container_op())(
+                                                    step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id,
+                                                    parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
+                                                ).set_display_name(step)
+                    task_id = container_op.output
             
             step_to_container_op_map[step] = container_op
             previous_step = step
