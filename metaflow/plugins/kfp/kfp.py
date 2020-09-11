@@ -86,7 +86,7 @@ def foreach_op_func(python_cmd_template, step_name: str,
     
     if step_name == "start":
         execute(final_init_cmd)
-        cur_input_path = f"{kfp_run_id}/_parameter/0"
+        cur_input_path = f"{kfp_run_id}/_parameters/0"
     else:
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]}"
 
@@ -115,7 +115,6 @@ def foreach_op_func(python_cmd_template, step_name: str,
     iterable_length_output = namedtuple('output', ['iterable', 'length', 'task_id'])
     iterable_len = num_splits
     iterable_indices = list(range(iterable_len))
-    task_id = task_id + 1
 
     print("_______________ Done _________________________________")
     # END is the final step
@@ -131,13 +130,14 @@ def step_op_func(python_cmd_template, step_name: str,
                  split_index: int = None,
                  special_type: str = None,
                  iterable_length: int = None,
-                 parent_task_ids: List[str] = None,
-                 parent_step_names: List[str] = None) -> int:
+                 parent_task_ids: list = None,
+                 parent_step_names: list = None) -> int:
     """
     Function used to create a KFP container op (see: `step_container_op`) that corresponds to a single step in the flow.
     """
     import subprocess
     import os
+    import json
 
     def execute(cmd):
         """
@@ -185,6 +185,12 @@ def step_op_func(python_cmd_template, step_name: str,
                                                                                       define_s3_env_vars=define_s3_env_vars,
                                                                                       init_cmd=init_cmd)
     
+    print(f"{task_id}, {type(task_id)}")
+    print(f"{special_type}, {type(special_type)}")
+    print(f"{split_index}, {type(split_index)}")
+    print(f"{iterable_length}, {type(iterable_length)}")
+    print(f"{parent_step_names}, {type(parent_step_names)}")
+    print(f"{parent_task_ids}, {type(parent_task_ids)}")
 
     if step_name == "start":
         execute(final_init_cmd)
@@ -351,7 +357,6 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
     def kfp_pipeline_from_flow():
         kfp_run_id = 'kfp-' + dsl.RUN_ID_PLACEHOLDER
         step_to_container_op_map = {}
-        previous_step = None
         foreach_op = None
         task_id_storage = {} # key: step name, value: pipeline param of associated task_id
 
@@ -410,7 +415,6 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                 task_id = container_op.output
             
             step_to_container_op_map[step] = container_op
-            previous_step = step
 
         # Add environment variables to all ops
         dsl.get_pipeline_conf().add_op_transformer(add_env_variables_transformer)
