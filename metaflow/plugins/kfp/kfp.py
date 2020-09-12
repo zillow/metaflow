@@ -10,12 +10,16 @@ from metaflow.metaflow_config import METAFLOW_AWS_ARN, METAFLOW_AWS_S3_REGION, D
 from collections import deque, namedtuple
 from typing import NamedTuple, Iterable, List
 
+def addition_op_func(list_of_nums: list) -> int:
+    list_of_nums_int = [int(num) for num in list_of_nums] # ensure we work with integers only 
+    return sum(list_of_nums_int)
+
 def foreach_op_func(python_cmd_template, step_name: str,
                  code_url: str,
                  kfp_run_id: str,
                  task_id: int,
-                 parent_task_ids: List[str] = None,
-                 parent_step_names: List[str] = None) -> NamedTuple('output', [('iterable', Iterable), ('length', int), ('task_id', int)]):
+                 parent_task_ids: list = None,
+                 parent_step_names: list = None) -> NamedTuple('output', [('iterable', Iterable), ('length', int), ('task_id', int)]):
     """
     Function used to create a KFP container op (see: `step_container_op`) that corresponds to a single step in the flow.
     """
@@ -194,12 +198,12 @@ def step_op_func(python_cmd_template, step_name: str,
 
     if step_name == "start":
         execute(final_init_cmd)
-        cur_input_path = f"{kfp_run_id}/_parameter/0"
+        cur_input_path = f"{kfp_run_id}/_parameters/0"
         return_val = task_id + 1
     elif special_type == "fanout_linear": # the step immediately following a foreach step
         task_id = task_id + split_index
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]} --split-index {split_index}"
-        return_val = -1 # we don't use this output
+        return_val = -1
     elif special_type == "foreach_join": # join step following a foreach step
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/:{','.join([str(idx) for idx in (range(task_id, task_id + iterable_length))])}"
         task_id = task_id + iterable_length
@@ -232,6 +236,13 @@ def step_op_func(python_cmd_template, step_name: str,
 
     # TODO: Metadata needed for client API to run needs to be persisted outside before return
     return return_val
+
+def addition_container_op():
+    """
+    Container op that will provide the utility of addition of pipeline parameters.
+    """
+    additional_op = kfp.components.func_to_container_op(addition_op_func, base_image='ssreejith3/mf_on_kfp:python-curl-git')
+    return additional_op
 
 def step_container_op():
     """
@@ -387,7 +398,8 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                 with kfp.dsl.ParallelFor(foreach_op.outputs["iterable"]) as split_index: #TODO update this line
                     container_op = (step_container_op())(
                                                         step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="fanout_linear",
-                                                        split_index=split_index, parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
+                                                        iterable_length=iterable_length, split_index=split_index, parent_task_ids=parent_task_ids, 
+                                                        parent_step_names=parent_step_names
                                                     ).set_display_name(step)
                 # we don't update task_id here
                 print(f"Fanout step: {step}, container: {container_op.name}")
@@ -399,6 +411,8 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                                                 ).set_display_name(step)
                     foreach_op = None
                     task_id = container_op.output
+                    addition_op = (addition_container_op())([task_id, -1]) # special case where we need to decrement because the linear fanout doesn't update the task_id
+                    task_id_storage[step] = addition_op.output
                     print(f"Foreach join step: {step}, container: {container_op.name}")
                 else: # standard join step
                     container_op = (step_container_op())(
@@ -412,6 +426,8 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                                                 parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
                                             ).set_display_name(step)
                 print(f"Normal step: {step}, container: {container_op.name}")
+                print(parent_step_names)
+                print(parent_task_ids)
                 task_id = container_op.output
             
             step_to_container_op_map[step] = container_op
