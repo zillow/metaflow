@@ -44,12 +44,12 @@ def from_conf(name, default=None):
 ###
 DEFAULT_DATASTORE = from_conf('METAFLOW_DEFAULT_DATASTORE', 'local')
 DEFAULT_METADATA = from_conf('METAFLOW_DEFAULT_METADATA', 'local')
+METAFLOW_USER = from_conf('METAFLOW_USER')
 
 ##
 # KFP configuration
 ###
 KFP_SDK_NAMESPACE = from_conf('KFP_SDK_NAMESPACE', 'kubeflow')
-METAFLOW_USER = from_conf('METAFLOW_USER')
 KFP_SDK_API_NAMESPACE = from_conf('KFP_SDK_API_NAMESPACE', 'kubeflow')
 
 ###
