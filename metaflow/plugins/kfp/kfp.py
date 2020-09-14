@@ -115,9 +115,8 @@ def foreach_op_func(python_cmd_template, step_name: str,
 
     print("___________PRODUCING OUTPUTS OF FOREACH STEP__________")
     # print(f"NUM SPLITS PRINT: {parse_stdout_for_numsplits(proc_output)}")
-    num_splits = parse_stdout_for_numsplits(proc_output)    
     iterable_length_output = namedtuple('output', ['iterable', 'length', 'task_id'])
-    iterable_len = num_splits
+    iterable_len = parse_stdout_for_numsplits(proc_output)    
     iterable_indices = list(range(iterable_len))
 
     print("_______________ Done _________________________________")
@@ -218,10 +217,15 @@ def step_op_func(python_cmd_template, step_name: str,
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]}"
         return_val = task_id + 1
 
+    print(f"{S3_BUCKET}, {S3_AWS_ARN}, {S3_AWS_REGION}")
     python_cmd = python_cmd_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id, task_id=task_id, input_paths=cur_input_path)
     final_run_cmd = "{define_username} && {define_s3_env_vars} && {python_cmd}".format(define_username=define_username,
                                                                                        define_s3_env_vars=define_s3_env_vars,
                                                                                        python_cmd=python_cmd)
+    print(f"{define_username}, {define_s3_env_vars}")
+    print("Python command: ", final_run_cmd)
+    # full_output = subprocess.check_output(final_run_cmd, shell=True, universal_newlines=True)
+    # print("Full output for debugging. Note: error code 137 indicates out of memory issues. \n", full_output)
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     proc_output = proc.stdout
     proc_error = proc.stderr
@@ -272,6 +276,38 @@ def add_env_variables_transformer(container_op):
     container_op.add_env_variable(V1EnvVar(name="S3_AWS_REGION", value=METAFLOW_AWS_S3_REGION))
     return container_op
 
+def distance_to_node(graph, start_step: str, end_step: str, num_levels) -> int:
+    """
+    Calculates the distance between 2 nodes in the graph. 
+    """
+    start_node = graph.nodes[start_step]
+    if start_step == end_step: 
+        return num_levels
+    elif start_node == "end":
+        return -1
+    else:
+        for node in start_node.out_funcs:
+            distance = distance_to_node(graph, node, end_step, num_levels + 1)
+            if distance != -1:
+                return distance
+    return -1 # if none of the above cases, we return -1 to backtrack
+
+def allowed_to_enqueue(graph, current_step: str, child_step: str) -> bool:
+    """
+    This function determines whether a output node of the current node 
+    can be enqueued in the queue during the level order traversal.
+    Please see the following link for a flow that cannot work without this method:
+    https://gist.github.com/hsezhiyan/23b8a237e585aa76487b0747b431aca1
+    """
+    current_node = graph.nodes[current_step]
+    for parent_step in current_node.in_funcs:
+        parent_node = graph.nodes[parent_step]
+        for sibling_step in parent_node.out_funcs:
+            if parent_step != sibling_step:
+                distance_to_child_step = distance_to_node(graph, sibling_step, child_step, 0)
+                if distance_to_child_step > 1:
+                    return False
+    return True
 
 def create_command_templates_from_graph(graph):
     """
@@ -285,6 +321,10 @@ def create_command_templates_from_graph(graph):
     # natural (i.e., `start` gets a task id of 1, next step gets a task id of 2 and so on with 'end' step having the
     # highest task id. So the paths in the datastore look like: {run-id}/start/1, {run-id}/next-step/2, and so on)
     """
+
+    # print("Distance: ", distance_to_node(graph, "start", "start", 0))
+    # print("Allowed to enqueue: ", allowed_to_enqueue(graph, "join1", "join2"))
+    # exit(0)
 
     def build_cmd_template(step_name):
         """
@@ -302,7 +342,7 @@ def create_command_templates_from_graph(graph):
 
         python_cmd = "python {downloaded_file_name} --datastore s3 --datastore-root {{ds_root}} " \
                      "step {step_name} --run-id {{run_id}} --task-id {{task_id}} " \
-                     "--input-paths {{input_paths}}".format(downloaded_file_name=DEFAULT_DOWNLOADED_FLOW_FILENAME,
+                     "--input-paths {{input_paths}} --with retry".format(downloaded_file_name=DEFAULT_DOWNLOADED_FLOW_FILENAME,
                                                             step_name=step_name)
         return python_cmd
 
@@ -345,10 +385,10 @@ def create_command_templates_from_graph(graph):
 
         print(f"Step: {current_step}, task ID: {current_task_id}")
 
-        for step in current_node.out_funcs:
-            if step not in seen_steps:
-                steps_deque.append(step)
-                seen_steps.add(step)
+        for child_step in current_node.out_funcs:
+            if child_step not in seen_steps and allowed_to_enqueue(graph, current_step, child_step):
+                steps_deque.append(child_step)
+                seen_steps.add(child_step)
 
     return step_to_command_template_map
 
@@ -356,9 +396,6 @@ def create_command_templates_from_graph(graph):
 def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_URL):
 
     step_to_command_template_map = create_command_templates_from_graph(flow_graph)
-
-    # import pdb
-    # pdb.set_trace()
 
     @dsl.pipeline(
         name='MF on KFP Pipeline',
@@ -395,7 +432,7 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                 foreach_op = container_op
             elif foreach_op and flow_graph.nodes[step].type != "join": # fanout linear step, a foreach hasn't been joined yet
                 # TODO: doesn't yet work for multiple successive fanouts
-                with kfp.dsl.ParallelFor(foreach_op.outputs["iterable"]) as split_index: #TODO update this line
+                with kfp.dsl.ParallelFor(foreach_op.outputs["iterable"], parallelism=1) as split_index: #TODO update this line
                     container_op = (step_container_op())(
                                                         step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="fanout_linear",
                                                         iterable_length=iterable_length, split_index=split_index, parent_task_ids=parent_task_ids, 
