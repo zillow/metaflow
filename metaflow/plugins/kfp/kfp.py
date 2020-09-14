@@ -188,12 +188,12 @@ def step_op_func(python_cmd_template, step_name: str,
                                                                                       define_s3_env_vars=define_s3_env_vars,
                                                                                       init_cmd=init_cmd)
     
-    print(f"{task_id}, {type(task_id)}")
-    print(f"{special_type}, {type(special_type)}")
-    print(f"{split_index}, {type(split_index)}")
-    print(f"{iterable_length}, {type(iterable_length)}")
-    print(f"{parent_step_names}, {type(parent_step_names)}")
-    print(f"{parent_task_ids}, {type(parent_task_ids)}")
+    print(f"Task id: {task_id}, {type(task_id)}")
+    print(f"Special type: {special_type}, {type(special_type)}")
+    print(f"Split index: {split_index}, {type(split_index)}")
+    print(f"Iterable len: {iterable_length}, {type(iterable_length)}")
+    print(f"Parent step names: {parent_step_names}, {type(parent_step_names)}")
+    print(f"Parent task ids: {parent_task_ids}, {type(parent_task_ids)}")
 
     if step_name == "start":
         execute(final_init_cmd)
@@ -204,8 +204,8 @@ def step_op_func(python_cmd_template, step_name: str,
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]} --split-index {split_index}"
         return_val = -1
     elif special_type == "foreach_join": # join step following a foreach step
-        cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/:{','.join([str(idx) for idx in (range(task_id, task_id + iterable_length))])}"
-        task_id = task_id + iterable_length
+        range_of_idx = range(int(parent_task_ids[0]), int(parent_task_ids[0]) + iterable_length)
+        cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/:{','.join([str(idx) for idx in (range_of_idx)])}"
         return_val = task_id + 1 # == task_id + iterable_length + 1
     elif special_type == "join":
         cur_input_path = f"{kfp_run_id}/:"
@@ -217,15 +217,11 @@ def step_op_func(python_cmd_template, step_name: str,
         cur_input_path = f"{kfp_run_id}/{parent_step_names[0]}/{parent_task_ids[0]}"
         return_val = task_id + 1
 
-    print(f"{S3_BUCKET}, {S3_AWS_ARN}, {S3_AWS_REGION}")
     python_cmd = python_cmd_template.format(ds_root=S3_BUCKET, run_id=kfp_run_id, task_id=task_id, input_paths=cur_input_path)
     final_run_cmd = "{define_username} && {define_s3_env_vars} && {python_cmd}".format(define_username=define_username,
                                                                                        define_s3_env_vars=define_s3_env_vars,
                                                                                        python_cmd=python_cmd)
-    print(f"{define_username}, {define_s3_env_vars}")
     print("Python command: ", final_run_cmd)
-    # full_output = subprocess.check_output(final_run_cmd, shell=True, universal_newlines=True)
-    # print("Full output for debugging. Note: error code 137 indicates out of memory issues. \n", full_output)
     proc = subprocess.run(final_run_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     proc_output = proc.stdout
     proc_error = proc.stderr
@@ -294,7 +290,7 @@ def distance_to_node(graph, start_step: str, end_step: str, num_levels) -> int:
 
 def allowed_to_enqueue(graph, current_step: str, child_step: str) -> bool:
     """
-    This function determines whether a output node of the current node 
+    This function determines whether an output node of the current node 
     can be enqueued in the queue during the level order traversal.
     Please see the following link for a flow that cannot work without this method:
     https://gist.github.com/hsezhiyan/23b8a237e585aa76487b0747b431aca1
@@ -362,27 +358,7 @@ def create_command_templates_from_graph(graph):
         step_to_task_id_map[current_step] = current_task_id
         current_node = graph.nodes[current_step]
 
-        # Generate the correct input_path for each step. Note: input path depends on a step's parents (i.e., in_funcs)
-        # Format of the input-paths for reference:
-        # non-join nodes: "run-id/parent-step/parent-task-id",
-        # branch-join node: "run-id/:p1/p1-task-id,p2/p2-task-id,..."
-        # foreach node: TODO: foreach is not considered here
-        # if current_task_id == 1: # start step
-        #     cur_input_path = '{run_id}/_parameters/0' # this is the standard input path for the `start` step
-        # else:
-        #     if current_node.type == 'join':
-        #         cur_input_path = '{run_id}/:'
-        #         for parent_step in current_node.in_funcs:
-        #             cur_input_path += "{parent}/{parent_task_id},".format(parent=parent_step,
-        #                                                                   parent_task_id=str(step_to_task_id_map[parent_step]))
-        #         cur_input_path = cur_input_path.strip(',')
-        #     else:
-        #         parent_step = current_node.in_funcs[0]
-        #         cur_input_path = "{{run_id}}/{parent}/{parent_task_id}".format(parent=parent_step,
-        #                                                                        parent_task_id=str(step_to_task_id_map[parent_step]))
-
         step_to_command_template_map[current_step] = build_cmd_template(current_step)
-
         print(f"Step: {current_step}, task ID: {current_task_id}")
 
         for child_step in current_node.out_funcs:
@@ -405,8 +381,12 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
     def kfp_pipeline_from_flow():
         kfp_run_id = 'kfp-' + dsl.RUN_ID_PLACEHOLDER
         step_to_container_op_map = {}
-        foreach_op = None
-        task_id_storage = {} # key: step name, value: pipeline param of associated task_id
+        # key: step name: value: container op object. used to deal with multiple foreachs orchestrating at the same level in the graph
+        # See https://gist.github.com/hsezhiyan/67000fbfd483e0b7a6ec108e10ea1d52 for an example flow with multiple same-level foreach branches
+        foreach_op_storage = {}
+        # fanout_task_id_storage = {} 
+        # key: step name, value: pipeline param of associated task_id
+        task_id_storage = {}
 
         # Define container ops for remaining steps
         for step, cmd in step_to_command_template_map.items():
@@ -418,38 +398,38 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
             parent_step_names = flow_graph.nodes[step].in_funcs # list of strings
             parent_task_ids = [task_id_storage[parent] for parent in parent_step_names] # list of pipelines params, except for '1', which is hardcoded above
 
-            # print(f"Step: {step}, task_id: {task_id}, \n parents: {parent_step_names}, \n parent tasks: {parent_task_ids}")
-            # if step != "start":
-            #     print(type(parent_task_ids[0]))
-
             if flow_graph.nodes[step].type == "foreach": # foreach step
                 container_op = (foreach_container_op())(
                                                     step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id,
                                                     parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
                                                 ).set_display_name(step)
-                iterable, iterable_length, task_id = container_op.outputs["iterable"], container_op.outputs["length"], container_op.outputs["task_id"]
+                task_id = container_op.outputs["task_id"]
                 print(f"Foreach step: {step}, container: {container_op.name}")
-                foreach_op = container_op
-            elif foreach_op and flow_graph.nodes[step].type != "join": # fanout linear step, a foreach hasn't been joined yet
+                # foreach_op = container_op
+                foreach_op_storage[step] = container_op
+            # fanout linear step
+            elif flow_graph.nodes[step].type == "linear" and len(flow_graph.nodes[step].in_funcs) > 0 and flow_graph.nodes[step].in_funcs[0] in foreach_op_storage:
+                foreach_op = foreach_op_storage[flow_graph.nodes[step].in_funcs[0]]
+                foreach_op_storage[step] = foreach_op
                 # TODO: doesn't yet work for multiple successive fanouts
-                with kfp.dsl.ParallelFor(foreach_op.outputs["iterable"], parallelism=1) as split_index: #TODO update this line
+                with kfp.dsl.ParallelFor(foreach_op.outputs["iterable"], parallelism=1) as split_index:
                     container_op = (step_container_op())(
                                                         step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="fanout_linear",
-                                                        iterable_length=iterable_length, split_index=split_index, parent_task_ids=parent_task_ids, 
+                                                        iterable_length=foreach_op.outputs["length"], split_index=split_index, parent_task_ids=parent_task_ids, 
                                                         parent_step_names=parent_step_names
                                                     ).set_display_name(step)
-                # we don't update task_id here
+                addition_op = (addition_container_op())([task_id, foreach_op.outputs["length"]])
+                task_id = addition_op.output
+                # fanout_task_id_storage[step] = task_id
                 print(f"Fanout step: {step}, container: {container_op.name}")
             elif flow_graph.nodes[step].type == "join":
-                if foreach_op: # foreach join step
+                if len(flow_graph.nodes[step].in_funcs) > 0 and flow_graph.nodes[step].in_funcs[0] in foreach_op_storage:
+                    foreach_op = foreach_op_storage[flow_graph.nodes[step].in_funcs[0]]
+                    # fanout_task_id = fanout_task_id_storage[flow_graph.nodes[step].in_funcs[0]]
                     container_op = (step_container_op())(
                                                     step_to_command_template_map[step], step, code_url, kfp_run_id, task_id=task_id, special_type="foreach_join",
-                                                    iterable_length=iterable_length, parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
+                                                    iterable_length=foreach_op.outputs["length"], parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
                                                 ).set_display_name(step)
-                    foreach_op = None
-                    task_id = container_op.output
-                    addition_op = (addition_container_op())([task_id, -1]) # special case where we need to decrement because the linear fanout doesn't update the task_id
-                    task_id_storage[step] = addition_op.output
                     print(f"Foreach join step: {step}, container: {container_op.name}")
                 else: # standard join step
                     container_op = (step_container_op())(
@@ -463,8 +443,6 @@ def create_kfp_pipeline_from_flow_graph(flow_graph, code_url=DEFAULT_FLOW_CODE_U
                                                 parent_task_ids=parent_task_ids, parent_step_names=parent_step_names
                                             ).set_display_name(step)
                 print(f"Normal step: {step}, container: {container_op.name}")
-                print(parent_step_names)
-                print(parent_task_ids)
                 task_id = container_op.output
             
             step_to_container_op_map[step] = container_op
