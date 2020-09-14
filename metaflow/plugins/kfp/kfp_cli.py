@@ -14,7 +14,6 @@ from metaflow.metaflow_config import (
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.kfp.constants import (
     DEFAULT_EXPERIMENT_NAME,
-    DEFAULT_FLOW_CODE_URL,
     DEFAULT_RUN_NAME,
     DEFAULT_KFP_YAML_OUTPUT_PATH,
 )
@@ -39,12 +38,6 @@ def kubeflow_pipelines(obj):
 
 
 @kubeflow_pipelines.command(help="Deploy a new version of this workflow to Kubeflow Pipelines.")
-@click.option(
-    "--code-url",
-    "code_url",
-    default=DEFAULT_FLOW_CODE_URL,
-    help="the code URL of the flow to be executed on KFP",
-)
 @click.option(
     "--experiment-name",
     "experiment_name",
@@ -79,7 +72,6 @@ def kubeflow_pipelines(obj):
 @click.pass_obj
 def run(
     obj,
-    code_url=DEFAULT_FLOW_CODE_URL,
     experiment_name=DEFAULT_EXPERIMENT_NAME,
     run_name=DEFAULT_RUN_NAME,
     namespace=KFP_SDK_NAMESPACE,
@@ -91,7 +83,7 @@ def run(
     flow = make_flow(obj, current.flow_name, namespace, api_namespace)
 
     if yaml_only:
-        pipeline_path = flow.create_kfp_pipeline_yaml(code_url, pipeline_path)
+        pipeline_path = flow.create_kfp_pipeline_yaml(pipeline_path)
         obj.echo(
             "\nDone converting *{name}* to {path}".format(
                 name=current.flow_name, path=pipeline_path
@@ -99,16 +91,13 @@ def run(
         )
     else:
         obj.echo("Deploying *%s* to Kubeflow Pipelines..." % current.flow_name, bold=True)
-        run_pipeline_result = flow.create_run_on_kfp(
-            code_url, experiment_name, run_name, namespace, api_namespace, get_username()
-        )
+        run_pipeline_result = flow.create_run_on_kfp(experiment_name, run_name)
 
         obj.echo("\nRun created successfully!\n")
         kfp_run_url = posixpath.join(
             KFP_RUN_URL_PREFIX, "_/pipeline/#/runs/details", run_pipeline_result.run_id
         )
-        obj.echo("Workflow *{name}* triggered on KFP".format(name=current.flow_name), bold=True)
-        obj.echo("{kfp_run_url}".format(kfp_run_url=kfp_run_url), fg="cyan")
+        obj.echo("{kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
 
 
 def check_metadata_service_version(obj):
