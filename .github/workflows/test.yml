@@ -41,6 +41,7 @@ jobs:
       run: |
         python3 -m pip install --upgrade pip
         python3 -m pip install tox numpy
+        python3 -m pip install -e 'git+https://github.com/alexlatchford/pipelines@alexla/AIP-1676#egg=kfp&subdirectory=sdk/python'
 
     - name: Set up R 3.6
       if: matrix.lang == 'R'
