@@ -18,30 +18,35 @@ class KfpInternalDecorator(StepDecorator):
     def task_pre_step(
         self,
         step_name,
-        datastore,
+        ds,
         metadata,
         run_id,
         task_id,
         flow,
         graph,
         retry_count,
-        max_user_code_retries,
+        max_retries,
     ):
+        """
+        Analogous to step_functions_decorator.py
+        """
         # TODO: any other KFP environment variables to get and register to Metadata service?
         meta = {"kfp-execution": os.environ["METAFLOW_RUN_ID"]}
         entries = [MetaDatum(field=k, value=v, type=k) for k, v in meta.items()]
         # Register book-keeping metadata for debugging.
         metadata.register_metadata(run_id, step_name, task_id, entries)
 
-    def task_pre_step(
-        self, step_name, ds, metadata, run_id, task_id, flow, graph, retry_count, max_retries
-    ):
         if metadata.TYPE == "local":
             self.ds_root = ds.root
         else:
             self.ds_root = None
 
-    def task_finished(self, step_name, flow, graph, is_task_ok, retry_count, max_user_code_retries):
+    def task_finished(
+        self, step_name, flow, graph, is_task_ok, retry_count, max_user_code_retries
+    ):
+        """
+        Analogous to step_functions_decorator.py
+        """
         if not is_task_ok:
             # The task finished with an exception - execution won't
             # continue so no need to do anything here.
@@ -57,7 +62,9 @@ class KfpInternalDecorator(StepDecorator):
                 i for i in range(next_task_id, next_task_id + flow._foreach_num_splits)
             ]
 
-        with open(os.path.join(tempfile.gettempdir(), "kfp_metaflow_out_dict.json"), "w") as file:
+        with open(
+            os.path.join(tempfile.gettempdir(), "kfp_metaflow_out_dict.json"), "w"
+        ) as file:
             json.dump(out_dict, file)
 
         if self.ds_root:
@@ -74,7 +81,9 @@ class KfpInternalDecorator(StepDecorator):
                 with open(tar_file_path, "rb") as f:
                     path = os.path.join(
                         self.ds_root,
-                        MetaflowDataStore.filename_with_attempt_prefix("metadata.tgz", retry_count),
+                        MetaflowDataStore.filename_with_attempt_prefix(
+                            "metadata.tgz", retry_count
+                        ),
                     )
                     url = urlparse(path)
                     s3.upload_fileobj(f, url.netloc, url.path.lstrip("/"))

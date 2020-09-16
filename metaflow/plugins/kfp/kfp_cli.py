@@ -1,5 +1,4 @@
 import posixpath
-from distutils.version import LooseVersion
 
 import click
 
@@ -12,6 +11,9 @@ from metaflow.metaflow_config import (
     KFP_RUN_URL_PREFIX,
 )
 from metaflow.package import MetaflowPackage
+from metaflow.plugins.aws.step_functions.step_functions_cli import (
+    check_metadata_service_version,
+)
 from metaflow.plugins.kfp.constants import (
     DEFAULT_EXPERIMENT_NAME,
     DEFAULT_RUN_NAME,
@@ -37,7 +39,9 @@ def kubeflow_pipelines(obj):
     obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
 
 
-@kubeflow_pipelines.command(help="Deploy a new version of this workflow to Kubeflow Pipelines.")
+@kubeflow_pipelines.command(
+    help="Deploy a new version of this workflow to Kubeflow Pipelines."
+)
 @click.option(
     "--experiment-name",
     "experiment_name",
@@ -45,10 +49,16 @@ def kubeflow_pipelines(obj):
     help="the associated experiment name for the run",
 )
 @click.option(
-    "--run-name", "run_name", default=DEFAULT_RUN_NAME, help="name assigned to the new KFP run",
+    "--run-name",
+    "run_name",
+    default=DEFAULT_RUN_NAME,
+    help="name assigned to the new KFP run",
 )
 @click.option(
-    "--namespace", "namespace", default=KFP_SDK_NAMESPACE, help="namespace of your run in KFP.",
+    "--namespace",
+    "namespace",
+    default=KFP_SDK_NAMESPACE,
+    help="namespace of your run in KFP.",
 )
 @click.option(
     "--api-namespace",
@@ -79,6 +89,9 @@ def run(
     yaml_only=False,
     pipeline_path=DEFAULT_KFP_YAML_OUTPUT_PATH,
 ):
+    """
+    Analogous to step_functions_cli.py
+    """
     check_metadata_service_version(obj)
     flow = make_flow(obj, current.flow_name, namespace, api_namespace)
 
@@ -90,7 +103,9 @@ def run(
             )
         )
     else:
-        obj.echo("Deploying *%s* to Kubeflow Pipelines..." % current.flow_name, bold=True)
+        obj.echo(
+            "Deploying *%s* to Kubeflow Pipelines..." % current.flow_name, bold=True
+        )
         run_pipeline_result = flow.create_run_on_kfp(experiment_name, run_name)
 
         obj.echo("\nRun created successfully!\n")
@@ -100,36 +115,10 @@ def run(
         obj.echo("{kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
 
 
-def check_metadata_service_version(obj):
-    metadata = obj.metadata
-    version = metadata.version()
-    if version == "local":
-        return
-    elif version is not None and LooseVersion(version) >= LooseVersion("2.0.2"):
-        # Metaflow metadata service needs to be at least at version 2.0.2
-        return
-    else:
-        obj.echo("")
-        obj.echo(
-            "You are running a version of the metaflow service "
-            "that currently doesn't support Kubeflow Pipelines. "
-        )
-        obj.echo(
-            "For more information on how to upgrade your "
-            "service to a compatible version (>= 2.0.2), visit:"
-        )
-        obj.echo(
-            "    https://admin-docs.metaflow.org/metaflow-on-aws/operation"
-            "s-guide/metaflow-service-migration-guide",
-            fg="green",
-        )
-        obj.echo("Once you have upgraded your metadata service, please " "re-execute your command.")
-        raise IncorrectMetadataServiceVersion(
-            "Try again with a more recent " "version of metaflow service " "(>=2.0.2)."
-        )
-
-
 def make_flow(obj, name, namespace, api_namespace):
+    """
+    Analogous to step_functions_cli.py
+    """
     datastore = obj.datastore(
         obj.flow.name,
         mode="w",
@@ -143,10 +132,20 @@ def make_flow(obj, name, namespace, api_namespace):
 
     # Attach KFP decorator to the flow
     decorators._attach_decorators(obj.flow, [KfpInternalDecorator.name])
-    decorators._init_decorators(obj.flow, obj.graph, obj.environment, obj.datastore, obj.logger)
+    decorators._init_decorators(
+        obj.flow, obj.graph, obj.environment, obj.datastore, obj.logger
+    )
 
-    obj.package = MetaflowPackage(obj.flow, obj.environment, obj.logger, obj.package_suffixes)
-    package_url = datastore.save_data(obj.package.sha, TransformableObject(obj.package.blob))
+    obj.package = MetaflowPackage(
+        obj.flow, obj.environment, obj.logger, obj.package_suffixes
+    )
+    package_url = datastore.save_data(
+        obj.package.sha, TransformableObject(obj.package.blob)
+    )
+    obj.echo(
+        "Uploaded package to: {package_url}".format(package_url=package_url),
+        fg="magenta",
+    )
 
     return KubeflowPipelines(
         name,
