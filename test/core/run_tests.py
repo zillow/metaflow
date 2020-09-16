@@ -127,6 +127,8 @@ def run_test(formatter, context, coverage_dir, debug, checks):
             python = check['python']
             cmd = [python, 'check_flow.py', check['class'], run_id]
             cmd.extend(context['top_options'])
+            print("python: ", python)
+            print("invoking: ", cmd)
             check_ret = subprocess.call(cmd, env=env)
             if check_ret:
                 log("checker '%s' says that results failed" % check_name,

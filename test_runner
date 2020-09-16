@@ -3,7 +3,8 @@
 set -o errexit -o nounset -o pipefail
 
 install_deps() {
-  for version in 2 3;
+  # for version in 2 3;
+  for version in 3;
   do
     python$version -m pip install . coverage
   done
