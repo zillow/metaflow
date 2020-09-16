@@ -55,7 +55,7 @@ jobs:
     - name: Install R 3.6 Rlang dependencies
       if: matrix.lang == 'R'
       run: |
-        python3 -m pip install .
+        python3 -m pip install . -v
         Rscript -e 'install.packages("devtools", repos="https://cloud.r-project.org", Ncpus=8)'
         Rscript -e 'devtools::install_deps("R", dependencies=TRUE, repos="https://cloud.r-project.org", upgrade="default")'
         R CMD INSTALL R
