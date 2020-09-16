@@ -5,10 +5,10 @@ from setuptools import setup, find_packages
 version = '2.2.3'
 
 # TODO: once this branch is merged or in pip use, remove this
-print("installing pip3 alexla kfp")
-os.system(
-    "pip3 install -e 'git+https://github.com/alexlatchford/pipelines@alexla/AIP-1676#egg=kfp&subdirectory=sdk/python'"
-)
+# print("installing pip3 alexla kfp")
+# os.system(
+#     "pip3 install -e 'git+https://github.com/alexlatchford/pipelines@alexla/AIP-1676#egg=kfp&subdirectory=sdk/python'"
+# )
 
 setup(name='metaflow',
       version=version,
@@ -28,7 +28,7 @@ setup(name='metaflow',
         'requests',
         'boto3',
         'pylint<2.5.0',
-        'kfp'
+        # 'kfp'
       ],
       tests_require = [
         'coverage'

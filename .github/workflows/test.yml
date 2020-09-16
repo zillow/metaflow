@@ -41,7 +41,9 @@ jobs:
       run: |
         python3 -m pip install --upgrade pip
         python3 -m pip install tox numpy
-        python3 -m pip install -e 'git+https://github.com/alexlatchford/pipelines@alexla/AIP-1676#egg=kfp&subdirectory=sdk/python'
+        python3 -m pip install 'git+https://github.com/alexlatchford/pipelines@alexla/AIP-1676#egg=kfp&subdirectory=sdk/python'
+        python3 -c "import kfp; print('imported kfp')"
+        python3 -m pip show kfp
 
     - name: Set up R 3.6
       if: matrix.lang == 'R'
@@ -56,7 +58,11 @@ jobs:
     - name: Install R 3.6 Rlang dependencies
       if: matrix.lang == 'R'
       run: |
+        python3 -c "import kfp; print('imported kfp')"
+        python3 -m pip show kfp
         python3 -m pip install . -v
+        python3 -c "import kfp; print('imported kfp')"
+        python3 -m pip show kfp
         Rscript -e 'install.packages("devtools", repos="https://cloud.r-project.org", Ncpus=8)'
         Rscript -e 'devtools::install_deps("R", dependencies=TRUE, repos="https://cloud.r-project.org", upgrade="default")'
         R CMD INSTALL R
