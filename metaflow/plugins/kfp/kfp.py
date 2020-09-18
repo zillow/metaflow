@@ -339,7 +339,10 @@ class KubeflowPipelines(object):
             def build_kfp_dag(node: DAGNode, context, index=None):
                 kfp_component = step_to_kfp_component_map[node.name]
                 visited[node.name] = step_op(
-                    kfp_component.step_command, kfp_run_id, context, index=index,
+                    kfp_component.step_command,
+                    kfp_run_id,
+                    context,
+                    index=index,
                 ).set_display_name(node.name)
 
                 if node.type == "foreach":
