@@ -12,6 +12,13 @@ from ... import R
 from ...graph import DAGNode
 
 
+class KfpComponent(object):
+    def __init__(self, name, step_command, total_retries):
+        self.name = name
+        self.step_command = step_command
+        self.total_retries = total_retries
+
+
 class KubeflowPipelines(object):
     def __init__(
         self,
@@ -102,10 +109,10 @@ class KubeflowPipelines(object):
 
         return max_user_code_retries, max_user_code_retries + max_error_retries
 
-    def create_command_templates_from_graph(self):
+    def create_kfp_components_from_graph(self):
         """
-        Create a map of steps to their corresponding command templates. These command templates help define the command
-        to be used to run that particular step with placeholders for the `run_id` and `datastore_root` (location of the datastore).
+        Create a map of steps to their corresponding KfpComponent. The KfpComponent defines the component
+        attributes and step command to be used to run that particular step with placeholders for the `run_id`.
 
         # Note:
         # Level-order traversal is adopted to keep the task-ids in line with what happens during a local metaflow execution.
@@ -115,13 +122,14 @@ class KubeflowPipelines(object):
         # highest task id. So the paths in the datastore look like: {run-id}/start/1, {run-id}/next-step/2, and so on)
         """
 
-        def build_cmd_template(node, step_name, task_id, input_paths):
+        def build_kfp_component(node, step_name, task_id, input_paths):
             """
-            Returns the python command template to be used for each step.
+            Returns the KfpComponent for each step.
 
-            This method returns a string with placeholders for `datastore_root` and `run_id`
-            which get populated using the provided config and the kfp run ID respectively.
-            The rest of the command string is populated using the passed arguments which are known before the run starts.
+            This method returns a string with placeholders for `run_id` and
+            `task_id` which get populated using the provided config and the kfp
+            run ID respectively.  The rest of the command string is populated
+            using the passed arguments which are known before the run starts.
 
             An example constructed command template (to run a step named `hello`):
             "python downloaded_flow.py --datastore s3 --datastore-root {ds_root} " \
@@ -135,8 +143,12 @@ class KubeflowPipelines(object):
 
             step_cli = self._step_cli(node, input_paths, user_code_retries, task_id)
 
-            return KubeflowPipelines._command(
-                self.code_package_url, self.environment, step_name, [step_cli]
+            return KfpComponent(
+                node.name,
+                KubeflowPipelines._command(
+                    self.code_package_url, self.environment, step_name, [step_cli]
+                ),
+                total_retries,
             )
 
         steps_deque = deque(["start"])  # deque to process the DAG in level order
@@ -146,8 +158,8 @@ class KubeflowPipelines(object):
         seen_steps = set(["start"])
         # Mapping of steps to task ids
         step_to_task_id_map = {}
-        # Mapping of steps to their command templates
-        step_to_command_template_map = {}
+        # Mapping of steps to their KfpComponent
+        step_to_kfp_component_map = {}
 
         while len(steps_deque) > 0:
             current_step = steps_deque.popleft()
@@ -179,7 +191,7 @@ class KubeflowPipelines(object):
                         parent_task_id=str(step_to_task_id_map[parent_step]),
                     )
 
-            step_to_command_template_map[current_step] = build_cmd_template(
+            step_to_kfp_component_map[current_step] = build_kfp_component(
                 current_node, current_step, current_task_id, cur_input_path
             )
 
@@ -188,7 +200,7 @@ class KubeflowPipelines(object):
                     steps_deque.append(step)
                     seen_steps.add(step)
 
-        return step_to_command_template_map
+        return step_to_kfp_component_map
 
     def _step_cli(self, node, input_paths, user_code_retries, task_id):
         """
@@ -311,7 +323,7 @@ class KubeflowPipelines(object):
         base_image = (
             "ssreejith3/mf_on_kfp:python-curl-git"  # TODO: environment variable
         )
-        step_to_command_template_map = self.create_command_templates_from_graph()
+        step_to_kfp_component_map = self.create_kfp_components_from_graph()
 
         # Container op that corresponds to a step defined in the Metaflow flowgraph.
         step_op = kfp.components.func_to_container_op(
@@ -325,14 +337,13 @@ class KubeflowPipelines(object):
             visited = {}
 
             def build_kfp_dag(node: DAGNode, context, index=None):
+                kfp_component = step_to_kfp_component_map[node.name]
                 visited[node.name] = step_op(
-                    step_to_command_template_map[node.name],
+                    kfp_component.step_command,
                     kfp_run_id,
                     context,
                     index=index,
-                ).set_display_name(
-                    node.name
-                )
+                ).set_display_name(node.name)
 
                 if node.type == "foreach":
                     with kfp.dsl.ParallelFor(
