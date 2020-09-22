@@ -270,16 +270,13 @@ class KubeflowPipelines(object):
 
         if node.type == "join" and self.graph[node.split_parents[-1]].type == "foreach":
             # TODO: get from Dynamo or a kv store
-            parent_tasks_file = "".join(
-                random.choice(string.ascii_lowercase) for _ in range(10)
-            )
+            pass
             # export_parent_tasks = \
             #     'python -m ' \
             #     'metaflow.plugins.aws.step_functions.set_batch_environment ' \
             #     'parent_tasks %s && . `pwd`/%s' \
             #         % (parent_tasks_file, parent_tasks_file)
             # cmds.append(export_parent_tasks)
-            cmds.append("echo %s" % parent_tasks_file)
 
         top_level = [
             "--quiet",
@@ -320,9 +317,7 @@ class KubeflowPipelines(object):
         import kfp
         from kfp import dsl
 
-        base_image = (
-            "ssreejith3/mf_on_kfp:python-curl-git"  # TODO: environment variable
-        )
+        base_image = "ssreejith3/mf_on_kfp:python-curl-git"  # TODO: AIP-1980 and make an environment variable
         step_to_kfp_component_map = self.create_kfp_components_from_graph()
 
         # Container op that corresponds to a step defined in the Metaflow flowgraph.
