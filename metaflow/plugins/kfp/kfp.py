@@ -32,6 +32,8 @@ class KubeflowPipelines(object):
         environment,
         event_logger,
         monitor,
+        base_image=None,
+        s3_code_package=True,
         namespace=None,
         api_namespace=None,
         username=None,
@@ -52,6 +54,8 @@ class KubeflowPipelines(object):
         self.monitor = monitor
         self.namespace = namespace
         self.username = username
+        self.base_image = base_image
+        self.s3_code_package = s3_code_package
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
@@ -78,12 +82,11 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
-    @staticmethod
-    def _command(code_package_url, environment, step_name, step_cli):
+    def _command(self, code_package_url, environment, step_name, step_cli):
         """
         Analogous to batch.py
         """
-        commands = environment.get_package_commands(code_package_url)
+        commands = environment.get_package_commands(code_package_url) if self.s3_code_package else []
         commands.extend(environment.bootstrap_commands(step_name))
         commands.append("echo 'Task is starting.'")
         commands.extend(step_cli)
@@ -141,7 +144,7 @@ class KubeflowPipelines(object):
 
             return KfpComponent(
                 node.name,
-                KubeflowPipelines._command(
+                self._command(
                     self.code_package_url, self.environment, step_name, [step_cli]
                 ),
                 total_retries,
@@ -313,12 +316,11 @@ class KubeflowPipelines(object):
         import kfp
         from kfp import dsl
 
-        base_image = "hsezhiyan/metaflow-zillow:1.1"  # TODO: AIP-1980 and make an environment variable
         step_to_kfp_component_map = self.create_kfp_components_from_graph()
 
         # Container op that corresponds to a step defined in the Metaflow flowgraph.
         step_op = kfp.components.func_to_container_op(
-            step_op_func, base_image=base_image
+            step_op_func, base_image=self.base_image
         )
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
