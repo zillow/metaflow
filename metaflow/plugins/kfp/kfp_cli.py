@@ -83,7 +83,6 @@ def kubeflow_pipelines(obj):
 @click.option(
     "--s3-code-package",
     "s3_code_package",
-    is_flag=True,
     default=True,
     help="Whether to package the code to S3 datastore",
     show_default=True,
