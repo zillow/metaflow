@@ -85,10 +85,6 @@ class KubeflowPipelines(object):
         """
         commands = environment.get_package_commands(code_package_url)
         commands.extend(environment.bootstrap_commands(step_name))
-        commands.append(
-            "pip3 install -e "
-            "'git+https://github.com/alexlatchford/pipelines@alexla/AIP-1676#egg=kfp&subdirectory=sdk/python'"
-        )
         commands.append("echo 'Task is starting.'")
         commands.extend(step_cli)
         return " && ".join(commands)
@@ -317,7 +313,7 @@ class KubeflowPipelines(object):
         import kfp
         from kfp import dsl
 
-        base_image = "ssreejith3/mf_on_kfp:python-curl-git"  # TODO: AIP-1980 and make an environment variable
+        base_image = "hsezhiyan/metaflow-zillow:1.1"  # TODO: AIP-1980 and make an environment variable
         step_to_kfp_component_map = self.create_kfp_components_from_graph()
 
         # Container op that corresponds to a step defined in the Metaflow flowgraph.
