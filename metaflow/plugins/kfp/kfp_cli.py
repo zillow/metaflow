@@ -81,7 +81,7 @@ def kubeflow_pipelines(obj):
     help="The output path of the generated KFP pipeline yaml file",
 )
 @click.option(
-    "--s3-code-package",
+    "--s3-code-package/--no-s3-code-package",
     "s3_code_package",
     default=True,
     help="Whether to package the code to S3 datastore",
