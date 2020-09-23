@@ -17,7 +17,8 @@ from metaflow.plugins.aws.step_functions.step_functions_cli import (
 from metaflow.plugins.kfp.constants import (
     DEFAULT_EXPERIMENT_NAME,
     DEFAULT_RUN_NAME,
-    DEFAULT_KFP_YAML_OUTPUT_PATH, BASE_IMAGE,
+    DEFAULT_KFP_YAML_OUTPUT_PATH,
+    BASE_IMAGE,
 )
 from metaflow.plugins.kfp.kfp import KubeflowPipelines
 from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
@@ -104,13 +105,15 @@ def run(
     yaml_only=False,
     pipeline_path=DEFAULT_KFP_YAML_OUTPUT_PATH,
     s3_code_package=True,
-    base_image=BASE_IMAGE
+    base_image=BASE_IMAGE,
 ):
     """
     Analogous to step_functions_cli.py
     """
     check_metadata_service_version(obj)
-    flow = make_flow(obj, current.flow_name, namespace, api_namespace, base_image, s3_code_package)
+    flow = make_flow(
+        obj, current.flow_name, namespace, api_namespace, base_image, s3_code_package
+    )
 
     if yaml_only:
         pipeline_path = flow.create_kfp_pipeline_yaml(pipeline_path)
@@ -121,7 +124,9 @@ def run(
         )
     else:
         if s3_code_package and flow.datastore.TYPE != "s3":
-            raise MetaflowException("Kubeflow Pipelines s3-code-package requires --datastore=s3.")
+            raise MetaflowException(
+                "Kubeflow Pipelines s3-code-package requires --datastore=s3."
+            )
 
         obj.echo(
             "Deploying *%s* to Kubeflow Pipelines..." % current.flow_name, bold=True

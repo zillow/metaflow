@@ -1,7 +1,9 @@
+import inspect
 import os
 import string
 import sys
 from collections import deque
+from pathlib import Path
 from typing import NamedTuple
 import random
 
@@ -86,7 +88,11 @@ class KubeflowPipelines(object):
         """
         Analogous to batch.py
         """
-        commands = environment.get_package_commands(code_package_url) if self.s3_code_package else []
+        commands = (
+            environment.get_package_commands(code_package_url)
+            if self.s3_code_package
+            else ["cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)]
+        )
         commands.extend(environment.bootstrap_commands(step_name))
         commands.append("echo 'Task is starting.'")
         commands.extend(step_cli)
