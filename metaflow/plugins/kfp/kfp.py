@@ -1,13 +1,14 @@
 import inspect
 import os
+import random
 import string
 import sys
 from collections import deque
 from pathlib import Path
 from typing import NamedTuple
-import random
 
 import kfp
+from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 
 from .constants import DEFAULT_KFP_YAML_OUTPUT_PATH
 from ... import R
@@ -67,7 +68,7 @@ class KubeflowPipelines(object):
         """
         run_pipeline_result = self._client.create_run_from_pipeline_func(
             pipeline_func=self.create_kfp_pipeline_from_flow_graph(),
-            arguments={},
+            arguments={"datastore_root": DATASTORE_SYSROOT_S3},
             experiment_name=experiment_name,
             run_name=run_name,
             namespace=self.namespace,
@@ -249,7 +250,7 @@ class KubeflowPipelines(object):
                 "--metadata=%s" % self.metadata.TYPE,
                 "--environment=%s" % self.environment.TYPE,
                 "--datastore=s3",
-                "--datastore-root=%s" % self.datastore.datastore_root,
+                "--datastore-root={datastore_root}",
                 "--event-logger=%s" % self.event_logger.logger_type,
                 "--monitor=%s" % self.monitor.monitor_type,
                 "--no-pylint",
@@ -287,8 +288,8 @@ class KubeflowPipelines(object):
             "--quiet",
             "--metadata=%s" % self.metadata.TYPE,
             "--environment=%s" % self.environment.TYPE,
-            "--datastore=%s" % self.datastore.TYPE,
-            "--datastore-root=%s" % self.datastore.datastore_root,
+            "--datastore=s3",
+            "--datastore-root={datastore_root}",
             "--event-logger=%s" % self.event_logger.logger_type,
             "--monitor=%s" % self.monitor.monitor_type,
             "--no-pylint",
@@ -330,14 +331,15 @@ class KubeflowPipelines(object):
         )
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
-        def kfp_pipeline_from_flow():
+        def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
             kfp_run_id = "kfp-" + dsl.RUN_ID_PLACEHOLDER
 
             visited = {}
 
-            def build_kfp_dag(node: DAGNode, context, index=None):
+            def build_kfp_dag(node: DAGNode, context: str, index=None):
                 kfp_component = step_to_kfp_component_map[node.name]
                 visited[node.name] = step_op(
+                    datastore_root,
                     kfp_component.step_command,
                     kfp_run_id,
                     context,
@@ -366,33 +368,34 @@ class KubeflowPipelines(object):
 
                         visited[step].after(visited[node.name])
 
-            build_kfp_dag(self.graph["start"], {})
+            build_kfp_dag(self.graph["start"], context="")
 
         return kfp_pipeline_from_flow
 
 
 def step_op_func(
-    cmd_template, kfp_run_id, contexts, index=None
+    datastore_root: str, cmd_template: str, kfp_run_id: str, context, index=None
 ) -> NamedTuple("context", [("task_out_dict", dict), ("split_indexes", list)]):
     """
     Function used to create a KFP container op that corresponds to a single step in the flow.
     """
     import os
-    from io import StringIO
-    import tempfile
-    from subprocess import Popen, PIPE, STDOUT
     import json
+    import tempfile
+    from io import StringIO
+    from subprocess import Popen, PIPE, STDOUT
     from typing import NamedTuple
 
     print("----")
     print("context")
-    print(type(contexts))
-    print(contexts)
+    print(context)
     print("----")
-    context_dict = json.loads(contexts)
+    context_dict = json.loads("{}" if context == "" else context)
 
     cmd = cmd_template.format(
-        run_id=kfp_run_id, parent_task_id=context_dict.get("task_id", "")
+        run_id=kfp_run_id,
+        parent_task_id=context_dict.get("task_id", ""),
+        datastore_root=datastore_root,
     )
 
     print("RUNNING COMMAND: ", cmd)
