@@ -95,6 +95,12 @@ def kubeflow_pipelines(obj):
     help="Base docker image used in Kubeflow Pipelines.",
     show_default=True,
 )
+@click.option(
+    "--pipeline-name",
+    "pipeline_name",
+    default=None,
+    help="If not set uses flow_name.",
+)
 @click.pass_obj
 def run(
     obj,
@@ -106,13 +112,19 @@ def run(
     pipeline_path=DEFAULT_KFP_YAML_OUTPUT_PATH,
     s3_code_package=True,
     base_image=BASE_IMAGE,
+    pipeline_name=None,
 ):
     """
     Analogous to step_functions_cli.py
     """
     check_metadata_service_version(obj)
     flow = make_flow(
-        obj, current.flow_name, namespace, api_namespace, base_image, s3_code_package
+        obj,
+        pipeline_name if pipeline_path else current.flow_name,
+        namespace,
+        api_namespace,
+        base_image,
+        s3_code_package,
     )
 
     if yaml_only:
@@ -134,10 +146,19 @@ def run(
         run_pipeline_result = flow.create_run_on_kfp(experiment_name, run_name)
 
         obj.echo("\nRun created successfully!\n")
+
+        obj.echo(
+            "Metaflow run_id=*kfp-{run_id}* \n".format(
+                run_id=run_pipeline_result.run_id
+            ),
+            fg="magenta",
+        )
+
         kfp_run_url = posixpath.join(
             KFP_RUN_URL_PREFIX, "_/pipeline/#/runs/details", run_pipeline_result.run_id
         )
-        obj.echo("{kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
+
+        obj.echo("Run link: {kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
 
 
 def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
@@ -161,13 +182,18 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
     obj.package = MetaflowPackage(
         obj.flow, obj.environment, obj.logger, obj.package_suffixes
     )
-    package_url = datastore.save_data(
-        obj.package.sha, TransformableObject(obj.package.blob)
+
+    package_url = (
+        datastore.save_data(obj.package.sha, TransformableObject(obj.package.blob))
+        if s3_code_package
+        else None
     )
-    obj.echo(
-        "Uploaded package to: {package_url}".format(package_url=package_url),
-        fg="magenta",
-    )
+
+    if package_url:
+        obj.echo(
+            "Uploaded package to: {package_url}".format(package_url=package_url),
+            fg="magenta",
+        )
 
     return KubeflowPipelines(
         name,
