@@ -20,7 +20,6 @@ from metaflow.plugins.kfp.constants import (
     DEFAULT_KFP_YAML_OUTPUT_PATH,
     BASE_IMAGE,
 )
-from metaflow.plugins.kfp.kfp import KubeflowPipelines
 from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
 from metaflow.util import get_username
 
@@ -195,6 +194,7 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
             fg="magenta",
         )
 
+    from metaflow.plugins.kfp.kfp import KubeflowPipelines
     return KubeflowPipelines(
         name,
         obj.graph,
