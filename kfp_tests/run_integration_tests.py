@@ -77,7 +77,7 @@ def test_sample_flows(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--flow_dir_path", type=str, default="./test/kfp/sample_flows")
+    parser.add_argument("--flow_dir_path", type=str, default="./kfp_tests/sample_flows")
     parser.add_argument("--namespace", type=str, default=KFP_SDK_API_NAMESPACE)
     parser.add_argument("--userid", type=str, default=get_username())
     args = parser.parse_args()
