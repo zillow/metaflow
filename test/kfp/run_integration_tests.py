@@ -16,7 +16,7 @@ This script runs all the flows in the `sample_flows` directory. It creates
 each kfp run, waits for the run to fully complete on KFP, and prints whether
 or not the run was successful. 
 
-The argparse 3 arguments are optional and should not be needed, but are provided 
+The 3 argparse rguments are optional and should not be needed, but are provided 
 if you want to test for another namespace or from another user's account.
 
 Arguments:
