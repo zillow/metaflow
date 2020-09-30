@@ -11,7 +11,7 @@ from metaflow.metaflow_config import KFP_SDK_API_NAMESPACE
 
 """
 From the root of this project, run: 
-`python3 -m test.kfp.run_integration_tests --dir_path [dir_path]
+`python3 -m kfp_tests.run_integration_tests --dir_path [dir_path]
     --namespace [namespace] --userid [userid]`
 
 This script runs all the flows in the `sample_flows` directory. It creates
