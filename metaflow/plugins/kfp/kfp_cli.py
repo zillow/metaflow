@@ -195,6 +195,7 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
         )
 
     from metaflow.plugins.kfp.kfp import KubeflowPipelines
+
     return KubeflowPipelines(
         name,
         obj.graph,
