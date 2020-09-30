@@ -160,6 +160,7 @@ def run(
         obj.echo("Run link: {kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
         print(f"run_id:{run_pipeline_result.run_id}\n")
 
+
 def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
     """
     Analogous to step_functions_cli.py
