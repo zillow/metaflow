@@ -6,7 +6,7 @@ from subprocess import run, PIPE
 import kfp
 
 from metaflow.util import get_username
-from metaflow.metaflow_config import KFP_SDK_API_NAMESPACE
+from metaflow.metaflow_config import KFP_SDK_API_NAMESPACE, KFP_RUN_URL_PREFIX
 
 
 """
@@ -33,21 +33,16 @@ Arguments:
 
 
 def parse_run_id(output):
-    run_id_flag = False
-    run_id = ""
-    for i, char in enumerate(output):
-        if i >= 7 and output[i - 7 : i] == "run_id:":
-            run_id_flag = True
-        if run_id_flag and char == "\n":
-            return run_id
-        if run_id_flag:
-            run_id += char
-    return -1
+    if "run_id|" not in output or "|end_id" not in output:
+        return -1
+    start = output.find("run_id|") + len("run_id|")
+    end = output.find("|end_id")
+    run_id = output[start:end]
+    return run_id
 
 
 def obtain_flow_file_paths(flow_dir_path):
     file_paths = [f for f in listdir(flow_dir_path) if isfile(join(flow_dir_path, f))]
-    file_paths.remove("__init__.py")  # __init__.py needed to establish Python module
     return file_paths
 
 
@@ -66,6 +61,7 @@ def test_sample_flows(args):
         )
         run_id = parse_run_id(process.stdout)
         if run_id != -1:
+            print(f"Run link: {KFP_RUN_URL_PREFIX}/_/pipeline/#/runs/details/{run_id}")
             run_response = kfp_client.wait_for_run_completion(run_id, 500).to_dict()
             if run_response["run"]["status"] == "Succeeded":
                 print(f"Flow {flow_file_path} ran successfully!")
