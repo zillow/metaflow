@@ -187,6 +187,8 @@ def run(
                     fg="red",
                 )
 
+            print(f"run_id|{run_pipeline_result.run_id}|end_id")
+
 
 def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
     """
