@@ -8,7 +8,7 @@ import kfp
 from metaflow.util import get_username
 from metaflow.metaflow_config import KFP_SDK_API_NAMESPACE, KFP_RUN_URL_PREFIX
 
-import ray
+import pytest
 
 """
 From the root of this project, run: 
@@ -33,13 +33,19 @@ Arguments:
 """
 
 
-def parse_run_id(output):
-    if "run_id|" not in output or "|end_id" not in output:
-        return -1
-    start = output.find("run_id|") + len("run_id|")
-    end = output.find("|end_id")
-    run_id = output[start:end]
-    return run_id
+@pytest.fixture()
+def flow_dir_path(pytestconfig):
+    return pytestconfig.getoption("flow_dir_path")
+
+
+@pytest.fixture()
+def namespace(pytestconfig):
+    return pytestconfig.getoption("namespace")
+
+
+@pytest.fixture()
+def userid(pytestconfig):
+    return pytestconfig.getoption("userid")
 
 
 def obtain_flow_file_paths(flow_dir_path):
@@ -47,55 +53,26 @@ def obtain_flow_file_paths(flow_dir_path):
     return file_paths
 
 
-@ray.remote
-def spawn_and_return(args, flow_file_path):
+def spawn_and_return(flow_dir_path, flow_file_path):
     """
     This function is the creation and waiting one KFP run. Since
     we don't want to wait for the entire flow to finish on KFP before
     creating a new run, we will have Ray parallelize the effort.
     """
-    full_path = join(args.flow_dir_path, flow_file_path)
+    full_path = join(flow_dir_path, flow_file_path)
     process = run(
-        ["python", full_path, "--datastore=s3", "kfp", "run"],
-        stdout=PIPE,
-        stderr=PIPE,
+        ["python3", full_path, "--datastore=s3", "kfp", "run", "--wait-for-completion"],
         check=True,
         text=True,
     )
-    run_id = parse_run_id(process.stdout)
-    if run_id != -1:
-        run_link = f"{KFP_RUN_URL_PREFIX}/_/pipeline/#/runs/details/{run_id}"
-        print(f"Running {flow_file_path} ... Run link: {run_link}")
-        kfp_client = kfp.Client(namespace=args.namespace, userid=args.userid)
-        run_response = kfp_client.wait_for_run_completion(run_id, 500).to_dict()
-        if run_response["run"]["status"] == "Succeeded":
-            print(f"Flow {flow_file_path} ran successfully! Run link: {run_link}")
-        else:
-            print(
-                f"Flow {flow_file_path} encountered a runtime error. Run link: {run_link}"
-            )
-    else:
-        print(f"Flow {flow_file_path} failed to compile properly.")
-    return
+    return process.returncode
 
 
-def test_sample_flows(args):
-    flow_file_paths = obtain_flow_file_paths(args.flow_dir_path)
-    task_list = []
+def test_sample_flows(flow_dir_path, namespace, userid):
+    flow_file_paths = obtain_flow_file_paths(flow_dir_path)
     for (
         flow_file_path
     ) in flow_file_paths:  # we append tasks, which immediately return a "future"
-        task_list.append(spawn_and_return.remote(args, flow_file_path))
-    ray.wait(task_list, num_returns=len(task_list))  # wait for all tests to complete
+        return_code = spawn_and_return(flow_dir_path, flow_file_path)
+        assert return_code == 0
     return
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--flow_dir_path", type=str, default="./kfp_tests/sample_flows")
-    parser.add_argument("--namespace", type=str, default=KFP_SDK_API_NAMESPACE)
-    parser.add_argument("--userid", type=str, default=get_username())
-    args = parser.parse_args()
-    ray.init()
-    test_sample_flows(args)
-    print("ALL TESTS COMPLETED.")
