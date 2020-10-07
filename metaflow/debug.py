@@ -17,6 +17,8 @@ from .util import is_stringish
 #   variable also disables automatic cleaning of subdirectories, which can
 #   fill up disk space quickly
 
+os.environ["METAFLOW_DEBUG_SUBCOMMAND"] = "1"
+
 class Debug(object):
     def __init__(self):
         import metaflow.metaflow_config as config

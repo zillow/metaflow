@@ -6,3 +6,6 @@ DEFAULT_RUN_NAME = "run_mf_on_kfp"
 DEFAULT_EXPERIMENT_NAME = "mf-on-kfp-experiments"
 
 BASE_IMAGE = "hsezhiyan/metaflow-zillow:1.1"
+
+KFP_METAFLOW_SPLIT_INDEX_PATH = "/tmp/kfp_metaflow_split_index.json"
+KFP_METAFLOW_OUT_DICT_PATH = "/tmp/kfp_metaflow_out_dict.json"

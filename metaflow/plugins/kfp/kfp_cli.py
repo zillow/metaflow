@@ -40,6 +40,20 @@ def kubeflow_pipelines(obj):
 
 
 @kubeflow_pipelines.command(
+    help="Internal KFP step command to initialize parent taskIds"
+)
+@click.option("--run-id")
+@click.option("--step_name")
+@click.option("--split_index")
+@click.option("--task_id")
+@click.pass_obj
+def step_init(obj, run_id, step_name, split_index, task_id):
+    from metaflow.plugins.kfp.kfp import _cmd_params
+
+    _cmd_params(obj.datastore, obj.graph, run_id, step_name, split_index, task_id)
+
+
+@kubeflow_pipelines.command(
     help="Deploy a new version of this workflow to Kubeflow Pipelines."
 )
 @click.option(
