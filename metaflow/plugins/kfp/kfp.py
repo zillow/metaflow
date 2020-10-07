@@ -11,7 +11,7 @@ import kfp
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 from kfp.dsl import ContainerOp
 
-from .constants import DEFAULT_KFP_YAML_OUTPUT_PATH
+from .constants import DEFAULT_KFP_YAML_OUTPUT_PATH, SPLIT_SEPARATOR
 from ... import R, S3
 from ...graph import DAGNode, FlowGraph
 from ...plugins.resources_decorator import ResourcesDecorator
@@ -438,36 +438,34 @@ class KubeflowPipelines(object):
                 visited[node.name] = op
 
                 if node.type == "foreach":
-                    with kfp.dsl.ParallelFor(
-                        op.outputs["foreach_splits"]
-                    ) as index:
-                        inner_op = build_kfp_dag(
-                            self.graph[node.out_funcs[0]],
-                            index
-                        )
+                    with kfp.dsl.ParallelFor(op.outputs["foreach_splits"]) as index:
+                        inner_op = build_kfp_dag(self.graph[node.out_funcs[0]], index)
 
-                    build_kfp_dag(
-                        self.graph[node.matching_join],
-                        split_index
-                    )
-                    visited[node.matching_join].after(inner_op)
+                    build_kfp_dag(self.graph[node.matching_join], split_index)
                 else:
                     for step in node.out_funcs:
-                        if self.graph[step].type == "join" and self.graph[node.split_parents[-1]].type == "foreach":
-                            print(f"--- skipping {node.name} join base case")
+                        step_node = self.graph[step]
+                        if (
+                            step_node.type == "join"
+                            and self.graph[step_node.split_parents[-1]].type
+                            == "foreach"
+                        ):
+                            print(f"--- skipping {step} join base case")
                         else:
-                            build_kfp_dag(
-                                self.graph[step],
-                                split_index,
-                            )
-                            print(f"{step}.after({node.name})")
-                            visited[step].after(op)
+                            build_kfp_dag(step_node, split_index)
                 return op
 
             build_kfp_dag(self.graph["start"])
 
             import pprint
+
             pprint.pprint(visited.keys())
+
+            for step in self.graph.nodes:
+                node = self.graph[step]
+                for parent_step in node.in_funcs:
+                    visited[node.name].after(visited[parent_step])
+
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
 
         return kfp_pipeline_from_flow
@@ -477,8 +475,10 @@ def step_op_func(
     datastore_root: str,
     cmd_template: str,
     kfp_run_id: str,
-    split_index: str = '',  # only if is_inside_foreach
-) -> NamedTuple("split_parent_tasks_ids", [("task_out_dict", dict), ("foreach_splits", list)]):
+    split_index: str = "",  # only if is_inside_foreach
+) -> NamedTuple(
+    "split_parent_tasks_ids", [("task_out_dict", dict), ("foreach_splits", list)]
+):
     """
     Renders and runs the cmd_template containing Metaflow step/init commands to
     run within the container.
@@ -570,21 +570,42 @@ def _cmd_params(
 
     environment_exports = {
         # get last int as index
-        "SPLIT_INDEX": (split_index.split(".")[-1] if node.is_inside_foreach else split_index),
-        "TASK_ID": f"{step_name}.{split_index}" if node.is_inside_foreach else task_id,
+        "SPLIT_INDEX": (
+            split_index.split(SPLIT_SEPARATOR)[-1]
+            if node.is_inside_foreach
+            else split_index
+        ),
+        "TASK_ID": split_index if node.is_inside_foreach else task_id,
     }
 
-    def get_parent_context(parent_node: str) -> Dict:
-        print("--", parent_node)
-        if graph[parent_node].is_inside_foreach:
-            parent_node = f"{parent_node}.{split_index}"
-            print("parent_node", parent_node)
+    print("**** environment_exports")
+    pprint.pprint(environment_exports)
+    print()
+
+    def get_context(context_node: str) -> Dict:
+        print("--", context_node)
+        if graph[context_node].is_inside_foreach:
+            print("is_inside_foreach")
+            if (
+                graph[context_node].type == "foreach"
+                and context_node == node.in_funcs[0]
+            ):
+                # context_node is a nested foreach!
+                # remove last split index to get foreach parent
+                print("graph[context_node].type", graph[context_node].type)
+                context_node = (
+                    f"{SPLIT_SEPARATOR.join(split_index.split(SPLIT_SEPARATOR)[:-1])}"
+                    + f".{context_node}"
+                )
+            else:
+                context_node = f"{split_index}.{context_node}"
+            print("context_node", context_node)
 
         path = os.path.join(
-            os.path.join(flow_root, "step_kfp_outputs"), f"{parent_node}.json"
+            os.path.join(flow_root, "step_kfp_outputs"), f"{context_node}.json"
         )
         with S3() as s3:
-            print(f"get_parent_context({parent_node} path: {path}")
+            print(f"get_context({context_node} path: {path}")
             parent_context = json.loads(s3.get(path).text)
             pprint.pprint(parent_context)
             print("--")
@@ -594,24 +615,22 @@ def _cmd_params(
     if node.type == "join":
         # load from s3 the context outs foreach
         if graph[node.split_parents[-1]].type == "foreach":
-            parent_context = get_parent_context(node.split_parents[-1])
+            parent_context = get_context(node.split_parents[-1])
             parent_step_name = node.in_funcs[0]
             input_paths += f"/{parent_step_name}/:"
-            parent_task_ids = [f"{parent_step_name}.{split}" for split in parent_context["foreach_splits"]]
+            parent_task_ids = [split for split in parent_context["foreach_splits"]]
             input_paths += ",".join(parent_task_ids)
         else:
             input_paths += "/:"
             for in_func in node.in_funcs:
-                parent_context = get_parent_context(in_func)
+                parent_context = get_context(in_func)
                 input_paths += (
                     f"{parent_context['step_name']}/{parent_context['task_id']},"
                 )
     else:
         if step_name != "start":
-            parent_context = get_parent_context(node.in_funcs[0])
-            input_paths += (
-                f"/{parent_context['step_name']}/{parent_context['task_id']}"
-            )
+            parent_context = get_context(node.in_funcs[0])
+            input_paths += f"/{parent_context['step_name']}/{parent_context['task_id']}"
 
     environment_exports["INPUT_PATHS"] = input_paths.strip(",")
 

@@ -13,6 +13,7 @@ from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
 from metaflow.plugins.kfp.constants import (
     KFP_METAFLOW_OUT_DICT_PATH,
     KFP_METAFLOW_SPLIT_INDEX_PATH,
+    SPLIT_SEPARATOR,
 )
 
 
@@ -74,27 +75,24 @@ class KfpInternalDecorator(StepDecorator):
             node_type=graph[step_name].type,
         )
 
-        split_index = self._get_split_index()
-        print("split_index", split_index)
+        prev_split_index = self._get_split_index()
+        print("prev_split_index", prev_split_index)
 
         node: DAGNode = graph[step_name]
         if node.type == "foreach":
             # context_dict["foreach_num_splits"] = flow._foreach_num_splits
             splits = [
-                f"{split_index}.{step_name}.{i}".strip(
-                    "."
+                f"{prev_split_index}{SPLIT_SEPARATOR}{i}".strip(
+                    SPLIT_SEPARATOR
                 )  # downstream next step taskId
                 for i in range(0, flow._foreach_num_splits)
             ]
             context_dict["foreach_splits"] = splits
         elif node.is_inside_foreach:
-            context_dict["foreach_splits"] = split_index
-
-        # if node.type in ("split-or", "split-and", "foreach"):
-        #     # mapping of: step -> task_id
-        #     context_dict[f"split_parent_task_id_{step_name}"] = current.task_id
+            context_dict["foreach_splits"] = prev_split_index
 
         import pprint
+
         print(step_name, context_dict)
         pprint.pprint(context_dict)
 
@@ -102,7 +100,10 @@ class KfpInternalDecorator(StepDecorator):
         with open(KFP_METAFLOW_OUT_DICT_PATH, "w") as file:
             json.dump(context_dict, file)
 
-        step_kfp_output_name = current.task_id if node.is_inside_foreach else step_name
+        # task_id when is_inside_foreach is passed in split_index
+        step_kfp_output_name = (
+            f"{current.task_id}.{step_name}" if node.is_inside_foreach else step_name
+        )
 
         # upload: context_dict to
         #   S3://<self.flow_root>/step_kfp_outputs/<step_kfp_output_name>.json
