@@ -2,6 +2,7 @@ from metaflow import FlowSpec, step
 
 import pytest
 
+
 class MergeArtifactsFlow(FlowSpec):
     @step
     def start(self):
