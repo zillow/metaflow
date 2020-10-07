@@ -1,5 +1,6 @@
 from metaflow import FlowSpec, step
 
+import pytest
 
 class MergeArtifactsFlow(FlowSpec):
     @step
@@ -11,23 +12,33 @@ class MergeArtifactsFlow(FlowSpec):
     def a(self):
         assert self.pass_down == "a"
         self.common = 5
+        self.common_2 = 4
         self.x = 1
         self.y = 3
         self.from_a = 6
+        with pytest.raises(ZeroDivisionError):
+            _ = self.from_a / 0
         self.next(self.join)
 
     @step
     def b(self):
         assert self.pass_down == "a"
         self.common = 5
+        self.common_3 = 4
         self.x = 2
         self.y = 4
         self.next(self.join)
 
     @step
     def join(self, inputs):
+        # Ensuring conflicting artifacts must be resolved
+        with pytest.raises(AttributeError):
+            _ = self.x
         self.x = inputs.a.x
         self.merge_artifacts(inputs, exclude=["y"])
+        # Ensuring excluded artifacts are unavailable
+        with pytest.raises(AttributeError):
+            _ = self.y
         assert self.x == 1
         assert self.pass_down == "a"
         assert self.common == 5
@@ -53,6 +64,11 @@ class MergeArtifactsFlow(FlowSpec):
         assert inputs.d.conflicting == 7
         assert inputs.e.conflicting == 8
         self.merge_artifacts(inputs, include=["pass_down", "common"])
+        # Ensuring only included artifacts are available
+        with pytest.raises(AttributeError):
+            _ = self.common_3
+        with pytest.raises(AttributeError):
+            _ = self.from_a
         assert self.pass_down == "a"
         assert self.common == 5
         self.next(self.end)

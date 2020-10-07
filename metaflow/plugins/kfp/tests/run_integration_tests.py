@@ -59,6 +59,7 @@ def test_sample_flows(flow_file_path):
     # steps because these are the only steps gauranteed to exist
     # in a Metaflow flow
     run_id = parse_run_id(run_and_wait_process.stdout)
+    assert run_id != -1
     check_valid_logs_process = run(
         f"python3 {full_path} --datastore=s3 logs kfp-{run_id}/start &&"
         f"python3 {full_path} --datastore=s3 logs kfp-{run_id}/end",
