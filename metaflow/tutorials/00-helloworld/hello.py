@@ -1,4 +1,5 @@
-from metaflow import FlowSpec, step
+from metaflow import FlowSpec, step, S3
+import json
 
 
 class HelloFlow(FlowSpec):
@@ -19,6 +20,11 @@ class HelloFlow(FlowSpec):
         print("START step:\n We are now inside the START step - Hello World!\n")
         print("___________________________________________")
         self.x = 100
+        print(self)
+        with S3(run=self) as s3:
+            message = json.dumps({'message': 'hello world!'})
+            url = s3.put('example_object', message)
+            print("Message saved at", url)
         self.next(self.hello)
 
     @step
@@ -32,6 +38,11 @@ class HelloFlow(FlowSpec):
         print("METAFLOW says Hi!")
         print("Metaflow on KFP: Reading state...\nself.x = ", self.x)
         print("___________________________________________")
+        print(self)
+        with S3(run=self) as s3:
+            s3obj = s3.get('example_object')
+            print("Object found at", s3obj.url)
+            print("Message:", json.loads(s3obj.text))
         self.next(self.end)
 
     @step
@@ -45,6 +56,7 @@ class HelloFlow(FlowSpec):
         print("END step:\n We have reached the END step!\n")
         print("HelloFlow is all done.")
         print("___________________________________________")
+        print(self)
 
 
 if __name__ == '__main__':

@@ -1,15 +1,19 @@
 import json
 import os
 import tarfile
-import tempfile
 from urllib.parse import urlparse
 
-from metaflow import util, current
+from metaflow import util, current, S3
 from metaflow.datastore import MetaflowDataStore
 from metaflow.datastore.util.s3util import get_s3_client
 from metaflow.decorators import StepDecorator
+from metaflow.graph import DAGNode
 from metaflow.metadata import MetaDatum
 from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
+from metaflow.plugins.kfp.constants import (
+    KFP_METAFLOW_OUT_DICT_PATH,
+    KFP_METAFLOW_SPLIT_INDEX_PATH,
+)
 
 
 class KfpInternalDecorator(StepDecorator):
@@ -18,7 +22,7 @@ class KfpInternalDecorator(StepDecorator):
     def task_pre_step(
         self,
         step_name,
-        ds,
+        datastore,
         metadata,
         run_id,
         task_id,
@@ -31,15 +35,24 @@ class KfpInternalDecorator(StepDecorator):
         Analogous to step_functions_decorator.py
         """
         # TODO: any other KFP environment variables to get and register to Metadata service?
-        meta = {"kfp-execution": os.environ["METAFLOW_RUN_ID"]}
+        meta = {"kfp-execution": run_id}
         entries = [MetaDatum(field=k, value=v, type=k) for k, v in meta.items()]
         # Register book-keeping metadata for debugging.
         metadata.register_metadata(run_id, step_name, task_id, entries)
 
         if metadata.TYPE == "local":
-            self.ds_root = ds.root
+            self.ds_root = datastore.root
         else:
             self.ds_root = None
+
+        self.flow_root = datastore.make_path(graph.name, run_id)
+
+    def _get_split_index(self):
+        if os.stat(KFP_METAFLOW_SPLIT_INDEX_PATH).st_size > 0:
+            with open(KFP_METAFLOW_SPLIT_INDEX_PATH, "r") as file:
+                return file.readline()
+        else:
+            return ""
 
     def task_finished(
         self, step_name, flow, graph, is_task_ok, retry_count, max_user_code_retries
@@ -54,18 +67,53 @@ class KfpInternalDecorator(StepDecorator):
 
         # For foreaches, we need to dump the cardinality of the fanout
         # for the KFP parallelFor
-        out_dict = dict(step_name=step_name, task_id=current.task_id)
-        if graph[step_name].type == "foreach":
-            out_dict["foreach_num_splits"] = flow._foreach_num_splits
-            next_task_id = current.task_id + 1
-            out_dict["split_indexes"] = [
-                i for i in range(next_task_id, next_task_id + flow._foreach_num_splits)
-            ]
+        context_dict = dict(
+            step_name=step_name,
+            task_id=current.task_id,
+            flow_root=self.flow_root,
+            node_type=graph[step_name].type,
+        )
 
-        with open(
-            os.path.join(tempfile.gettempdir(), "kfp_metaflow_out_dict.json"), "w"
-        ) as file:
-            json.dump(out_dict, file)
+        split_index = self._get_split_index()
+        print("split_index", split_index)
+
+        node: DAGNode = graph[step_name]
+        if node.type == "foreach":
+            # context_dict["foreach_num_splits"] = flow._foreach_num_splits
+            splits = [
+                f"{split_index}.{step_name}.{i}".strip(
+                    "."
+                )  # downstream next step taskId
+                for i in range(0, flow._foreach_num_splits)
+            ]
+            context_dict["foreach_splits"] = splits
+        elif node.is_inside_foreach:
+            context_dict["foreach_splits"] = split_index
+
+        # if node.type in ("split-or", "split-and", "foreach"):
+        #     # mapping of: step -> task_id
+        #     context_dict[f"split_parent_task_id_{step_name}"] = current.task_id
+
+        import pprint
+        print(step_name, context_dict)
+        pprint.pprint(context_dict)
+
+        # write: context_dict to local fs
+        with open(KFP_METAFLOW_OUT_DICT_PATH, "w") as file:
+            json.dump(context_dict, file)
+
+        step_kfp_output_name = current.task_id if node.is_inside_foreach else step_name
+
+        # upload: context_dict to
+        #   S3://<self.flow_root>/step_kfp_outputs/<step_kfp_output_name>.json
+        with open(KFP_METAFLOW_OUT_DICT_PATH, "rb") as file:
+            s3_path = os.path.join(
+                os.path.join(self.flow_root, "step_kfp_outputs"),
+                f"{step_kfp_output_name}.json",
+            )
+            with S3() as s3:
+                s3.put(s3_path, json.dumps(context_dict))
+                print("uploaded: " + s3_path)
 
         if self.ds_root:
             # We have a local metadata service so we need to persist it to the datastore.
@@ -87,3 +135,4 @@ class KfpInternalDecorator(StepDecorator):
                     )
                     url = urlparse(path)
                     s3.upload_fileobj(f, url.netloc, url.path.lstrip("/"))
+                    print("uploaded: " + path)
