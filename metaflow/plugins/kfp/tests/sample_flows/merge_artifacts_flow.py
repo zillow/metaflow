@@ -64,7 +64,7 @@ class MergeArtifactsFlow(FlowSpec):
     def join2(self, inputs):
         assert inputs.d.conflicting == 7
         assert inputs.e.conflicting == 8
-        self.merge_artifacts(inputs, include=["pass_down", "common", "common_2"])
+        self.merge_artifacts(inputs, include=["pass_down", "common"])
         # Ensuring only included artifacts are available
         with pytest.raises(AttributeError):
             _ = self.common_2
