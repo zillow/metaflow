@@ -7,8 +7,8 @@ import kfp
 import pytest
 
 """
-From the root of this project, run: 
-`python -m pytest -s -n 3 metaflow/plugins/kfp/tests/run_integration_tests.py`
+From the folder `tests`, run: 
+`python -m pytest -s -n 3 run_integration_tests.py`
 
 This script runs all the flows in the `sample_flows` directory. It creates
 each kfp run, waits for the run to fully complete, and prints whether
@@ -42,11 +42,15 @@ def obtain_flow_file_paths(flow_dir_path):
     return file_paths
 
 
-@pytest.mark.parametrize(
-    "flow_file_path", obtain_flow_file_paths("metaflow/plugins/kfp/tests/sample_flows")
-)
+@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("sample_flows"))
 def test_sample_flows(flow_file_path):
-    full_path = join("metaflow/plugins/kfp/tests/sample_flows", flow_file_path)
+    full_path = join("sample_flows", flow_file_path)
+    # In the process below, stdout=PIPE because we only want to capture stdout.
+    # The reason is that the click echo function prints to stderr, and contains
+    # the main logging (run link, graph validation, package uploading, etc). We
+    # want to ensure this logging is visible to users and not captured.
+    # We use the print function is kfp_cli.py to print a magic token containing the
+    # run id, and cpature
     run_and_wait_process = run(
         f"python3 {full_path} --datastore=s3 kfp run --wait-for-completion",
         text=True,

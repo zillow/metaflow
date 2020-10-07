@@ -8,6 +8,7 @@ class ComplexFlow(FlowSpec):
 
     @step
     def br1(self):
+        self.var1 = 100
         self.next(self.br11, self.br12)
 
     @step
@@ -16,10 +17,14 @@ class ComplexFlow(FlowSpec):
 
     @step
     def br11(self):
+        assert self.var1 == 100
+        self.var1 = 150
         self.next(self.join1)
 
     @step
     def br12(self):
+        assert self.var1 == 100
+        self.var1 = 250
         self.next(self.join1)
 
     @step
@@ -32,7 +37,7 @@ class ComplexFlow(FlowSpec):
 
     @step
     def join1(self, br1_inp):
-        self.var1 = 200
+        self.var1 = br1_inp.br11.var1
         self.next(self.join3)
 
     @step
@@ -42,7 +47,7 @@ class ComplexFlow(FlowSpec):
 
     @step
     def join3(self, br_inp):
-        assert br_inp.join1.var1 == 200
+        assert br_inp.join1.var1 == 150
         assert br_inp.join2.var2 == 100
         self.next(self.end)
 
