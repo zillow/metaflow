@@ -23,6 +23,10 @@ the run executed correctly on KFP.
 Parameters:
 -n: specifies the number of parallel processes used by PyTest.
 
+Sometimes, the tests may fail on KFP due to resource quota issues. If they do,
+try reducing -n (number of parallel processes) so less simulateneous
+KFP will be scheduled.
+
 """
 
 
@@ -38,7 +42,11 @@ def parse_run_id(output):
 
 
 def obtain_flow_file_paths(flow_dir_path):
-    file_paths = [f for f in listdir(flow_dir_path) if isfile(join(flow_dir_path, f))]
+    file_paths = [
+        f
+        for f in listdir(flow_dir_path)
+        if isfile(join(flow_dir_path, f)) and not f.startswith(".")
+    ]
     return file_paths
 
 

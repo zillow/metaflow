@@ -10,6 +10,7 @@ class LinearFlow1(FlowSpec):
     @step
     def hello(self):
         assert self.x == 100
+        assert self.input is None
         self.next(self.end)
 
     @step

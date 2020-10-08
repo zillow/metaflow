@@ -174,15 +174,15 @@ def run(
             ).to_dict()
             if response["run"]["status"] == "Succeeded":
                 obj.echo(
-                    "Run link: {kfp_run_url}\n  SUCCEEDED!".format(
-                        kfp_run_url=kfp_run_url
+                    "Flow: {flow_name}, run link: {kfp_run_url}\n  SUCCEEDED!".format(
+                        flow_name=current.flow_name, kfp_run_url=kfp_run_url
                     ),
                     fg="green",
                 )
             else:
                 obj.echo(
-                    "Run link: {kfp_run_url}\n  FAILED!".format(
-                        kfp_run_url=kfp_run_url
+                    "Flow: {flow_name}, run link: {kfp_run_url}\n  FAILED!".format(
+                        flow_name=current.flow_name, kfp_run_url=kfp_run_url
                     ),
                     fg="red",
                 )
