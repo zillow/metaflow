@@ -25,7 +25,7 @@ Parameters:
 
 Sometimes, the tests may fail on KFP due to resource quota issues. If they do,
 try reducing -n (number of parallel processes) so less simulateneous
-KFP will be scheduled.
+KFP runs will be scheduled.
 
 """
 
@@ -55,10 +55,11 @@ def test_sample_flows(flow_file_path):
     full_path = join("sample_flows", flow_file_path)
     # In the process below, stdout=PIPE because we only want to capture stdout.
     # The reason is that the click echo function prints to stderr, and contains
-    # the main logging (run link, graph validation, package uploading, etc). We
-    # want to ensure this logging is visible to users and not captured.
-    # We use the print function is kfp_cli.py to print a magic token containing the
-    # run id, and cpature
+    # the main logs (run link, graph validation, package uploading, etc). We
+    # want to ensure these logs are visible to users and not captured.
+    # We use the print function in kfp_cli.py to print a magic token containing the
+    # run id and capture this to correctly test logging. See the
+    # `check_valid_logs_process` process.
     run_and_wait_process = run(
         f"python3 {full_path} --datastore=s3 kfp run --wait-for-completion",
         text=True,
@@ -67,9 +68,9 @@ def test_sample_flows(flow_file_path):
     )
     assert run_and_wait_process.returncode == 0
 
-    # we check for the correct logging of only the 'start' and 'end'
+    # We check for the correct logging of only the 'start' and 'end'
     # steps because these are the only steps gauranteed to exist
-    # in a Metaflow flow
+    # in a Metaflow flow file.
     run_id = parse_run_id(run_and_wait_process.stdout)
     assert run_id != -1
     check_valid_logs_process = run(
