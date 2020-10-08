@@ -114,6 +114,14 @@ def step_init(obj, run_id, step_name, split_index, task_id):
     default=None,
     help="If not set uses flow_name.",
 )
+@click.option(
+    "--wait-for-completion",
+    "wait_for_completion",
+    is_flag=True,
+    default=False,
+    help="Wait for KFP run to complete before process exits.",
+    show_default=True,
+)
 @click.pass_obj
 def run(
     obj,
@@ -126,6 +134,7 @@ def run(
     s3_code_package=True,
     base_image=BASE_IMAGE,
     pipeline_name=None,
+    wait_for_completion=False,
 ):
     """
     Analogous to step_functions_cli.py
@@ -172,6 +181,27 @@ def run(
         )
 
         obj.echo("Run link: {kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
+
+        if wait_for_completion:
+            response = flow._client.wait_for_run_completion(
+                run_pipeline_result.run_id, 500
+            ).to_dict()
+            if response["run"]["status"] == "Succeeded":
+                obj.echo(
+                    "Flow: {flow_name}, run link: {kfp_run_url}\n  SUCCEEDED!".format(
+                        flow_name=current.flow_name, kfp_run_url=kfp_run_url
+                    ),
+                    fg="green",
+                )
+            else:
+                obj.echo(
+                    "Flow: {flow_name}, run link: {kfp_run_url}\n  FAILED!".format(
+                        flow_name=current.flow_name, kfp_run_url=kfp_run_url
+                    ),
+                    fg="red",
+                )
+
+            print(f"run_id|{run_pipeline_result.run_id}|end_id")
 
 
 def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
