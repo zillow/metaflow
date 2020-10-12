@@ -6,6 +6,7 @@ import sys
 from collections import deque
 from pathlib import Path
 from typing import NamedTuple
+import yaml
 
 import kfp
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
@@ -318,6 +319,22 @@ class KubeflowPipelines(object):
             step.append("--namespace %s" % self.namespace)
         cmds.append(" ".join(entrypoint + top_level + step))
         return " && ".join(cmds)
+    
+    # def named_op(self, name, func):
+    #     print(kfp.components.func_to_component_text(func))
+    #     text = yaml.load(kfp.components.func_to_component_text(func), yaml.SafeLoader)
+    #     print("\n\n\n\n")
+    #     print("TEXT: ", text)
+    #     print("\n\n\n\n")
+    #     print("DUMP: ", yaml.dump(text))
+    #     print("\n\n\n\n")
+    #     text["name"] = name
+    #     modified_op = kfp.components.load_component_from_text(yaml.dump(text))
+    #     print(kfp.components.func_to_component_text(modified_op))
+    #     return modified_op
+
+    def named_op(self, name, func):
+            
 
     def create_kfp_pipeline_from_flow_graph(self):
         import kfp
@@ -327,7 +344,7 @@ class KubeflowPipelines(object):
 
         # Container op that corresponds to a step defined in the Metaflow flowgraph.
         step_op = kfp.components.func_to_container_op(
-            step_op_func, base_image=self.base_image
+            self.named_op("new name", step_op_func), base_image=self.base_image
         )
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
@@ -345,6 +362,8 @@ class KubeflowPipelines(object):
                     context,
                     index=index,
                 ).set_display_name(node.name)
+
+                print("!!!!!", visited[node.name].outputs)
 
                 if node.type == "foreach":
                     with kfp.dsl.ParallelFor(
