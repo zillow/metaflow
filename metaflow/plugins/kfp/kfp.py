@@ -1,18 +1,20 @@
 import inspect
 import os
-import random
-import string
+import pprint
 import sys
 from pathlib import Path
-from typing import NamedTuple, Dict, Union
+from typing import Dict, Union
 
 import kfp
-
-from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 from kfp.dsl import ContainerOp
 
-from .constants import DEFAULT_KFP_YAML_OUTPUT_PATH, SPLIT_SEPARATOR
-from ... import R, S3
+from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
+from .kfp_constants import (
+    DEFAULT_KFP_YAML_OUTPUT_PATH,
+    PASSED_IN_SPLIT_INDEXES,
+)
+from .kfp_split_contexts import KfpSplitContext
+from ... import R
 from ...graph import DAGNode, FlowGraph
 from ...plugins.resources_decorator import ResourcesDecorator
 
@@ -20,10 +22,11 @@ STEP_INIT_SH = "step-init.sh"
 
 
 class KfpComponent(object):
-    def __init__(self, name, step_command, total_retries):
+    def __init__(self, name, cmd_template, total_retries, resource_requirements):
         self.name = name
-        self.step_command = step_command
+        self.cmd_template = cmd_template
         self.total_retries = total_retries
+        self.resource_requirements = resource_requirements
 
 
 class KubeflowPipelines(object):
@@ -94,7 +97,7 @@ class KubeflowPipelines(object):
         Analogous to batch.py
         """
         commands = (
-            environment.get_package_commands(code_package_url)
+            environment.get_package_commands(code_package_url, pip_install=False)
             if self.s3_code_package
             else ["cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)]
         )
@@ -111,17 +114,17 @@ class KubeflowPipelines(object):
         # datastore_root is not available within the scope of this function, and needs
         # to be provided in the `step_op` function. f strings (AFAK) don't support
         # insertion of only a partial number of placeholder strings.
-        def create_log_cmd(log_file):
-            save_logs_cmd_template = (
-                f"python -m awscli s3 cp {log_file} {{datastore_root}}/"
-                f"{self.flow.name}/{{run_id}}/{step_name}/"
-                f"{task_id}/{log_file}"
+        def copy_log_cmd(log_file):
+            return (
+                f"python -m awscli s3 cp --only-show-errors {log_file} "
+                f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/{task_id}/{log_file}"
             )
-            return save_logs_cmd_template
 
-        log_stdout_cmd = create_log_cmd(log_file="0.stdout.log")
-        log_stderr_cmd = create_log_cmd(log_file="0.stderr.log")
-        save_logs_cmd = f"{log_stderr_cmd} >/dev/null && {log_stdout_cmd} >/dev/null"
+        # TODO: see datastore get_log_location()
+        #  where the ordinal is attempt/retry count
+        cp_stderr = copy_log_cmd(log_file="0.stderr.log")
+        cp_stdout = copy_log_cmd(log_file="0.stdout.log")
+        cp_logs_cmd = f"{cp_stderr} && {cp_stdout}"
 
         # We capture the exit code at two places:
         # Once after the subshell/redirection commands, and once after the saving logs
@@ -130,7 +133,7 @@ class KubeflowPipelines(object):
         # in an exit code of 0, whether or not certain commands failed.
         return (
             f"({subshell_commands}) {redirection_commands}; export exit_code_1=$?; "
-            f"{save_logs_cmd}; export exit_code_2=$?; "
+            f"{cp_logs_cmd}; export exit_code_2=$?; "
             f'if [ "$exit_code_1" -ne 0 ]; then exit $exit_code_1; else exit $exit_code_2; fi'
         )
 
@@ -151,7 +154,7 @@ class KubeflowPipelines(object):
         return max_user_code_retries, max_user_code_retries + max_error_retries
 
     @staticmethod
-    def _get_resource_requirements(node):
+    def _get_resource_requirements(node: DAGNode) -> Dict[str, str]:
         """
         Get resource request or limit for a Metaflow step (node) set by @resources decorator.
 
@@ -170,7 +173,7 @@ class KubeflowPipelines(object):
             def my_kfp_step(): ...
         """
 
-        def to_k8s_resource_format(resource: str, value: Union[int, float, str]):
+        def to_k8s_resource_format(resource: str, value: Union[int, float, str]) -> str:
             value = str(value)
 
             # Defaults memory unit to megabyte
@@ -178,16 +181,16 @@ class KubeflowPipelines(object):
                 value = f"{value}M"
             return value
 
-        resource_requirement = dict()
+        resource_requirements = {}
         for deco in node.decorators:
             if isinstance(deco, ResourcesDecorator):
                 for attr_key, attr_value in deco.attributes.items():
                     if attr_value is not None:
-                        resource_requirement[attr_key] = to_k8s_resource_format(
+                        resource_requirements[attr_key] = to_k8s_resource_format(
                             attr_key, attr_value
                         )
 
-        return resource_requirement
+        return resource_requirements
 
     def create_kfp_components_from_graph(self):
         """
@@ -227,6 +230,7 @@ class KubeflowPipelines(object):
                     task_id,
                 ),
                 total_retries,
+                self._get_resource_requirements(node),
             )
 
         # Mapping of steps to their KfpComponent
@@ -273,11 +277,9 @@ class KubeflowPipelines(object):
         if node.name == "start":
             # We need a separate unique ID for the special _parameters task
             task_id_params = "1-params"
-            # Export user-defined parameters into runtime environment
-            param_file = "".join(
-                random.choice(string.ascii_lowercase) for _ in range(10)
-            )
 
+            # Export user-defined parameters into runtime environment
+            param_file = "paramaters.sh"
             # TODO: move to KFP plugin
             export_params = (
                 "python -m "
@@ -337,7 +339,7 @@ class KubeflowPipelines(object):
                     "kfp step-init",
                     "--run-id %s" % kfp_run_id,
                     "--step_name %s" % node.name,
-                    "--split_index {split_index}",
+                    "--passed_in_split_indexes {passed_in_split_indexes}",
                     "--task_id %s" % task_id,  # the assigned task_id from Flow graph
                 ]
             )
@@ -364,14 +366,33 @@ class KubeflowPipelines(object):
         ]
 
         if any(self.graph[n].type == "foreach" for n in node.in_funcs):
-            # We set the `METAFLOW_SPLIT_INDEX` through JSONPath-foo
-            # to pass the state from the parent DynamoDb state for for-each.
-            step.append("--split-index $SPLIT_INDEX")  # TODO: get from KFP param
+            step.append("--split-index $SPLIT_INDEX")
+
         if self.namespace:
             step.append("--namespace %s" % self.namespace)
 
         cmds.append(" ".join(entrypoint + top_level + step))
         return " && ".join(cmds)
+
+    @staticmethod
+    def _set_container_settings(container_op: ContainerOp, kfp_component: KfpComponent):
+        resource_requirements: Dict[str, str] = kfp_component.resource_requirements
+        if "memory" in resource_requirements:
+            container_op.container.set_memory_request(resource_requirements["memory"])
+        if "memory_limit" in resource_requirements:
+            container_op.container.set_memory_limit(
+                resource_requirements["memory_limit"]
+            )
+        if "cpu" in resource_requirements:
+            container_op.container.set_cpu_request(resource_requirements["cpu"])
+        if "cpu_limit" in resource_requirements:
+            container_op.container.set_cpu_limit(resource_requirements["cpu_limit"])
+        if "gpu" in resource_requirements:
+            # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
+            container_op.container.set_gpu_limit(
+                resource_requirements["gpu"],
+                vendor=resource_requirements["gpu_vendor"],
+            )
 
     def create_kfp_pipeline_from_flow_graph(self):
         import kfp
@@ -385,63 +406,44 @@ class KubeflowPipelines(object):
         )
 
         def pipeline_transform(op):
+            pass
             # op.execution_options.caching_strategy.max_cache_staleness = "P0D"
-            op.container.set_cpu_request("50m")
-            op.container.set_cpu_limit("250m")
+            # op.container.set_cpu_request("50m")
+            # op.container.set_cpu_limit("250m")
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
         def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
-            kfp_run_id = "kfp-" + dsl.RUN_ID_PLACEHOLDER
-
             visited = {}
 
-            def set_resource_requirements(
-                container_op: ContainerOp, resource_requirements: dict
-            ):
-                if "memory" in resource_requirements:
-                    container_op.container.set_memory_request(
-                        resource_requirements["memory"]
-                    )
-                if "memory_limit" in resource_requirements:
-                    container_op.container.set_memory_limit(
-                        resource_requirements["memory_limit"]
-                    )
-                if "cpu" in resource_requirements:
-                    container_op.container.set_cpu_request(resource_requirements["cpu"])
-                if "cpu_limit" in resource_requirements:
-                    container_op.container.set_cpu_limit(
-                        resource_requirements["cpu_limit"]
-                    )
-                if "gpu" in resource_requirements:
-                    # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
-                    container_op.container.set_gpu_limit(
-                        resource_requirements["gpu"],
-                        vendor=resource_requirements["gpu_vendor"],
-                    )
-
-            def build_kfp_dag(node: DAGNode, split_index=None):
+            def build_kfp_dag(node: DAGNode, passed_in_split_indexes=None):
                 if node.name in visited:
                     return
 
-                op = step_op(
+                op = visited[node.name] = step_op(
                     datastore_root,
-                    step_to_kfp_component_map[node.name].step_command,
-                    kfp_run_id,
-                    split_index,
+                    step_to_kfp_component_map[node.name].cmd_template,
+                    kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
+                    passed_in_split_indexes=passed_in_split_indexes,
                 ).set_display_name(node.name)
 
-                set_resource_requirements(
-                    op,
-                    KubeflowPipelines._get_resource_requirements(node),
+                KubeflowPipelines._set_container_settings(
+                    op, step_to_kfp_component_map[node.name]
                 )
 
-                visited[node.name] = op
-
                 if node.type == "foreach":
-                    with kfp.dsl.ParallelFor(op.outputs["foreach_splits"]) as index:
-                        inner_op = build_kfp_dag(self.graph[node.out_funcs[0]], index)
+                    # Please see nested_parallelfor.ipynb for how this works
+                    with kfp.dsl.ParallelFor(op.output) as index:
+                        # build_kfp_dag() will halt when
+                        # a foreach join is reached.
+                        build_kfp_dag(
+                            self.graph[node.out_funcs[0]], passed_in_split_indexes=index
+                        )
 
-                    build_kfp_dag(self.graph[node.matching_join], split_index)
+                    # Handle the ParallelFor join step, and pass in
+                    # passed_in_split_indexes of parent context
+                    build_kfp_dag(
+                        self.graph[node.matching_join], passed_in_split_indexes
+                    )
                 else:
                     for step in node.out_funcs:
                         step_node = self.graph[step]
@@ -450,16 +452,15 @@ class KubeflowPipelines(object):
                             and self.graph[step_node.split_parents[-1]].type
                             == "foreach"
                         ):
-                            print(f"--- skipping {step} join base case")
+                            # halt with a foreach join is reached
+                            # see the ParallelFor and adjacent call to build_kfp_dag()
+                            # which handles the ParallelFor join.
+                            pass
                         else:
-                            build_kfp_dag(step_node, split_index)
+                            build_kfp_dag(step_node, passed_in_split_indexes)
                 return op
 
             build_kfp_dag(self.graph["start"])
-
-            import pprint
-
-            pprint.pprint(visited.keys())
 
             for step in self.graph.nodes:
                 node = self.graph[step]
@@ -475,44 +476,24 @@ def step_op_func(
     datastore_root: str,
     cmd_template: str,
     kfp_run_id: str,
-    split_index: str = "",  # only if is_inside_foreach
-) -> NamedTuple(
-    "split_parent_tasks_ids", [("task_out_dict", dict), ("foreach_splits", list)]
-):
+    passed_in_split_indexes: str = "",  # only if is_inside_foreach
+) -> list:
     """
     Renders and runs the cmd_template containing Metaflow step/init commands to
     run within the container.
     """
     import os
     import json
-    from subprocess import Popen, PIPE, STDOUT
-    from typing import NamedTuple
-
-    # TODO: can this be moved to constants?
-    KFP_METAFLOW_SPLIT_INDEX_PATH = "/tmp/kfp_metaflow_split_index.json"
-    KFP_METAFLOW_OUT_DICT_PATH = "/tmp/kfp_metaflow_out_dict.json"
-
-    if len(split_index) > 0:
-        print("======== split_index")
-        print(split_index)
-        print("-----------------------------------\n")
-
-    # for the kfp_decorator:
-    # TODO: could this be passed in as a kfp cli parameter
-    #   and set in the cli obj state?
-    with open(KFP_METAFLOW_SPLIT_INDEX_PATH, "w") as file:
-        file.write(split_index)
+    from subprocess import Popen
+    from metaflow.cli import logger
 
     cmd = cmd_template.format(
         run_id=kfp_run_id,
         datastore_root=datastore_root,
-        split_index=split_index if len(split_index) > 0 else '""',
+        passed_in_split_indexes=passed_in_split_indexes
+        if len(passed_in_split_indexes) > 0
+        else '""',
     )
-
-    print("RUNNING COMMAND: ", cmd)
-    print("----")
-    print(cmd.replace(" && ", "\n"))
-    print("----")
 
     # TODO: Map username to KFP specific user/profile/namespace
     with Popen(
@@ -527,21 +508,19 @@ def step_op_func(
             METAFLOW_DATASTORE_SYSROOT_S3=datastore_root,
         ),
     ) as process:
-        print("Running command.")
+        pass
 
     if process.returncode != 0:
+        logger("----")
+        logger(cmd.replace(" && ", "\n"))
+        logger("----")
         raise Exception("Returned: %s" % process.returncode)
 
-    # written by kfp_decorator.py:task_finished
-    with open(KFP_METAFLOW_OUT_DICT_PATH, "r") as file:
-        task_out_dict = json.load(file)
-
-    print("___DONE___")
-
-    StepMetaflowContext = NamedTuple(
-        "split_parent_tasks_ids", [("task_out_dict", dict), ("foreach_splits", list)]
-    )
-    return StepMetaflowContext(task_out_dict, task_out_dict.get("foreach_splits", None))
+    # File written by kfp_decorator.py:task_finished
+    KFP_METAFLOW_CONTEXT_DICT_PATH = "/tmp/kfp_metaflow_context_dict.json"
+    with open(KFP_METAFLOW_CONTEXT_DICT_PATH, "r") as file:
+        task_context_dict = json.load(file)
+        return task_context_dict.get("foreach_splits", None)
 
 
 def _cmd_params(
@@ -549,8 +528,9 @@ def _cmd_params(
     graph: FlowGraph,
     run_id: str,
     step_name: str,
-    split_index: str,
+    passed_in_split_indexes: str,
     task_id: str,
+    logger: callable,
 ):
     """
     non-join nodes: "run-id/parent-step/parent-task-id",
@@ -562,81 +542,50 @@ def _cmd_params(
         run-id/foreach-parent/:2,3,4,5
         (where 2,3,4,5 are the task_ids of the explore steps that were previously executed)
     """
-    import json
-    import pprint
-
     node: DAGNode = graph[step_name]
-    flow_root = datastore.make_path(graph.name, run_id)
+
+    split_contexts = KfpSplitContext(graph, step_name, run_id, datastore, logger)
 
     environment_exports = {
-        # get last int as index
-        "SPLIT_INDEX": (
-            split_index.split(SPLIT_SEPARATOR)[-1]
-            if node.is_inside_foreach
-            else split_index
+        "TASK_ID": split_contexts.get_step_task_id(passed_in_split_indexes, task_id),
+        "SPLIT_INDEX": split_contexts.get_current_step_split_index(
+            passed_in_split_indexes
         ),
-        "TASK_ID": split_index if node.is_inside_foreach else task_id,
+        PASSED_IN_SPLIT_INDEXES: passed_in_split_indexes,  # for kfp_decorator.py
     }
 
-    print("**** environment_exports")
-    pprint.pprint(environment_exports)
-    print()
+    if len(passed_in_split_indexes) > 0:
+        logger(passed_in_split_indexes, head="PASSED_IN_SPLIT_INDEXES: ")
+        logger()
 
-    def get_context(context_node: str) -> Dict:
-        print("--", context_node)
-        if graph[context_node].is_inside_foreach:
-            print("is_inside_foreach")
-            if (
-                graph[context_node].type == "foreach"
-                and context_node == node.in_funcs[0]
-            ):
-                # context_node is a nested foreach!
-                # remove last split index to get foreach parent
-                print("graph[context_node].type", graph[context_node].type)
-                context_node = (
-                    f"{SPLIT_SEPARATOR.join(split_index.split(SPLIT_SEPARATOR)[:-1])}"
-                    + f".{context_node}"
-                )
-            else:
-                context_node = f"{split_index}.{context_node}"
-            print("context_node", context_node)
-
-        path = os.path.join(
-            os.path.join(flow_root, "step_kfp_outputs"), f"{context_node}.json"
+    def get_input_context(context_node: str) -> Dict[str, str]:
+        return split_contexts.get_input_context(
+            context_node, node, passed_in_split_indexes
         )
-        with S3() as s3:
-            print(f"get_context({context_node} path: {path}")
-            parent_context = json.loads(s3.get(path).text)
-            pprint.pprint(parent_context)
-            print("--")
-            return parent_context
 
-    input_paths = f"{run_id}"
+    input_paths = f"{run_id}"  # begins with run_id, filled in by step_op_func
     if node.type == "join":
         # load from s3 the context outs foreach
         if graph[node.split_parents[-1]].type == "foreach":
-            parent_context = get_context(node.split_parents[-1])
+            input_context = get_input_context(node.split_parents[-1])
             parent_step_name = node.in_funcs[0]
             input_paths += f"/{parent_step_name}/:"
-            parent_task_ids = [split for split in parent_context["foreach_splits"]]
+            parent_task_ids = [split for split in input_context["foreach_splits"]]
             input_paths += ",".join(parent_task_ids)
         else:
             input_paths += "/:"
-            for in_func in node.in_funcs:
-                parent_context = get_context(in_func)
-                input_paths += (
-                    f"{parent_context['step_name']}/{parent_context['task_id']},"
-                )
+            for parent_step_name in node.in_funcs:
+                input_context = get_input_context(parent_step_name)
+                input_paths += f"{parent_step_name}/{input_context['task_id']},"
     else:
         if step_name != "start":
-            parent_context = get_context(node.in_funcs[0])
-            input_paths += f"/{parent_context['step_name']}/{parent_context['task_id']}"
+            parent_step_name = node.in_funcs[0]
+            input_context = get_input_context(parent_step_name)
+            input_paths += f"/{parent_step_name}/{input_context['task_id']}"
 
     environment_exports["INPUT_PATHS"] = input_paths.strip(",")
 
-    print("**** step-init")
-    pprint.pprint(environment_exports)
-    print()
+    logger(pprint.pformat(environment_exports), head=f"*** {STEP_INIT_SH}")
 
     with open("%s" % STEP_INIT_SH, "w") as file:
         for key, value in environment_exports.items():

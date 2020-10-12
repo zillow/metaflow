@@ -108,3 +108,6 @@ We execute the above local orchestration commands after performing the necessary
 - Install the modified metaflow version (from Zillow's fork of Metaflow where we are pushing our changes)
 - Set a KFP user
 - Run the step command
+
+### Foreach -> ParallelFor support
+[nested_parallelfor.ipynb](nested_parallelfor.ipynb)

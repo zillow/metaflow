@@ -14,13 +14,12 @@ from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
     check_metadata_service_version,
 )
-from metaflow.plugins.kfp.constants import (
+from metaflow.plugins.kfp.kfp_constants import (
     DEFAULT_EXPERIMENT_NAME,
     DEFAULT_RUN_NAME,
     DEFAULT_KFP_YAML_OUTPUT_PATH,
     BASE_IMAGE,
 )
-from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
 from metaflow.util import get_username
 
 
@@ -44,13 +43,21 @@ def kubeflow_pipelines(obj):
 )
 @click.option("--run-id")
 @click.option("--step_name")
-@click.option("--split_index")
+@click.option("--passed_in_split_indexes")
 @click.option("--task_id")
 @click.pass_obj
-def step_init(obj, run_id, step_name, split_index, task_id):
+def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     from metaflow.plugins.kfp.kfp import _cmd_params
 
-    _cmd_params(obj.datastore, obj.graph, run_id, step_name, split_index, task_id)
+    _cmd_params(
+        obj.datastore,
+        obj.graph,
+        run_id,
+        step_name,
+        passed_in_split_indexes,
+        task_id,
+        obj.logger,
+    )
 
 
 @kubeflow_pipelines.command(
@@ -178,6 +185,13 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
     """
     Analogous to step_functions_cli.py
     """
+
+    # Import declared inside here because this file has Python3 syntax while
+    # Metaflow supports Python2 only, so only load Python3 if the KFP plugin
+    # is being run.
+    from metaflow.plugins.kfp.kfp import KubeflowPipelines
+    from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
+
     datastore = obj.datastore(
         obj.flow.name,
         mode="w",
@@ -207,8 +221,6 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
             "Uploaded package to: {package_url}".format(package_url=package_url),
             fg="magenta",
         )
-
-    from metaflow.plugins.kfp.kfp import KubeflowPipelines
 
     return KubeflowPipelines(
         name,
