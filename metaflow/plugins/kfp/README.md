@@ -110,4 +110,5 @@ We execute the above local orchestration commands after performing the necessary
 - Run the step command
 
 ### Foreach -> ParallelFor support
-[nested_parallelfor.ipynb](nested_parallelfor.ipynb)
+* [nested_parallelfor.ipynb](nested_parallelfor.ipynb)
+* [metaflow_nested_foreach.ipynb](metaflow_nested_foreach.ipynb)

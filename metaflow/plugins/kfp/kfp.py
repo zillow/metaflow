@@ -7,16 +7,13 @@ from typing import Dict, Union
 
 import kfp
 from kfp.dsl import ContainerOp
-
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
-from .kfp_constants import (
-    DEFAULT_KFP_YAML_OUTPUT_PATH,
-    PASSED_IN_SPLIT_INDEXES,
-)
-from .kfp_split_contexts import KfpSplitContext
+
 from ... import R
 from ...graph import DAGNode, FlowGraph
 from ...plugins.resources_decorator import ResourcesDecorator
+from .kfp_constants import DEFAULT_KFP_YAML_OUTPUT_PATH, PASSED_IN_SPLIT_INDEXES
+from .kfp_split_contexts import KfpSplitContext
 
 STEP_INIT_SH = "step-init.sh"
 
@@ -455,10 +452,9 @@ class KubeflowPipelines(object):
                             # halt with a foreach join is reached
                             # see the ParallelFor and adjacent call to build_kfp_dag()
                             # which handles the ParallelFor join.
-                            pass
+                            return
                         else:
                             build_kfp_dag(step_node, passed_in_split_indexes)
-                return op
 
             build_kfp_dag(self.graph["start"])
 
@@ -558,30 +554,30 @@ def _cmd_params(
         logger(passed_in_split_indexes, head="PASSED_IN_SPLIT_INDEXES: ")
         logger()
 
-    def get_input_context(context_node: str) -> Dict[str, str]:
-        return split_contexts.get_input_context(
-            context_node, node, passed_in_split_indexes
+    def get_parent_context(parent_context_step_name: str) -> Dict[str, str]:
+        return split_contexts.get_parent_context(
+            parent_context_step_name, node, passed_in_split_indexes
         )
 
     input_paths = f"{run_id}"  # begins with run_id, filled in by step_op_func
     if node.type == "join":
         # load from s3 the context outs foreach
         if graph[node.split_parents[-1]].type == "foreach":
-            input_context = get_input_context(node.split_parents[-1])
+            parent_context = get_parent_context(node.split_parents[-1])
             parent_step_name = node.in_funcs[0]
             input_paths += f"/{parent_step_name}/:"
-            parent_task_ids = [split for split in input_context["foreach_splits"]]
+            parent_task_ids = [split for split in parent_context["foreach_splits"]]
             input_paths += ",".join(parent_task_ids)
         else:
             input_paths += "/:"
             for parent_step_name in node.in_funcs:
-                input_context = get_input_context(parent_step_name)
-                input_paths += f"{parent_step_name}/{input_context['task_id']},"
+                parent_context = get_parent_context(parent_step_name)
+                input_paths += f"{parent_step_name}/{parent_context['task_id']},"
     else:
         if step_name != "start":
             parent_step_name = node.in_funcs[0]
-            input_context = get_input_context(parent_step_name)
-            input_paths += f"/{parent_step_name}/{input_context['task_id']}"
+            parent_context = get_parent_context(parent_step_name)
+            input_paths += f"/{parent_step_name}/{parent_context['task_id']}"
 
     environment_exports["INPUT_PATHS"] = input_paths.strip(",")
 

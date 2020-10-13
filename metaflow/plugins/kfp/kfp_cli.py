@@ -1,24 +1,23 @@
-import posixpath
-
 import click
+import posixpath
 
 from metaflow import current, decorators
 from metaflow.datastore.datastore import TransformableObject
 from metaflow.exception import MetaflowException
 from metaflow.metaflow_config import (
+    KFP_RUN_URL_PREFIX,
     KFP_SDK_API_NAMESPACE,
     KFP_SDK_NAMESPACE,
-    KFP_RUN_URL_PREFIX,
 )
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
     check_metadata_service_version,
 )
 from metaflow.plugins.kfp.kfp_constants import (
-    DEFAULT_EXPERIMENT_NAME,
-    DEFAULT_RUN_NAME,
-    DEFAULT_KFP_YAML_OUTPUT_PATH,
     BASE_IMAGE,
+    DEFAULT_EXPERIMENT_NAME,
+    DEFAULT_KFP_YAML_OUTPUT_PATH,
+    DEFAULT_RUN_NAME,
 )
 from metaflow.util import get_username
 
