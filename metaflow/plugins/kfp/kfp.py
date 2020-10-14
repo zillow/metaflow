@@ -11,7 +11,10 @@ from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 from ... import R
 from ...graph import DAGNode, FlowGraph
 from ...plugins.resources_decorator import ResourcesDecorator
-from .kfp_constants import DEFAULT_KFP_YAML_OUTPUT_PATH, PASSED_IN_SPLIT_INDEXES
+from .kfp_constants import (
+    DEFAULT_KFP_YAML_OUTPUT_PATH,
+    PASSED_IN_SPLIT_INDEXES_ENV_NAME,
+)
 from .kfp_split_contexts import KfpSplitContext
 
 STEP_INIT_SH = "step-init.sh"
@@ -349,7 +352,7 @@ class KubeflowPipelines(object):
             "step",
             node.name,
             "--run-id %s" % kfp_run_id,
-            f"--task-id $TASK_ID",
+            f"--task-id $TASK_ID_ENV_NAME",
             # Since retries are handled by KFP Argo, we can rely on
             # {{retries}} as the job counter.
             # '--retry-count {{retries}}',  # TODO: test verify, should it be -1?
@@ -357,12 +360,12 @@ class KubeflowPipelines(object):
             (
                 "--input-paths %s" % start_task_id_params_path
                 if node.name == "start"
-                else "--input-paths $INPUT_PATHS"
+                else "--input-paths $INPUT_PATHS_ENV_NAME"
             ),
         ]
 
         if any(self.graph[n].type == "foreach" for n in node.in_funcs):
-            step.append("--split-index $SPLIT_INDEX")
+            step.append("--split-index $SPLIT_INDEX_ENV_NAME")
 
         if self.namespace:
             step.append("--namespace %s" % self.namespace)
@@ -542,11 +545,13 @@ def _cmd_params(
     split_contexts = KfpSplitContext(graph, step_name, run_id, datastore, logger)
 
     environment_exports = {
-        "TASK_ID": split_contexts.get_step_task_id(passed_in_split_indexes, task_id),
-        "SPLIT_INDEX": split_contexts.get_current_step_split_index(
+        "TASK_ID_ENV_NAME": split_contexts.get_step_task_id(
+            passed_in_split_indexes, task_id
+        ),
+        "SPLIT_INDEX_ENV_NAME": split_contexts.get_current_step_split_index(
             passed_in_split_indexes
         ),
-        PASSED_IN_SPLIT_INDEXES: passed_in_split_indexes,  # for kfp_decorator.py
+        PASSED_IN_SPLIT_INDEXES_ENV_NAME: passed_in_split_indexes,  # for kfp_decorator.py
     }
 
     if len(passed_in_split_indexes) > 0:
@@ -579,7 +584,7 @@ def _cmd_params(
             parent_context = get_parent_context(parent_step_name)
             input_paths += f"/{parent_step_name}/{parent_context['task_id']}"
 
-    environment_exports["INPUT_PATHS"] = input_paths.strip(",")
+    environment_exports["INPUT_PATHS_ENV_NAME"] = input_paths.strip(",")
 
     logger(f"{STEP_INIT_SH}: {environment_exports}")
 

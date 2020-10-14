@@ -8,7 +8,7 @@ from metaflow.datastore import MetaflowDataStore
 from metaflow.graph import DAGNode, FlowGraph
 from metaflow.plugins.kfp.kfp_constants import (
     KFP_METAFLOW_CONTEXT_DICT_PATH,
-    PASSED_IN_SPLIT_INDEXES,
+    PASSED_IN_SPLIT_INDEXES_ENV_NAME,
     SPLIT_SEPARATOR,
 )
 
@@ -48,7 +48,7 @@ class KfpSplitContext(object):
         }
         """
         if self.node.type == "foreach":
-            passed_in_split_indexes = os.environ[PASSED_IN_SPLIT_INDEXES]
+            passed_in_split_indexes = os.environ[PASSED_IN_SPLIT_INDEXES_ENV_NAME]
 
             # The splits are fed to kfp.ParallelFor to downstream steps as
             # "passed_in_split_indexes" variable and become the step task_id
