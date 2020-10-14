@@ -1,10 +1,11 @@
 import json
 import os
 import pprint
-from typing import Dict
+from typing import Callable, Dict
 
-from metaflow import S3, current
-from metaflow.graph import DAGNode
+from metaflow import S3, FlowSpec, current
+from metaflow.datastore import MetaflowDataStore
+from metaflow.graph import DAGNode, FlowGraph
 from metaflow.plugins.kfp.kfp_constants import (
     KFP_METAFLOW_CONTEXT_DICT_PATH,
     PASSED_IN_SPLIT_INDEXES,
@@ -23,7 +24,14 @@ class KfpSplitContext(object):
     Please see metaflow_nested_foreach.ipynb for more.
     """
 
-    def __init__(self, graph, step_name, run_id, datastore, logger):
+    def __init__(
+        self,
+        graph: FlowGraph,
+        step_name: str,
+        run_id: str,
+        datastore: MetaflowDataStore,
+        logger: Callable,
+    ):
         self.graph = graph
         self.step_name = step_name
         self.run_id = run_id
@@ -31,7 +39,7 @@ class KfpSplitContext(object):
         self.node = graph[step_name]
         self.flow_root = datastore.make_path(graph.name, run_id)
 
-    def build_context_dict(self, flow):
+    def build_context_dict(self, flow: FlowSpec) -> Dict[str, str]:
         """
         Returns a dict with
         {
@@ -105,12 +113,12 @@ class KfpSplitContext(object):
             self.logger(pprint.pformat(input_context), head="--")
             return input_context
 
-    def get_current_step_split_index(self, passed_in_split_indexes: str):
+    def get_current_step_split_index(self, passed_in_split_indexes: str) -> str:
         if self.node.is_inside_foreach:
             # the index is the last appended split ordinal
             return passed_in_split_indexes.split(SPLIT_SEPARATOR)[-1]
         else:
-            return passed_in_split_indexes
+            return ""
 
     @staticmethod
     def save_context_to_local_fs(context_dict: Dict[str, str]):
@@ -129,7 +137,6 @@ class KfpSplitContext(object):
                 self.flow_root, self.node, current.task_id
             )
             s3.put(step_kfp_output_path, json.dumps(context_dict))
-            self.logger(f"uploaded: {step_kfp_output_path}")
 
     def get_step_task_id(self, passed_in_split_indexes: str, task_id: str) -> str:
         if self.node.is_inside_foreach:

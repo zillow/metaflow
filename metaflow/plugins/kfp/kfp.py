@@ -1,9 +1,8 @@
 import inspect
 import os
-import pprint
 import sys
 from pathlib import Path
-from typing import Dict, Union
+from typing import Callable, Dict, Tuple, Union
 
 import kfp
 from kfp.dsl import ContainerOp
@@ -19,7 +18,13 @@ STEP_INIT_SH = "step-init.sh"
 
 
 class KfpComponent(object):
-    def __init__(self, name, cmd_template, total_retries, resource_requirements):
+    def __init__(
+        self,
+        name: str,
+        cmd_template: str,
+        total_retries: int,
+        resource_requirements: Dict[str, str],
+    ):
         self.name = name
         self.cmd_template = cmd_template
         self.total_retries = total_retries
@@ -139,7 +144,7 @@ class KubeflowPipelines(object):
         )
 
     @staticmethod
-    def _get_retries(node):
+    def _get_retries(node) -> Tuple[int, int]:
         """
         Analogous to step_functions_cli.py
         """
@@ -193,7 +198,7 @@ class KubeflowPipelines(object):
 
         return resource_requirements
 
-    def create_kfp_components_from_graph(self):
+    def create_kfp_components_from_graph(self) -> Dict[str, KfpComponent]:
         """
         Returns a map of steps to their corresponding KfpComponent.
         The KfpComponent defines the component attributes
@@ -203,20 +208,10 @@ class KubeflowPipelines(object):
         def build_kfp_component(node: DAGNode, step_name: str, task_id: int):
             """
             Returns the KfpComponent for each step.
-
-            This method returns a string with placeholders for `run_id` and
-            `task_id` which get populated using the provided config and the kfp
-            run ID respectively.  The rest of the command string is populated
-            using the passed arguments which are known before the run starts.
-
-            An example constructed command template (to run a step named `hello`):
-            "python downloaded_flow.py --datastore s3 --datastore-root {ds_root} " \
-                             "step hello --run-id {run_id} --task-id 2 " \
-                             "--input-paths {run_id}/start/1"
             """
 
             # TODO: @schedule, @environment, @resources, @timeout, @catch, etc.
-            # Resolve retry strategy.
+            # TODO: @retry
             user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
 
             step_cli = self._step_cli(node, task_id, user_code_retries)
@@ -235,7 +230,7 @@ class KubeflowPipelines(object):
             )
 
         # Mapping of steps to their KfpComponent
-        step_to_kfp_component_map = {}
+        step_to_kfp_component_map: Dict[str, KfpComponent] = {}
         steps_queue = ["start"]  # Queue to process the DAG in level order
         seen_steps = {"start"}  # Set of seen steps
         task_id = 0
@@ -255,7 +250,7 @@ class KubeflowPipelines(object):
 
         return step_to_kfp_component_map
 
-    def _step_cli(self, node: DAGNode, task_id: int, user_code_retries):
+    def _step_cli(self, node: DAGNode, task_id: int, user_code_retries: int) -> str:
         """
         Analogous to step_functions_cli.py
         This returns the command line to run the internal Metaflow step click entrypiont.
@@ -395,7 +390,7 @@ class KubeflowPipelines(object):
                 vendor=resource_requirements["gpu_vendor"],
             )
 
-    def create_kfp_pipeline_from_flow_graph(self):
+    def create_kfp_pipeline_from_flow_graph(self) -> Callable:
         import kfp
         from kfp import dsl
 
@@ -478,7 +473,7 @@ def step_op_func(
     datastore_root: str,
     cmd_template: str,
     kfp_run_id: str,
-    passed_in_split_indexes: str = "",  # only if is_inside_foreach
+    passed_in_split_indexes: str = '""',  # only if is_inside_foreach
 ) -> list:
     """
     Renders and runs the cmd_template containing Metaflow step/init commands to
@@ -492,9 +487,7 @@ def step_op_func(
     cmd = cmd_template.format(
         run_id=kfp_run_id,
         datastore_root=datastore_root,
-        passed_in_split_indexes=passed_in_split_indexes
-        if len(passed_in_split_indexes) > 0
-        else '""',
+        passed_in_split_indexes=passed_in_split_indexes,
     )
 
     # TODO: Map username to KFP specific user/profile/namespace
@@ -532,7 +525,7 @@ def _cmd_params(
     step_name: str,
     passed_in_split_indexes: str,
     task_id: str,
-    logger: callable,
+    logger: Callable,
 ):
     """
     non-join nodes: "run-id/parent-step/parent-task-id",
@@ -565,6 +558,7 @@ def _cmd_params(
             parent_context_step_name, node, passed_in_split_indexes
         )
 
+    # Create input_paths
     input_paths = f"{run_id}"  # begins with run_id, filled in by step_op_func
     if node.type == "join":
         # load from s3 the context outs foreach
@@ -587,7 +581,7 @@ def _cmd_params(
 
     environment_exports["INPUT_PATHS"] = input_paths.strip(",")
 
-    logger(pprint.pformat(environment_exports), head=f"*** {STEP_INIT_SH}")
+    logger(f"{STEP_INIT_SH}: {environment_exports}")
 
     with open("%s" % STEP_INIT_SH, "w") as file:
         for key, value in environment_exports.items():

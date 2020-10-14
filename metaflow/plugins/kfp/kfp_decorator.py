@@ -82,7 +82,6 @@ class KfpInternalDecorator(StepDecorator):
                     )
                     url = urlparse(path)
                     s3.upload_fileobj(f, url.netloc, url.path.lstrip("/"))
-                    self.logger("uploaded: " + path)
         else:
             # we are publishing to a Metadata service
             pass
