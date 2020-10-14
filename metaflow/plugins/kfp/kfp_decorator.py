@@ -62,10 +62,6 @@ class KfpInternalDecorator(StepDecorator):
             # continue so no need to do anything here.
             return
 
-        context_dict: Dict[str, str] = self.split_contexts.build_context_dict(flow)
-        KfpSplitContext.save_context_to_local_fs(context_dict)
-        self.split_contexts.upload_context_to_flow_root(context_dict)
-
         if self.ds_root:
             # We have a local metadata service so we need to persist it to the datastore.
             # Note that the datastore is *always* s3 (see runtime_task_created function)
@@ -87,3 +83,14 @@ class KfpInternalDecorator(StepDecorator):
                     url = urlparse(path)
                     s3.upload_fileobj(f, url.netloc, url.path.lstrip("/"))
                     self.logger("uploaded: " + path)
+        else:
+            # we are publishing to a Metadata service
+            pass
+
+        # TODO: If this step is retried, then S3 doesn't guarantee consistency that
+        #  the last uploaded data is returned. It'd be very rare that the data would change
+        #  as this is the last step, and we assume the same inputs should produce the same
+        #  outputs.
+        context_dict: Dict[str, str] = self.split_contexts.build_context_dict(flow)
+        KfpSplitContext.save_context_to_local_fs(context_dict)
+        self.split_contexts.upload_context_to_flow_root(context_dict)

@@ -120,6 +120,15 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     default=None,
     help="If not set uses flow_name.",
 )
+@click.option(
+    "--max-parallelism",
+    default=10,
+    show_default=True,
+    help="Maximum number of parallel pods.",
+)
+@click.option(
+    "--workflow-timeout", default=None, type=int, help="Workflow timeout in seconds."
+)
 @click.pass_obj
 def run(
     obj,
@@ -132,6 +141,8 @@ def run(
     s3_code_package=True,
     base_image=BASE_IMAGE,
     pipeline_name=None,
+    max_parallelism=None,
+    workflow_timeout=None,
 ):
     """
     Analogous to step_functions_cli.py
@@ -144,6 +155,8 @@ def run(
         api_namespace,
         base_image,
         s3_code_package,
+        max_parallelism,
+        workflow_timeout,
     )
 
     if yaml_only:
@@ -180,7 +193,16 @@ def run(
         obj.echo("Run link: {kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
 
 
-def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
+def make_flow(
+    obj,
+    name,
+    namespace,
+    api_namespace,
+    base_image,
+    s3_code_package,
+    max_parallelism,
+    workflow_timeout,
+):
     """
     Analogous to step_functions_cli.py
     """
@@ -237,4 +259,6 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
         namespace=namespace,
         api_namespace=api_namespace,
         username=get_username(),
+        max_parallelism=max_parallelism,
+        workflow_timeout=workflow_timeout,
     )

@@ -44,6 +44,8 @@ class KubeflowPipelines(object):
         namespace=None,
         api_namespace=None,
         username=None,
+        max_parallelism=None,
+        workflow_timeout=None,
         **kwargs,
     ):
         """
@@ -63,6 +65,8 @@ class KubeflowPipelines(object):
         self.username = username
         self.base_image = base_image
         self.s3_code_package = s3_code_package
+        self.max_parallelism = max_parallelism
+        self.workflow_timeout = workflow_timeout if workflow_timeout else 0
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
@@ -402,9 +406,9 @@ class KubeflowPipelines(object):
             step_op_func, base_image=self.base_image
         )
 
-        def pipeline_transform(op):
-            pass
-            # op.execution_options.caching_strategy.max_cache_staleness = "P0D"
+        def pipeline_transform(op: ContainerOp):
+            # Disable caching because Metaflow doesn't have memoization
+            op.execution_options.caching_strategy.max_cache_staleness = "P0D"
             # op.container.set_cpu_request("50m")
             # op.container.set_cpu_limit("250m")
 
@@ -464,6 +468,8 @@ class KubeflowPipelines(object):
                     visited[node.name].after(visited[parent_step])
 
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
+            dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
+            dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
 
         return kfp_pipeline_from_flow
 
