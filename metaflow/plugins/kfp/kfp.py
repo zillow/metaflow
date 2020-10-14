@@ -320,32 +320,24 @@ class KubeflowPipelines(object):
         cmds.append(" ".join(entrypoint + top_level + step))
         return " && ".join(cmds)
     
-    # def named_op(self, name, func):
-    #     print(kfp.components.func_to_component_text(func))
-    #     text = yaml.load(kfp.components.func_to_component_text(func), yaml.SafeLoader)
-    #     print("\n\n\n\n")
-    #     print("TEXT: ", text)
-    #     print("\n\n\n\n")
-    #     print("DUMP: ", yaml.dump(text))
-    #     print("\n\n\n\n")
-    #     text["name"] = name
-    #     modified_op = kfp.components.load_component_from_text(yaml.dump(text))
-    #     print(kfp.components.func_to_component_text(modified_op))
-    #     return modified_op
-
     def named_op(self, name, func):
-            
+        print(kfp.components.func_to_component_text(func))
+        text = yaml.load(kfp.components.func_to_component_text(func), yaml.SafeLoader)
+        text["name"] = name
+        print("MODED TEXT: ", text)
+        print("\n\n\n\n")
+        print("DUMP: ", yaml.dump(text))
+        print("\n\n\n\n")
+        print("LOADED YAML: ", yaml.load(yaml.dump(text)))
+        modified_op = kfp.components.load_component_from_text(yaml.dump(text))
+        print("MODED OP: ", modified_op)
+        return modified_op            
 
     def create_kfp_pipeline_from_flow_graph(self):
         import kfp
         from kfp import dsl
 
         step_to_kfp_component_map = self.create_kfp_components_from_graph()
-
-        # Container op that corresponds to a step defined in the Metaflow flowgraph.
-        step_op = kfp.components.func_to_container_op(
-            self.named_op("new name", step_op_func), base_image=self.base_image
-        )
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
         def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
@@ -355,6 +347,29 @@ class KubeflowPipelines(object):
 
             def build_kfp_dag(node: DAGNode, context: str, index=None):
                 kfp_component = step_to_kfp_component_map[node.name]
+
+                # Container op that corresponds to a step defined in the Metaflow flowgraph.
+                import types
+
+                def copy_func(f, name=None):
+                    '''
+                    return a function with same code, globals, defaults, closure, and 
+                    name (or provide a new name)
+                    '''
+                    fn = types.FunctionType(f.__code__, f.__globals__, name or f.__name__,
+                        f.__defaults__, f.__closure__)
+                    # in case f was given attrs (note this dict is a shallow copy):
+                    fn.__dict__.update(f.__dict__) 
+                    return fn
+
+                start = self.named_op("start", step_op_func)
+                
+                step_op = kfp.components.func_to_container_op(
+                    start, base_image=self.base_image
+                )
+
+                print("Func text: ", kfp.components.func_to_component_text(start))
+
                 visited[node.name] = step_op(
                     datastore_root,
                     kfp_component.step_command,
@@ -391,7 +406,7 @@ class KubeflowPipelines(object):
 
         return kfp_pipeline_from_flow
 
-
+# def return_step_op_func(func_name):
 def step_op_func(
     datastore_root: str, cmd_template: str, kfp_run_id: str, context, index=None
 ) -> NamedTuple("context", [("task_out_dict", dict), ("split_indexes", list)]):
@@ -449,3 +464,6 @@ def step_op_func(
         "context", [("task_out_dict", dict), ("split_indexes", list)]
     )
     return StepMetaflowContext(task_out_dict, task_out_dict.get("split_indexes", None))
+    # named_func = step_op_func
+    # named_func.__name__ = func_name
+    # return named_func
