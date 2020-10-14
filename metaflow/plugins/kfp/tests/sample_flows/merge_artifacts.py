@@ -3,7 +3,7 @@ from metaflow import FlowSpec, step
 import pytest
 
 
-class MergeArtifactsFlow(FlowSpec):
+class MergeArtifacts(FlowSpec):
     @step
     def start(self):
         self.pass_down = "a"
@@ -17,8 +17,6 @@ class MergeArtifactsFlow(FlowSpec):
         self.x = 1
         self.y = 3
         self.from_a = 6
-        with pytest.raises(ZeroDivisionError):
-            _ = self.from_a / 0
         self.next(self.join)
 
     @step
@@ -80,4 +78,4 @@ class MergeArtifactsFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    MergeArtifactsFlow()
+    MergeArtifacts()

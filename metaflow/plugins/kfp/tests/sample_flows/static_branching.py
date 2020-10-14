@@ -1,7 +1,7 @@
 from metaflow import FlowSpec, step
 
 
-class ComplexFlow(FlowSpec):
+class StaticBranching(FlowSpec):
     @step
     def start(self):
         self.next(self.br1, self.br2)
@@ -57,4 +57,4 @@ class ComplexFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    ComplexFlow()
+    StaticBranching()
