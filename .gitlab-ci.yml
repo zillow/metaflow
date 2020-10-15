@@ -1,0 +1,11 @@
+# Barebones template to ensure pipeline is triggered.
+
+build:
+  stage: build
+  script:
+    - echo "We are in the build stage."
+
+test:
+  stage: test
+  script:
+    - echo "We are in the test stage."
