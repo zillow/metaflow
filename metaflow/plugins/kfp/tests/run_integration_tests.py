@@ -77,7 +77,19 @@ def test_sample_flows(flow_file_path):
         f"python3 {full_path} --datastore=s3 logs kfp-{run_id}/start &&"
         f"python3 {full_path} --datastore=s3 logs kfp-{run_id}/end",
         text=True,
+        stdout=PIPE,
         shell=True,
+    )
+    # ensures stdout contains these commands and stderr contains nothing
+    assert check_valid_logs_process.stdout == (
+        "Setting up task environment.\n"
+        "Downloading code package.\n"
+        "Code package downloaded.\n"
+        "Task is starting.\n"
+        "Setting up task environment.\n"
+        "Downloading code package.\n"
+        "Code package downloaded.\n"
+        "Task is starting.\n"
     )
     assert check_valid_logs_process.returncode == 0
 
