@@ -9,7 +9,7 @@ from metaflow.graph import DAGNode, FlowGraph
 from metaflow.plugins.kfp.kfp_constants import (
     KFP_METAFLOW_CONTEXT_DICT_PATH,
     PASSED_IN_SPLIT_INDEXES_ENV_NAME,
-    SPLIT_SEPARATOR,
+    SPLIT_INDEX_SEPARATOR,
 )
 
 
@@ -19,7 +19,7 @@ class KfpSplitContext(object):
     A nested foreach appends the new split index ordinal with a "_" separator.
     Example:
         0_1 -> 0th index of outer foreach and 1th index of inner foreach
-        1_0 -> 1th index of outer foreach and 0th inde of inner foreach
+        1_0 -> 1th index of outer foreach and 0th index of inner foreach
 
     Please see metaflow_nested_foreach.ipynb for more.
     """
@@ -54,8 +54,8 @@ class KfpSplitContext(object):
             # "passed_in_split_indexes" variable and become the step task_id
             # Example: 0_3_1
             foreach_splits = [
-                f"{passed_in_split_indexes}{SPLIT_SEPARATOR}{split_index}".strip(
-                    SPLIT_SEPARATOR
+                f"{passed_in_split_indexes}{SPLIT_INDEX_SEPARATOR}{split_index}".strip(
+                    SPLIT_INDEX_SEPARATOR
                 )
                 for split_index in range(0, flow._foreach_num_splits)
             ]
@@ -90,9 +90,11 @@ class KfpSplitContext(object):
                 #   it's context_node_task_id is passed_in_split_indexes
                 #   minus the last split_index which is for the inner loop
                 split_indices_but_last_one = passed_in_split_indexes.split(
-                    SPLIT_SEPARATOR
+                    SPLIT_INDEX_SEPARATOR
                 )[:-1]
-                context_node_task_id = SPLIT_SEPARATOR.join(split_indices_but_last_one)
+                context_node_task_id = SPLIT_INDEX_SEPARATOR.join(
+                    split_indices_but_last_one
+                )
             else:
                 context_node_task_id = passed_in_split_indexes
         else:
@@ -116,7 +118,7 @@ class KfpSplitContext(object):
     def get_current_step_split_index(self, passed_in_split_indexes: str) -> str:
         if self.node.is_inside_foreach:
             # the index is the last appended split ordinal
-            return passed_in_split_indexes.split(SPLIT_SEPARATOR)[-1]
+            return passed_in_split_indexes.split(SPLIT_INDEX_SEPARATOR)[-1]
         else:
             return ""
 

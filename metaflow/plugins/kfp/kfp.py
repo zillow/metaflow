@@ -2,13 +2,14 @@ import inspect
 import os
 import sys
 from pathlib import Path
-from typing import Callable, Dict, Tuple, Union
+from typing import Callable, Dict, Tuple, Union, List
 
 import kfp
 from kfp.dsl import ContainerOp
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 
 from ... import R
+from ...environment import MetaflowEnvironment
 from ...graph import DAGNode, FlowGraph
 from ...plugins.resources_decorator import ResourcesDecorator
 from .kfp_constants import (
@@ -17,7 +18,7 @@ from .kfp_constants import (
 )
 from .kfp_split_contexts import KfpSplitContext
 
-STEP_INIT_SH = "step-init.sh"
+STEP_INIT_SH = "/tmp/step-init.sh"
 
 
 class KfpComponent(object):
@@ -78,7 +79,7 @@ class KubeflowPipelines(object):
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
-    def create_run_on_kfp(self, experiment_name, run_name):
+    def create_run_on_kfp(self, experiment_name: str, run_name: str):
         """
         Creates a new run on KFP using the `kfp.Client()`.
         """
@@ -91,7 +92,9 @@ class KubeflowPipelines(object):
         )
         return run_pipeline_result
 
-    def create_kfp_pipeline_yaml(self, pipeline_file_path=DEFAULT_KFP_YAML_OUTPUT_PATH):
+    def create_kfp_pipeline_yaml(
+        self, pipeline_file_path=DEFAULT_KFP_YAML_OUTPUT_PATH
+    ) -> str:
         """
         Creates a new KFP pipeline YAML using `kfp.compiler.Compiler()`.
         Note: Intermediate pipeline YAML is saved at `pipeline_file_path`
@@ -101,7 +104,13 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
-    def _command(self, code_package_url, environment, step_name, step_cli, task_id):
+    def _command(
+        self,
+        code_package_url: str,
+        environment: MetaflowEnvironment,
+        step_name: str,
+        step_cli: List[str],
+    ) -> str:
         """
         Analogous to batch.py
         """
@@ -125,8 +134,9 @@ class KubeflowPipelines(object):
         # insertion of only a partial number of placeholder strings.
         def copy_log_cmd(log_file):
             return (
-                f"python -m awscli s3 cp --only-show-errors {log_file} "
-                f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/{task_id}/{log_file}"
+                f"&& . {STEP_INIT_SH} "  # for $TASK_ID_ENV_NAME
+                f"&& python -m awscli s3 cp --only-show-errors {log_file} "
+                f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/$TASK_ID_ENV_NAME/{log_file}"
             )
 
         # TODO: see datastore get_log_location()
@@ -147,7 +157,7 @@ class KubeflowPipelines(object):
         )
 
     @staticmethod
-    def _get_retries(node) -> Tuple[int, int]:
+    def _get_retries(node: DAGNode) -> Tuple[int, int]:
         """
         Analogous to step_functions_cli.py
         """
@@ -213,7 +223,7 @@ class KubeflowPipelines(object):
             Returns the KfpComponent for each step.
             """
 
-            # TODO: @schedule, @environment, @resources, @timeout, @catch, etc.
+            # TODO: @schedule, @environment, @timeout, @catch, etc.
             # TODO: @retry
             user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
 
@@ -226,7 +236,6 @@ class KubeflowPipelines(object):
                     self.environment,
                     step_name,
                     [step_cli],
-                    task_id,
                 ),
                 total_retries,
                 self._get_resource_requirements(node),
@@ -345,7 +354,7 @@ class KubeflowPipelines(object):
         )
 
         # load environment variables set in STEP_INIT_SH
-        cmds.append(f". `pwd`/{STEP_INIT_SH}")
+        cmds.append(f". {STEP_INIT_SH}")
 
         step = [
             "--with=kfp_internal",
@@ -588,7 +597,7 @@ def _cmd_params(
 
     logger(f"{STEP_INIT_SH}: {environment_exports}")
 
-    with open("%s" % STEP_INIT_SH, "w") as file:
+    with open(STEP_INIT_SH, "w") as file:
         for key, value in environment_exports.items():
             file.write(f"export {key}={value}\n")
     os.chmod(STEP_INIT_SH, 509)

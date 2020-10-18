@@ -208,7 +208,7 @@ def make_flow(
     """
 
     # Import declared inside here because this file has Python3 syntax while
-    # Metaflow supports Python2 only, so only load Python3 if the KFP plugin
+    # Metaflow supports Python2 for backward compat, so only load Python3 if the KFP plugin
     # is being run.
     from metaflow.plugins.kfp.kfp import KubeflowPipelines
     from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
