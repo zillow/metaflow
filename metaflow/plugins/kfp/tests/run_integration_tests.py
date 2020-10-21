@@ -30,14 +30,14 @@ KFP runs will be scheduled.
 """
 
 
-def parse_run_id(output):
-    start_idx = output.find("run_id|")
-    end_idx = output.find("|end_id")
+def parse_magic_tokens(output, start_token, end_token):
+    start_idx = output.find(start_token)
+    end_idx = output.find(end_token)
 
     if start_idx == -1 or end_idx == -1:
         return -1
 
-    run_id = output[start_idx + len("run_id|") : end_idx]
+    run_id = output[start_idx + len(start_token) : end_idx]
     return run_id
 
 
@@ -67,11 +67,13 @@ def test_sample_flows(flow_file_path):
         shell=True,
     )
     assert run_and_wait_process.returncode == 0
+    pipeline_result = parse_magic_tokens(run_and_wait_process.stdout, "start_marker|", "|end_marker")
+    assert pipeline_result == "success"
 
     # We check for the correct logging of only the 'start' and 'end'
     # steps because these are the only steps gauranteed to exist
     # in a Metaflow flow file.
-    run_id = parse_run_id(run_and_wait_process.stdout)
+    run_id = parse_magic_tokens(run_and_wait_process.stdout, "run_id|", "|end_id")
     assert run_id != -1
     check_valid_logs_process = run(
         f"python3 {full_path} --datastore=s3 logs kfp-{run_id}/start &&"

@@ -179,6 +179,7 @@ def run(
                     ),
                     fg="green",
                 )
+                print("start_marker|success|end_marker")
             else:
                 obj.echo(
                     "Flow: {flow_name}, run link: {kfp_run_url}\n  FAILED!".format(
@@ -186,6 +187,7 @@ def run(
                     ),
                     fg="red",
                 )
+                print("start_marker|failure|end_marker")
 
             print(f"run_id|{run_pipeline_result.run_id}|end_id")
 
