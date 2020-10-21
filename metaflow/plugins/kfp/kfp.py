@@ -16,7 +16,7 @@ from .kfp_constants import (
     DEFAULT_KFP_YAML_OUTPUT_PATH,
     PASSED_IN_SPLIT_INDEXES_ENV_NAME,
 )
-from .kfp_split_contexts import KfpSplitContext
+from .kfp_split_contexts import KfpSplitContext, graph_to_task_ids
 
 STEP_INIT_SH = "/tmp/step-init.sh"
 
@@ -83,6 +83,7 @@ class KubeflowPipelines(object):
         """
         Creates a new run on KFP using the `kfp.Client()`.
         """
+        # TODO: first create KFP Pipeline, then an experiment if provided else default experiment.
         run_pipeline_result = self._client.create_run_from_pipeline_func(
             pipeline_func=self.create_kfp_pipeline_from_flow_graph(),
             arguments={"datastore_root": DATASTORE_SYSROOT_S3},
@@ -134,7 +135,7 @@ class KubeflowPipelines(object):
         # insertion of only a partial number of placeholder strings.
         def copy_log_cmd(log_file):
             return (
-                f"&& . {STEP_INIT_SH} "  # for $TASK_ID_ENV_NAME
+                f". {STEP_INIT_SH} "  # for $TASK_ID_ENV_NAME
                 f"&& python -m awscli s3 cp --only-show-errors {log_file} "
                 f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/$TASK_ID_ENV_NAME/{log_file}"
             )
@@ -218,7 +219,7 @@ class KubeflowPipelines(object):
         and step command to be used to run that particular step.
         """
 
-        def build_kfp_component(node: DAGNode, step_name: str, task_id: int):
+        def build_kfp_component(node: DAGNode, task_id: int):
             """
             Returns the KfpComponent for each step.
             """
@@ -234,7 +235,7 @@ class KubeflowPipelines(object):
                 self._command(
                     self.code_package_url,
                     self.environment,
-                    step_name,
+                    node.name,
                     [step_cli],
                 ),
                 total_retries,
@@ -242,23 +243,11 @@ class KubeflowPipelines(object):
             )
 
         # Mapping of steps to their KfpComponent
+        task_ids: Dict[str, int] = graph_to_task_ids(self.graph)
         step_to_kfp_component_map: Dict[str, KfpComponent] = {}
-        steps_queue = ["start"]  # Queue to process the DAG in level order
-        seen_steps = {"start"}  # Set of seen steps
-        task_id = 0
-        while len(steps_queue) > 0:
-            current_step = steps_queue.pop(0)
-            node = self.graph.nodes[current_step]
-            task_id += 1
-
-            step_to_kfp_component_map[node.name] = build_kfp_component(
-                node, node.name, task_id
-            )
-
-            for step in node.out_funcs:
-                if step not in seen_steps:
-                    steps_queue.append(step)
-                    seen_steps.add(step)
+        for step_name, task_id in task_ids.items():
+            node = self.graph[step_name]
+            step_to_kfp_component_map[node.name] = build_kfp_component(node, task_id)
 
         return step_to_kfp_component_map
 
@@ -421,7 +410,7 @@ class KubeflowPipelines(object):
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
         def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
-            visited = {}
+            visited: Dict[str, ContainerOp] = {}
 
             def build_kfp_dag(node: DAGNode, passed_in_split_indexes=None):
                 if node.name in visited:
@@ -554,8 +543,8 @@ def _cmd_params(
     split_contexts = KfpSplitContext(graph, step_name, run_id, datastore, logger)
 
     environment_exports = {
-        "TASK_ID_ENV_NAME": split_contexts.get_step_task_id(
-            passed_in_split_indexes, task_id
+        "TASK_ID_ENV_NAME": KfpSplitContext.get_step_task_id(
+            task_id, passed_in_split_indexes
         ),
         "SPLIT_INDEX_ENV_NAME": split_contexts.get_current_step_split_index(
             passed_in_split_indexes
@@ -579,8 +568,12 @@ def _cmd_params(
         if graph[node.split_parents[-1]].type == "foreach":
             parent_context = get_parent_context(node.split_parents[-1])
             parent_step_name = node.in_funcs[0]
+            parent_task_id = str(graph_to_task_ids(graph)[parent_step_name])
             input_paths += f"/{parent_step_name}/:"
-            parent_task_ids = [split for split in parent_context["foreach_splits"]]
+            parent_task_ids = [
+                f"{parent_task_id}.{split}"
+                for split in parent_context["foreach_splits"]
+            ]
             input_paths += ",".join(parent_task_ids)
         else:
             input_paths += "/:"

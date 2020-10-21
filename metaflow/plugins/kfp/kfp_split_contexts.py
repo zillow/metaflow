@@ -13,6 +13,25 @@ from metaflow.plugins.kfp.kfp_constants import (
 )
 
 
+def graph_to_task_ids(graph: FlowGraph) -> Dict[str, int]:
+    step_to_task_id: Dict[str, int] = {}
+    steps_queue = ["start"]  # Queue to process the DAG in level order
+    seen_steps = {"start"}  # Set of seen steps
+    task_id = 0
+    while len(steps_queue) > 0:
+        current_step = steps_queue.pop(0)
+        node = graph.nodes[current_step]
+        task_id += 1
+        step_to_task_id[current_step] = task_id
+
+        for step in node.out_funcs:
+            if step not in seen_steps:
+                steps_queue.append(step)
+                seen_steps.add(step)
+
+    return step_to_task_id
+
+
 class KfpSplitContext(object):
     """
     passed_in_split_indexes is a string of foreach split_index ordinals.
@@ -77,11 +96,12 @@ class KfpSplitContext(object):
     ) -> Dict[str, str]:
         self.logger(parent_context_step_name, head="--")
 
-        context_node_task_id = None
-        parent_context_node = self.graph[parent_context_step_name]
-        if parent_context_node.is_inside_foreach:
+        context_node_task_id = str(
+            graph_to_task_ids(self.graph)[parent_context_step_name]
+        )
+        if self.graph[parent_context_step_name].is_inside_foreach:
             if (
-                parent_context_node.type == "foreach"
+                self.graph[parent_context_step_name].type == "foreach"
                 and parent_context_step_name
                 == current_node.in_funcs[0]  # and is a direct parent
             ):
@@ -92,11 +112,13 @@ class KfpSplitContext(object):
                 split_indices_but_last_one = passed_in_split_indexes.split(
                     SPLIT_INDEX_SEPARATOR
                 )[:-1]
-                context_node_task_id = SPLIT_INDEX_SEPARATOR.join(
+                context_split_indexes = SPLIT_INDEX_SEPARATOR.join(
                     split_indices_but_last_one
                 )
             else:
-                context_node_task_id = passed_in_split_indexes
+                context_split_indexes = passed_in_split_indexes
+
+            context_node_task_id = f"{context_node_task_id}.{context_split_indexes}"
         else:
             # not is_inside_foreach, hence context_node_task_id is None
             # and the step_kfp_output_path doesn't have task_id in it.
@@ -104,7 +126,7 @@ class KfpSplitContext(object):
 
         self.logger(f"context_node_task_id: {context_node_task_id}")
         step_kfp_output_path = KfpSplitContext._build_step_kfp_output_path(
-            self.flow_root, parent_context_node, context_node_task_id
+            self.flow_root, parent_context_step_name, context_node_task_id
         )
 
         with S3() as s3:
@@ -136,31 +158,21 @@ class KfpSplitContext(object):
         # upload: context_dict
         with S3() as s3:
             step_kfp_output_path = KfpSplitContext._build_step_kfp_output_path(
-                self.flow_root, self.node, current.task_id
+                self.flow_root, self.step_name, current.task_id
             )
             s3.put(step_kfp_output_path, json.dumps(context_dict))
 
-    def get_step_task_id(self, passed_in_split_indexes: str, task_id: str) -> str:
-        if self.node.is_inside_foreach:
-            return passed_in_split_indexes
-        else:
-            return task_id
+    @staticmethod
+    def get_step_task_id(task_id: str, passed_in_split_indexes: str) -> str:
+        return f"{task_id}.{passed_in_split_indexes}".strip(".")
 
     @staticmethod
-    def _build_step_kfp_output_path(flow_root: str, node: DAGNode, task_id: str) -> str:
-        #  returns: S3://flow_root>/step_kfp_outputs/{node.name}.json
-        # if is inside foreach:
+    def _build_step_kfp_output_path(
+        flow_root: str, step_name: str, task_id: str
+    ) -> str:
         #  returns: S3://flow_root>/step_kfp_outputs/{task_id}.{node.name}.json
-        #  where task_id is the passed_in_split_indexes
-
-        # task_id when is_inside_foreach is fed to steps via passed_in_split_indexes
-        if node.is_inside_foreach:
-            step_kfp_output_name = f"{task_id}.{node.name}"
-        else:
-            step_kfp_output_name = node.name
-
         s3_path = os.path.join(
             os.path.join(flow_root, "step_kfp_outputs"),
-            f"{step_kfp_output_name}.json",
+            f"{task_id}.{step_name}.json",
         )
         return s3_path
