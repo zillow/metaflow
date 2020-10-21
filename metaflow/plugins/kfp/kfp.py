@@ -499,7 +499,7 @@ def step_op_func(
         executable="/bin/bash",
         env=dict(
             os.environ,
-            USERNAME="kfp-user",
+            USERNAME="kfp-user",  # TODO: what should this be for a scheduled run?
             METAFLOW_RUN_ID=kfp_run_id,
             METAFLOW_DATASTORE_SYSROOT_S3=datastore_root,
         ),
