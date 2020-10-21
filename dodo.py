@@ -5,6 +5,7 @@ def task_build_docker_image():
         ],
     }
 
+
 # TODO AIP-1766 Move compile_pipeline task to aip-doit-modules
 def task_run_integration_tests():
     """Run the full integration suite inside a Docker container."""
