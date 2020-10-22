@@ -17,7 +17,6 @@ from metaflow.plugins.kfp.kfp_constants import (
     BASE_IMAGE,
     DEFAULT_EXPERIMENT_NAME,
     DEFAULT_KFP_YAML_OUTPUT_PATH,
-    DEFAULT_RUN_NAME,
 )
 from metaflow.util import get_username
 
@@ -34,7 +33,7 @@ def cli():
 @cli.group(name="kfp", help="Commands related to Kubeflow Pipelines.")
 @click.pass_obj
 def kubeflow_pipelines(obj):
-    obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
+    pass
 
 
 @kubeflow_pipelines.command(
@@ -46,9 +45,9 @@ def kubeflow_pipelines(obj):
 @click.option("--task_id")
 @click.pass_obj
 def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
-    from metaflow.plugins.kfp.kfp import _cmd_params
+    from metaflow.plugins.kfp.kfp import save_step_environment_variables
 
-    _cmd_params(
+    save_step_environment_variables(
         obj.datastore,
         obj.graph,
         run_id,
@@ -67,24 +66,28 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     "experiment_name",
     default=DEFAULT_EXPERIMENT_NAME,
     help="The associated experiment name for the run",
+    show_default=True,
 )
 @click.option(
     "--run-name",
     "run_name",
-    default=DEFAULT_RUN_NAME,
-    help="Name assigned to the new KFP run",
+    default=None,
+    help="Name assigned to the new KFP run. If not assigned None is sent to KFP",
+    show_default=True,
 )
 @click.option(
     "--namespace",
     "namespace",
     default=KFP_SDK_NAMESPACE,
     help="Namespace of your run in KFP.",
+    show_default=True,
 )
 @click.option(
     "--api-namespace",
     "api_namespace",
     default=KFP_SDK_API_NAMESPACE,
     help="Namespace where the API service is run.",
+    show_default=True,
 )
 @click.option(
     "--yaml-only",
@@ -99,6 +102,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     "pipeline_path",
     default=DEFAULT_KFP_YAML_OUTPUT_PATH,
     help="The output path of the generated KFP pipeline yaml file",
+    show_default=True,
 )
 @click.option(
     "--s3-code-package/--no-s3-code-package",
@@ -133,7 +137,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 def run(
     obj,
     experiment_name=DEFAULT_EXPERIMENT_NAME,
-    run_name=DEFAULT_RUN_NAME,
+    run_name=None,
     namespace=KFP_SDK_NAMESPACE,
     api_namespace=KFP_SDK_API_NAMESPACE,
     yaml_only=False,
@@ -147,6 +151,7 @@ def run(
     """
     Analogous to step_functions_cli.py
     """
+    obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
     check_metadata_service_version(obj)
     flow = make_flow(
         obj,

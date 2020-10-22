@@ -14,6 +14,14 @@ from metaflow.plugins.kfp.kfp_constants import (
 
 
 def graph_to_task_ids(graph: FlowGraph) -> Dict[str, int]:
+    """
+    Traverses the graph DAG in level order assigning each node
+    a monotonically incrementing task_id.
+    Args:
+        graph: graph of Metaflow
+
+    Returns: node.name, or step_name -> task_id
+    """
     step_to_task_id: Dict[str, int] = {}
     steps_queue = ["start"]  # Queue to process the DAG in level order
     seen_steps = {"start"}  # Set of seen steps
@@ -94,6 +102,12 @@ class KfpSplitContext(object):
         current_node: DAGNode,
         passed_in_split_indexes: str,
     ) -> Dict[str, str]:
+        """
+        Used by compute_input_paths() to access the parent context saved in step_kfp_output_path
+
+        Returns:
+            Task context dict built by build_context_dict() that was saved to S3 by kfp_decorator.
+        """
         self.logger(parent_context_step_name, head="--")
 
         context_node_task_id = str(
@@ -125,8 +139,8 @@ class KfpSplitContext(object):
             pass
 
         self.logger(f"context_node_task_id: {context_node_task_id}")
-        step_kfp_output_path = KfpSplitContext._build_step_kfp_output_path(
-            self.flow_root, parent_context_step_name, context_node_task_id
+        step_kfp_output_path = self._build_step_kfp_output_path(
+            parent_context_step_name, context_node_task_id
         )
 
         with S3() as s3:
@@ -157,8 +171,8 @@ class KfpSplitContext(object):
     def upload_context_to_flow_root(self, context_dict: Dict[str, str]):
         # upload: context_dict
         with S3() as s3:
-            step_kfp_output_path = KfpSplitContext._build_step_kfp_output_path(
-                self.flow_root, self.step_name, current.task_id
+            step_kfp_output_path = self._build_step_kfp_output_path(
+                self.step_name, current.task_id
             )
             s3.put(step_kfp_output_path, json.dumps(context_dict))
 
@@ -166,13 +180,10 @@ class KfpSplitContext(object):
     def get_step_task_id(task_id: str, passed_in_split_indexes: str) -> str:
         return f"{task_id}.{passed_in_split_indexes}".strip(".")
 
-    @staticmethod
-    def _build_step_kfp_output_path(
-        flow_root: str, step_name: str, task_id: str
-    ) -> str:
+    def _build_step_kfp_output_path(self, step_name: str, task_id: str) -> str:
         #  returns: S3://flow_root>/step_kfp_outputs/{task_id}.{node.name}.json
         s3_path = os.path.join(
-            os.path.join(flow_root, "step_kfp_outputs"),
+            os.path.join(self.flow_root, "step_kfp_outputs"),
             f"{task_id}.{step_name}.json",
         )
         return s3_path
