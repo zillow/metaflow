@@ -7,6 +7,7 @@ from typing import Callable, Dict, List, Tuple, Union
 import yaml
 
 import kfp
+from kfp import dsl
 from kfp.dsl import ContainerOp
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 
@@ -226,7 +227,7 @@ class KubeflowPipelines(object):
         and step command to be used to run that particular step.
         """
 
-        def build_kfp_component(node: DAGNode, task_id: int):
+        def build_kfp_component(node: DAGNode, task_id: int) -> KfpComponent:
             """
             Returns the KfpComponent for each step.
             """
@@ -263,8 +264,6 @@ class KubeflowPipelines(object):
         Analogous to step_functions_cli.py
         This returns the command line to run the internal Metaflow step click entrypiont.
         """
-        from kfp import dsl
-
         cmds = []
 
         script_name = os.path.basename(sys.argv[0])
@@ -399,12 +398,9 @@ class KubeflowPipelines(object):
             )
 
     def create_kfp_pipeline_from_flow_graph(self) -> Callable:
-        import kfp
-        from kfp import dsl
-
         step_to_kfp_component_map = self.create_kfp_components_from_graph()
 
-        # Container op that corresponds to a step defined in the Metaflow flowgraph.
+        # KFP Component for a step defined in the Metaflow FlowSpec.
         step_op_component: Dict = yaml.load(
             kfp.components.func_to_component_text(
                 _step_op_func, base_image=self.base_image
@@ -412,9 +408,12 @@ class KubeflowPipelines(object):
             yaml.SafeLoader,
         )
 
-        def step_op(name: str) -> Callable[..., ContainerOp]:
-            my_dict = dict(step_op_component)
-            my_dict["name"] = name
+        def step_op(step_name: str) -> Callable[..., ContainerOp]:
+            """
+            Workaround of KFP.components.func_to_container_op() to set KFP Component name
+            """
+            my_dict = step_op_component.copy()
+            my_dict["name"] = step_name
             return kfp.components.load_component_from_text(yaml.dump(my_dict))
 
         def pipeline_transform(op: ContainerOp):
@@ -434,7 +433,7 @@ class KubeflowPipelines(object):
                     step_to_kfp_component_map[node.name].cmd_template,
                     kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     passed_in_split_indexes=passed_in_split_indexes,
-                ).set_display_name(node.name)
+                )
 
                 KubeflowPipelines._set_container_settings(
                     op, step_to_kfp_component_map[node.name]

@@ -36,6 +36,7 @@ class KfpInternalDecorator(StepDecorator):
     ):
         """
         Analogous to step_functions_decorator.py
+        Invoked from Task.run_step within the KFP container
         """
         # TODO: any other KFP environment variables to get and register to Metadata service?
         meta = {"kfp-execution": run_id}
@@ -53,6 +54,7 @@ class KfpInternalDecorator(StepDecorator):
     ):
         """
         Analogous to step_functions_decorator.py
+        Invoked from Task.run_step within the KFP container
         """
         if not is_task_ok:
             # The task finished with an exception - execution won't
