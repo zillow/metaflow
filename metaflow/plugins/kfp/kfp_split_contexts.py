@@ -65,6 +65,20 @@ class KfpSplitContext(object):
         self.logger = logger
         self.node = graph[step_name]
         self.flow_root = datastore.make_path(graph.name, run_id)
+        self.step_to_task_id: Dict[str, int] = graph_to_task_ids(graph)
+        self.s3 = S3()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+    def close(self):
+        try:
+            self.s3.close()
+        except:
+            pass
 
     def build_context_dict(self, flow: FlowSpec) -> Dict[str, str]:
         """
@@ -110,9 +124,7 @@ class KfpSplitContext(object):
         """
         self.logger(parent_context_step_name, head="--")
 
-        context_node_task_id = str(
-            graph_to_task_ids(self.graph)[parent_context_step_name]
-        )
+        context_node_task_id = str(self.step_to_task_id[parent_context_step_name])
         if self.graph[parent_context_step_name].is_inside_foreach:
             if (
                 self.graph[parent_context_step_name].type == "foreach"

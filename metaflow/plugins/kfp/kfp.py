@@ -16,7 +16,10 @@ from ...graph import DAGNode, FlowGraph
 from ...plugins.resources_decorator import ResourcesDecorator
 from .kfp_constants import (
     DEFAULT_KFP_YAML_OUTPUT_PATH,
+    INPUT_PATHS_ENV_NAME,
     PASSED_IN_SPLIT_INDEXES_ENV_NAME,
+    SPLIT_INDEX_ENV_NAME,
+    TASK_ID_ENV_NAME,
 )
 from .kfp_split_contexts import KfpSplitContext, graph_to_task_ids
 
@@ -141,7 +144,7 @@ class KubeflowPipelines(object):
             return (
                 f". {STEP_ENVIRONMENT_VARIABLES} "  # for $TASK_ID_ENV_NAME
                 f"&& python -m awscli s3 cp --only-show-errors {log_file} "
-                f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/$TASK_ID_ENV_NAME/{log_file}"
+                f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/${TASK_ID_ENV_NAME}/{log_file}"
             )
 
         # TODO: see datastore get_log_location()
@@ -354,7 +357,7 @@ class KubeflowPipelines(object):
             "step",
             node.name,
             "--run-id %s" % kfp_run_id,
-            f"--task-id $TASK_ID_ENV_NAME",
+            f"--task-id ${TASK_ID_ENV_NAME}",
             # Since retries are handled by KFP Argo, we can rely on
             # {{retries}} as the job counter.
             # '--retry-count {{retries}}',  # TODO: test verify, should it be -1?
@@ -362,12 +365,12 @@ class KubeflowPipelines(object):
             (
                 "--input-paths %s" % start_task_id_params_path
                 if node.name == "start"
-                else "--input-paths $INPUT_PATHS_ENV_NAME"
+                else f"--input-paths ${INPUT_PATHS_ENV_NAME}"
             ),
         ]
 
         if any(self.graph[n].type == "foreach" for n in node.in_funcs):
-            step.append("--split-index $SPLIT_INDEX_ENV_NAME")
+            step.append(f"--split-index ${SPLIT_INDEX_ENV_NAME}")
 
         if self.namespace:
             step.append("--namespace %s" % self.namespace)
@@ -553,40 +556,38 @@ def save_step_environment_variables(
     These will be loaded in the step_op_func bash command to be used
     by Metaflow step command line arguments.
     """
+    with KfpSplitContext(graph, step_name, run_id, datastore, logger) as split_contexts:
+        environment_exports = {
+            # The step task_id
+            TASK_ID_ENV_NAME: KfpSplitContext.get_step_task_id(
+                task_id, passed_in_split_indexes
+            ),
+            # The current split index if this node is_inside_foreach
+            SPLIT_INDEX_ENV_NAME: split_contexts.get_current_step_split_index(
+                passed_in_split_indexes
+            ),
+            # PASSED_IN_SPLIT_INDEXES is used by build_context_dict in kfp_decorator to:
+            #   - pass along parent split_indexes to nested foreaches
+            #   - get a parent foreach (in nested foreach case) split_index path
+            #   - compute the task_id
+            #   - get current foreach split index
+            # see: nested_parallelfor.ipynb for a visual description
+            PASSED_IN_SPLIT_INDEXES_ENV_NAME: passed_in_split_indexes,  # for kfp_decorator.py
+        }
 
-    split_contexts = KfpSplitContext(graph, step_name, run_id, datastore, logger)
+        if len(passed_in_split_indexes) > 0:
+            logger(passed_in_split_indexes, head="PASSED_IN_SPLIT_INDEXES: ")
 
-    environment_exports = {
-        # The step task_id
-        "TASK_ID_ENV_NAME": KfpSplitContext.get_step_task_id(
-            task_id, passed_in_split_indexes
-        ),
-        # The current split index if this node is_inside_foreach
-        "SPLIT_INDEX_ENV_NAME": split_contexts.get_current_step_split_index(
-            passed_in_split_indexes
-        ),
-        # PASSED_IN_SPLIT_INDEXES is used by build_context_dict in kfp_decorator to:
-        #   - pass along parent split_indexes to nested foreaches
-        #   - get a parent foreach (in nested foreach case) split_index path
-        #   - compute the task_id
-        #   - get current foreach split index
-        # see: nested_parallelfor.ipynb for a visual description
-        PASSED_IN_SPLIT_INDEXES_ENV_NAME: passed_in_split_indexes,  # for kfp_decorator.py
-    }
+        environment_exports[INPUT_PATHS_ENV_NAME] = _compute_input_paths(
+            graph, run_id, step_name, split_contexts, passed_in_split_indexes
+        )
 
-    if len(passed_in_split_indexes) > 0:
-        logger(passed_in_split_indexes, head="PASSED_IN_SPLIT_INDEXES: ")
+        logger(f"{STEP_ENVIRONMENT_VARIABLES}: {environment_exports}")
 
-    environment_exports["INPUT_PATHS_ENV_NAME"] = _compute_input_paths(
-        graph, run_id, step_name, split_contexts, passed_in_split_indexes
-    )
-
-    logger(f"{STEP_ENVIRONMENT_VARIABLES}: {environment_exports}")
-
-    with open(STEP_ENVIRONMENT_VARIABLES, "w") as file:
-        for key, value in environment_exports.items():
-            file.write(f"export {key}={value}\n")
-    os.chmod(STEP_ENVIRONMENT_VARIABLES, 644)
+        with open(STEP_ENVIRONMENT_VARIABLES, "w") as file:
+            for key, value in environment_exports.items():
+                file.write(f"export {key}={value}\n")
+        os.chmod(STEP_ENVIRONMENT_VARIABLES, 644)
 
 
 def _compute_input_paths(
@@ -635,7 +636,7 @@ def _compute_input_paths(
         if graph[node.split_parents[-1]].type == "foreach":
             parent_context = get_parent_context(node.split_parents[-1])
             parent_step_name = node.in_funcs[0]
-            parent_task_id = str(graph_to_task_ids(graph)[parent_step_name])
+            parent_task_id = str(split_contexts.step_to_task_id[parent_step_name])
             input_paths += f"/{parent_step_name}/:"
             parent_task_ids = [
                 f"{parent_task_id}.{split}"

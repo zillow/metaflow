@@ -3,7 +3,7 @@ import tarfile
 from typing import Dict
 from urllib.parse import urlparse
 
-from metaflow import util
+from metaflow import current, util
 from metaflow.datastore import MetaflowDataStore
 from metaflow.datastore.util.s3util import get_s3_client
 from metaflow.decorators import StepDecorator
@@ -19,6 +19,7 @@ class KfpInternalDecorator(StepDecorator):
         if datastore.TYPE != "s3":
             raise Exception("The *@kfp_internal* decorator requires --datastore=s3.")
 
+        self.datastore = datastore
         self.logger = logger
 
     def task_pre_step(
@@ -46,10 +47,6 @@ class KfpInternalDecorator(StepDecorator):
             self.ds_root = datastore.root
         else:
             self.ds_root = None
-
-        self.split_contexts = KfpSplitContext(
-            graph, step_name, run_id, datastore, self.logger
-        )
 
     def task_finished(
         self, step_name, flow, graph, is_task_ok, retry_count, max_user_code_retries
@@ -90,6 +87,18 @@ class KfpInternalDecorator(StepDecorator):
         #  the last uploaded data is returned. It'd be very rare that the data would change
         #  as this is the last step, and we assume the same inputs should produce the same
         #  outputs.
-        context_dict: Dict[str, str] = self.split_contexts.build_context_dict(flow)
-        KfpSplitContext.save_context_to_local_fs(context_dict)
-        self.split_contexts.upload_context_to_flow_root(context_dict)
+        with KfpSplitContext(
+            graph, step_name, current.run_id, self.datastore, self.logger
+        ) as split_contexts:
+            context_dict: Dict[str, str] = split_contexts.build_context_dict(flow)
+
+            # Pass along foreach_splits to step_op_func
+            KfpSplitContext.save_context_to_local_fs(context_dict)
+
+            # TODO: Could we copy [context file, metadata.tgz, stdout files] in
+            #   parallel using the S3 client shaving off a few seconds for every
+            #   task??  These seconds add up when running lightweight Metaflow
+            #   tests on KFP.
+            # Save context to S3 for downstream DAG steps to access this
+            # step's context_dict
+            split_contexts.upload_context_to_flow_root(context_dict)
