@@ -22,7 +22,7 @@ from .kfp_constants import (
     SPLIT_INDEX_ENV_NAME,
     TASK_ID_ENV_NAME,
 )
-from .kfp_split_contexts import KfpSplitContext, graph_to_task_ids
+from .kfp_foreach_splits import KfpForEachSplits, graph_to_task_ids
 
 STEP_ENVIRONMENT_VARIABLES = "/tmp/step-environment-variables.sh"
 
@@ -398,7 +398,9 @@ class KubeflowPipelines(object):
             )
 
     def create_kfp_pipeline_from_flow_graph(self) -> Callable:
-        step_to_kfp_component_map = self.create_kfp_components_from_graph()
+        step_to_kfp_component_map: Dict[
+            str, KfpComponent
+        ] = self.create_kfp_components_from_graph()
 
         # KFP Component for a step defined in the Metaflow FlowSpec.
         step_op_component: Dict = yaml.load(
@@ -441,13 +443,14 @@ class KubeflowPipelines(object):
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works
-                    with kfp.dsl.ParallelFor(op.output) as index:
+                    with kfp.dsl.ParallelFor(op.output) as split_index:
                         # build_kfp_dag() will halt when a foreach join is
                         # reached.
                         # NOTE: A Metaflow foreach node can only have one child
                         #  or one out_func
                         build_kfp_dag(
-                            self.graph[node.out_funcs[0]], passed_in_split_indexes=index
+                            self.graph[node.out_funcs[0]],
+                            passed_in_split_indexes=split_index,
                         )
 
                     # Handle the ParallelFor join step, and pass in
@@ -512,6 +515,8 @@ def _step_op_func(
     )
 
     # TODO: Map username to KFP specific user/profile/namespace
+    # Running Metaflow
+    # KFP orchestrator -> running MF runtime (runs user code, handles state)
     with Popen(
         cmd,
         shell=True,
@@ -531,10 +536,11 @@ def _step_op_func(
         raise Exception("Returned: %s" % process.returncode)
 
     # File written by kfp_decorator.py:task_finished
-    KFP_METAFLOW_CONTEXT_DICT_PATH = "/tmp/kfp_metaflow_context_dict.json"
-    with open(KFP_METAFLOW_CONTEXT_DICT_PATH, "r") as file:
-        task_context_dict = json.load(file)
-        return task_context_dict.get("foreach_splits", None)
+    KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
+    if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
+        with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
+            task_context_dict = json.load(file)
+            return task_context_dict.get("foreach_splits")
 
 
 def save_step_environment_variables(
@@ -555,17 +561,19 @@ def save_step_environment_variables(
     These will be loaded in the step_op_func bash command to be used
     by Metaflow step command line arguments.
     """
-    with KfpSplitContext(graph, step_name, run_id, datastore, logger) as split_contexts:
+    with KfpForEachSplits(
+        graph, step_name, run_id, datastore, logger
+    ) as split_contexts:
         environment_exports = {
             # The step task_id
-            TASK_ID_ENV_NAME: KfpSplitContext.get_step_task_id(
+            TASK_ID_ENV_NAME: KfpForEachSplits.get_step_task_id(
                 task_id, passed_in_split_indexes
             ),
             # The current split index if this node is_inside_foreach
             SPLIT_INDEX_ENV_NAME: split_contexts.get_current_step_split_index(
                 passed_in_split_indexes
             ),
-            # PASSED_IN_SPLIT_INDEXES is used by build_context_dict in kfp_decorator to:
+            # PASSED_IN_SPLIT_INDEXES is used by build_foreach_splits in kfp_decorator to:
             #   - pass along parent split_indexes to nested foreaches
             #   - get a parent foreach (in nested foreach case) split_index path
             #   - compute the task_id
@@ -593,13 +601,13 @@ def _compute_input_paths(
     graph: FlowGraph,
     run_id: str,
     step_name: str,
-    split_contexts: KfpSplitContext,
+    split_contexts: KfpForEachSplits,
     passed_in_split_indexes: str,
 ) -> str:
     """
     Computes and returns the Metaflow step input_paths.
 
-    Access the appropriate parent_context (using split_contexts.get_parent_context())
+    Access the appropriate parent_context (using split_contexts.get_foreach_splits())
     in S3 to get the parent context task_id and in the case of a foreach join
     the foreach_splits.
 
@@ -623,8 +631,8 @@ def _compute_input_paths(
     node: DAGNode = graph[step_name]
 
     # a closure
-    def get_parent_context(parent_context_step_name: str) -> Dict[str, str]:
-        return split_contexts.get_parent_context(
+    def get_parent_context_task_id(parent_context_step_name: str) -> str:
+        return split_contexts.get_parent_context_task_id(
             parent_context_step_name, node, passed_in_split_indexes
         )
 
@@ -633,23 +641,21 @@ def _compute_input_paths(
     if node.type == "join":
         # load from s3 the context outs foreach
         if graph[node.split_parents[-1]].type == "foreach":
-            parent_context = get_parent_context(node.split_parents[-1])
             parent_step_name = node.in_funcs[0]
             parent_task_id = str(split_contexts.step_to_task_id[parent_step_name])
-            input_paths += f"/{parent_step_name}/:"
-            parent_task_ids = [
-                f"{parent_task_id}.{split}"
-                for split in parent_context["foreach_splits"]
-            ]
-            input_paths += ",".join(parent_task_ids)
+            foreach_splits = split_contexts.get_foreach_splits(
+                node.split_parents[-1], node, passed_in_split_indexes
+            )
+            parent_task_ids = [f"{parent_task_id}.{split}" for split in foreach_splits]
+            input_paths += f"/{parent_step_name}/:{','.join(parent_task_ids)}"
         else:
             input_paths += "/:"
             for parent_step_name in node.in_funcs:
-                parent_context = get_parent_context(parent_step_name)
-                input_paths += f"{parent_step_name}/{parent_context['task_id']},"
+                parent_task_id = get_parent_context_task_id(parent_step_name)
+                input_paths += f"{parent_step_name}/{parent_task_id},"
     else:
         if step_name != "start":
             parent_step_name = node.in_funcs[0]
-            parent_context = get_parent_context(parent_step_name)
-            input_paths += f"/{parent_step_name}/{parent_context['task_id']}"
+            parent_task_id = get_parent_context_task_id(parent_step_name)
+            input_paths += f"/{parent_step_name}/{parent_task_id}"
     return input_paths.strip(",")
