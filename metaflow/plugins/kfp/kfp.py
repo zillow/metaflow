@@ -5,16 +5,14 @@ import string
 import sys
 from collections import deque
 from pathlib import Path
-from typing import NamedTuple, Union
+from typing import NamedTuple
 
 import kfp
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
-from kfp.dsl import ContainerOp
 
 from .constants import DEFAULT_KFP_YAML_OUTPUT_PATH
 from ... import R
 from ...graph import DAGNode
-from ...plugins.resources_decorator import ResourcesDecorator
 
 
 class KfpComponent(object):
@@ -42,7 +40,7 @@ class KubeflowPipelines(object):
         namespace=None,
         api_namespace=None,
         username=None,
-        **kwargs,
+        **kwargs
     ):
         """
         Analogous to step_functions_cli.py
@@ -87,7 +85,7 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
-    def _command(self, code_package_url, environment, step_name, step_cli, task_id):
+    def _command(self, code_package_url, environment, step_name, step_cli):
         """
         Analogous to batch.py
         """
@@ -99,32 +97,7 @@ class KubeflowPipelines(object):
         commands.extend(environment.bootstrap_commands(step_name))
         commands.append("echo 'Task is starting.'")
         commands.extend(step_cli)
-        subshell_commands = " && ".join(
-            commands
-        )  # run inside subshell to capture all stdout/stderr
-        # redirect stdout/stderr to separate files, using tee to display to UI
-        redirection_commands = "> >(tee -a 0.stdout.log) 2> >(tee -a 0.stderr.log >&2)"
-
-        # Creating a template to save logs to S3. This is within a function because
-        # datastore_root is not available within the scope of this function, and needs
-        # to be provided in the `step_op` function. f strings (AFAK) don't support
-        # insertion of only a partial number of placeholder strings.
-        def create_log_cmd(log_file):
-            save_logs_cmd_template = (
-                f"python -m awscli s3 cp {log_file} {{datastore_root}}/"
-                f"{self.flow.name}/{{run_id}}/{step_name}/"
-                f"{task_id}/{log_file}"
-            )
-            return save_logs_cmd_template
-
-        log_stdout_cmd = create_log_cmd(log_file="0.stdout.log")
-        log_stderr_cmd = create_log_cmd(log_file="0.stderr.log")
-        save_logs_cmd = f"{log_stderr_cmd} >/dev/null && {log_stdout_cmd} >/dev/null"
-
-        # After the subshell/redirection commands, we capture the exit code because otherwise,
-        # due to the ';', the Popen process will always return an exit code of 0. After capturing
-        # the code, # we exit with this code manually (even if no errors are present).
-        return f"({subshell_commands}) {redirection_commands}; export exit_code=$?; {save_logs_cmd}; exit $exit_code"
+        return " && ".join(commands)
 
     @staticmethod
     def _get_retries(node):
@@ -141,45 +114,6 @@ class KubeflowPipelines(object):
             max_error_retries = max(max_error_retries, error_retries)
 
         return max_user_code_retries, max_user_code_retries + max_error_retries
-
-    @staticmethod
-    def _get_resource_requirements(node):
-        """
-        Get resource request or limit for a Metaflow step (node) set by @resources decorator.
-
-        Supported parameters: 'cpu', 'cpu_limit', 'gpu', 'gpu_vendor', 'memory', 'memory_limit'
-        Keys with no suffix set resource request (minimum);
-        keys with 'limit' suffix sets resource limit (maximum).
-
-        Eventually resource request and limits link back to kubernetes, see
-        https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-
-        Default unit for memory is megabyte, aligning with existing resource decorator usage.
-
-        Example using resource decorator:
-            @resource(cpu=0.5, cpu_limit=2, gpu=1, memory=300)
-            @step
-            def my_kfp_step(): ...
-        """
-
-        def to_k8s_resource_format(resource: str, value: Union[int, float, str]):
-            value = str(value)
-
-            # Defaults memory unit to megabyte
-            if resource in ["memory", "memory_limit"] and value.isnumeric():
-                value = f"{value}M"
-            return value
-
-        resource_requirement = dict()
-        for deco in node.decorators:
-            if isinstance(deco, ResourcesDecorator):
-                for attr_key, attr_value in deco.attributes.items():
-                    if attr_value is not None:
-                        resource_requirement[attr_key] = to_k8s_resource_format(
-                            attr_key, attr_value
-                        )
-
-        return resource_requirement
 
     def create_kfp_components_from_graph(self):
         """
@@ -218,11 +152,7 @@ class KubeflowPipelines(object):
             return KfpComponent(
                 node.name,
                 self._command(
-                    self.code_package_url,
-                    self.environment,
-                    step_name,
-                    [step_cli],
-                    task_id,
+                    self.code_package_url, self.environment, step_name, [step_cli]
                 ),
                 total_retries,
             )
@@ -406,30 +336,6 @@ class KubeflowPipelines(object):
 
             visited = {}
 
-            def set_resource_requirements(
-                container_op: ContainerOp, resource_requirements: dict
-            ):
-                if "memory" in resource_requirements:
-                    container_op.container.set_memory_request(
-                        resource_requirements["memory"]
-                    )
-                if "memory_limit" in resource_requirements:
-                    container_op.container.set_memory_limit(
-                        resource_requirements["memory_limit"]
-                    )
-                if "cpu" in resource_requirements:
-                    container_op.container.set_cpu_request(resource_requirements["cpu"])
-                if "cpu_limit" in resource_requirements:
-                    container_op.container.set_cpu_limit(
-                        resource_requirements["cpu_limit"]
-                    )
-                if "gpu" in resource_requirements:
-                    # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
-                    container_op.container.set_gpu_limit(
-                        resource_requirements["gpu"],
-                        vendor=resource_requirements["gpu_vendor"],
-                    )
-
             def build_kfp_dag(node: DAGNode, context: str, index=None):
                 kfp_component = step_to_kfp_component_map[node.name]
                 visited[node.name] = step_op(
@@ -439,11 +345,6 @@ class KubeflowPipelines(object):
                     context,
                     index=index,
                 ).set_display_name(node.name)
-
-                set_resource_requirements(
-                    visited[node.name],
-                    KubeflowPipelines._get_resource_requirements(node),
-                )
 
                 if node.type == "foreach":
                     with kfp.dsl.ParallelFor(
@@ -473,11 +374,7 @@ class KubeflowPipelines(object):
 
 
 def step_op_func(
-    datastore_root: str,
-    cmd_template: str,
-    kfp_run_id: str,
-    context,
-    index=None,
+    datastore_root: str, cmd_template: str, kfp_run_id: str, context, index=None
 ) -> NamedTuple("context", [("task_out_dict", dict), ("split_indexes", list)]):
     """
     Function used to create a KFP container op that corresponds to a single step in the flow.
@@ -508,13 +405,18 @@ def step_op_func(
 
     # TODO: Map username to KFP specific user/profile/namespace
     with Popen(
-        cmd,
-        shell=True,
+        ["/bin/sh", "-c", cmd],
+        stdin=PIPE,
+        stdout=PIPE,
+        stderr=STDOUT,
         universal_newlines=True,
-        executable="/bin/bash",
         env=dict(os.environ, USERNAME="kfp-user", METAFLOW_RUN_ID=kfp_run_id),
-    ) as process:
-        print("Running command.")
+    ) as process, StringIO() as string_buffer:
+        for line in process.stdout:
+            print(line, end="")
+            string_buffer.write(line)
+        buffer_output = string_buffer.getvalue()
+    print("___ DONE ___")
 
     if process.returncode != 0:
         raise Exception("Returned: %s" % process.returncode)
@@ -523,8 +425,6 @@ def step_op_func(
         os.path.join(tempfile.gettempdir(), "kfp_metaflow_out_dict.json"), "r"
     ) as file:
         task_out_dict = json.load(file)
-
-    print("___DONE___")
 
     StepMetaflowContext = NamedTuple(
         "context", [("task_out_dict", dict), ("split_indexes", list)]
