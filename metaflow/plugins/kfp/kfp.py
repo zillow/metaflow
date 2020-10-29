@@ -141,16 +141,19 @@ class KubeflowPipelines(object):
             max_error_retries = max(max_error_retries, error_retries)
 
         return max_user_code_retries, max_user_code_retries + max_error_retries
-    
+
     @staticmethod
     def _get_resource_requirements(node):
         """
         Get resource request or limit for a Metaflow step (node) set by @resources decorator.
+
         Supported parameters: 'cpu', 'cpu_limit', 'gpu', 'gpu_vendor', 'memory', 'memory_limit'
         Keys with no suffix set resource request (minimum);
         keys with 'limit' suffix sets resource limit (maximum).
+
         Eventually resource request and limits link back to kubernetes, see
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+
         Default unit for memory is megabyte, aligning with existing resource decorator usage.
         Example using resource decorator:
             @resource(cpu=0.5, cpu_limit=2, gpu=1, memory=300)
@@ -519,8 +522,8 @@ def step_op_func(
         os.path.join(tempfile.gettempdir(), "kfp_metaflow_out_dict.json"), "r"
     ) as file:
         task_out_dict = json.load(file)
-    
-    print("___ DONE ___")
+
+    print("___DONE___")
 
     StepMetaflowContext = NamedTuple(
         "context", [("task_out_dict", dict), ("split_indexes", list)]
