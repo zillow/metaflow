@@ -155,6 +155,7 @@ class KubeflowPipelines(object):
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 
         Default unit for memory is megabyte, aligning with existing resource decorator usage.
+
         Example using resource decorator:
             @resource(cpu=0.5, cpu_limit=2, gpu=1, memory=300)
             @step
