@@ -1,26 +1,23 @@
-import posixpath
-
 import click
+import posixpath
 
 from metaflow import current, decorators
 from metaflow.datastore.datastore import TransformableObject
 from metaflow.exception import MetaflowException
 from metaflow.metaflow_config import (
+    KFP_RUN_URL_PREFIX,
     KFP_SDK_API_NAMESPACE,
     KFP_SDK_NAMESPACE,
-    KFP_RUN_URL_PREFIX,
 )
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
     check_metadata_service_version,
 )
-from metaflow.plugins.kfp.constants import (
-    DEFAULT_EXPERIMENT_NAME,
-    DEFAULT_RUN_NAME,
-    DEFAULT_KFP_YAML_OUTPUT_PATH,
+from metaflow.plugins.kfp.kfp_constants import (
     BASE_IMAGE,
+    DEFAULT_EXPERIMENT_NAME,
+    DEFAULT_KFP_YAML_OUTPUT_PATH,
 )
-from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
 from metaflow.util import get_username
 
 
@@ -36,7 +33,29 @@ def cli():
 @cli.group(name="kfp", help="Commands related to Kubeflow Pipelines.")
 @click.pass_obj
 def kubeflow_pipelines(obj):
-    obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
+    pass
+
+
+@kubeflow_pipelines.command(
+    help="Internal KFP step command to initialize parent taskIds"
+)
+@click.option("--run-id")
+@click.option("--step_name")
+@click.option("--passed_in_split_indexes")
+@click.option("--task_id")
+@click.pass_obj
+def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
+    from metaflow.plugins.kfp.kfp import save_step_environment_variables
+
+    save_step_environment_variables(
+        obj.datastore,
+        obj.graph,
+        run_id,
+        step_name,
+        passed_in_split_indexes,
+        task_id,
+        obj.logger,
+    )
 
 
 @kubeflow_pipelines.command(
@@ -47,24 +66,28 @@ def kubeflow_pipelines(obj):
     "experiment_name",
     default=DEFAULT_EXPERIMENT_NAME,
     help="The associated experiment name for the run",
+    show_default=True,
 )
 @click.option(
     "--run-name",
     "run_name",
-    default=DEFAULT_RUN_NAME,
-    help="Name assigned to the new KFP run",
+    default=None,
+    help="Name assigned to the new KFP run. If not assigned None is sent to KFP",
+    show_default=True,
 )
 @click.option(
     "--namespace",
     "namespace",
     default=KFP_SDK_NAMESPACE,
     help="Namespace of your run in KFP.",
+    show_default=True,
 )
 @click.option(
     "--api-namespace",
     "api_namespace",
     default=KFP_SDK_API_NAMESPACE,
     help="Namespace where the API service is run.",
+    show_default=True,
 )
 @click.option(
     "--yaml-only",
@@ -79,6 +102,7 @@ def kubeflow_pipelines(obj):
     "pipeline_path",
     default=DEFAULT_KFP_YAML_OUTPUT_PATH,
     help="The output path of the generated KFP pipeline yaml file",
+    show_default=True,
 )
 @click.option(
     "--s3-code-package/--no-s3-code-package",
@@ -101,6 +125,15 @@ def kubeflow_pipelines(obj):
     help="If not set uses flow_name.",
 )
 @click.option(
+    "--max-parallelism",
+    default=10,
+    show_default=True,
+    help="Maximum number of parallel pods.",
+)
+@click.option(
+    "--workflow-timeout", default=None, type=int, help="Workflow timeout in seconds."
+)
+@click.option(
     "--wait-for-completion",
     "wait_for_completion",
     is_flag=True,
@@ -112,7 +145,7 @@ def kubeflow_pipelines(obj):
 def run(
     obj,
     experiment_name=DEFAULT_EXPERIMENT_NAME,
-    run_name=DEFAULT_RUN_NAME,
+    run_name=None,
     namespace=KFP_SDK_NAMESPACE,
     api_namespace=KFP_SDK_API_NAMESPACE,
     yaml_only=False,
@@ -120,11 +153,14 @@ def run(
     s3_code_package=True,
     base_image=BASE_IMAGE,
     pipeline_name=None,
-    wait_for_completion=False,
+    max_parallelism=None,
+    workflow_timeout=None,
+    wait_for_completion=False
 ):
     """
     Analogous to step_functions_cli.py
     """
+    obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
     check_metadata_service_version(obj)
     flow = make_flow(
         obj,
@@ -133,6 +169,8 @@ def run(
         api_namespace,
         base_image,
         s3_code_package,
+        max_parallelism,
+        workflow_timeout,
     )
 
     if yaml_only:
@@ -180,16 +218,32 @@ def run(
                     fg="green",
                 )
             else:
-                raise Exception("Flow: {flow_name}, run link: {kfp_run_url}\n FAILED!".format(
+                raise Exception("Flow: {flow_name}, run link: {kfp_run_url} FAILED!".format(
                         flow_name=current.flow_name, kfp_run_url=kfp_run_url
                     )
                 )
 
 
-def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
+def make_flow(
+    obj,
+    name,
+    namespace,
+    api_namespace,
+    base_image,
+    s3_code_package,
+    max_parallelism,
+    workflow_timeout,
+):
     """
     Analogous to step_functions_cli.py
     """
+
+    # Import declared inside here because this file has Python3 syntax while
+    # Metaflow supports Python2 for backward compat, so only load Python3 if the KFP plugin
+    # is being run.
+    from metaflow.plugins.kfp.kfp import KubeflowPipelines
+    from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
+
     datastore = obj.datastore(
         obj.flow.name,
         mode="w",
@@ -220,8 +274,6 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
             fg="magenta",
         )
 
-    from metaflow.plugins.kfp.kfp import KubeflowPipelines
-
     return KubeflowPipelines(
         name,
         obj.graph,
@@ -238,4 +290,6 @@ def make_flow(obj, name, namespace, api_namespace, base_image, s3_code_package):
         namespace=namespace,
         api_namespace=api_namespace,
         username=get_username(),
+        max_parallelism=max_parallelism,
+        workflow_timeout=workflow_timeout,
     )
