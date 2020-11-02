@@ -1,6 +1,9 @@
 from os import listdir
 from os.path import isfile, join
 from subprocess import run, PIPE
+from typing import List
+
+from .... import R
 
 import kfp
 
@@ -30,28 +33,24 @@ KFP runs will be scheduled.
 """
 
 
-def parse_magic_tokens(output, start_token, end_token):
-    start_idx = output.find(start_token)
-    end_idx = output.find(end_token)
-
-    if start_idx == -1 or end_idx == -1:
-        return -1
-
-    run_id = output[start_idx + len(start_token) : end_idx]
-    return run_id
+def _python():
+    if R.use_r():
+        return "python3"
+    else:
+        return "python"
 
 
-def obtain_flow_file_paths(flow_dir_path):
+def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     file_paths = [
-        f
-        for f in listdir(flow_dir_path)
-        if isfile(join(flow_dir_path, f)) and not f.startswith(".")
+        file_name
+        for file_name in listdir(flow_dir_path)
+        if isfile(join(flow_dir_path, file_name)) and not file_name.startswith(".")
     ]
     return file_paths
 
 
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("sample_flows"))
-def test_sample_flows(pytestconfig, flow_file_path):
+def test_sample_flows(pytestconfig, flow_file_path: str) -> None:
     full_path = join("sample_flows", flow_file_path)
     # In the process below, stdout=PIPE because we only want to capture stdout.
     # The reason is that the click echo function prints to stderr, and contains
@@ -61,14 +60,12 @@ def test_sample_flows(pytestconfig, flow_file_path):
     # run id and capture this to correctly test logging. See the
     # `check_valid_logs_process` process.
     run_and_wait_process = run(
-        f"python3 {full_path} kfp run --no-s3-code-package" 
+        f"{_python()} {full_path} kfp run --no-s3-code-package"
         f" --wait-for-completion --base-image {pytestconfig.getoption('tag')}",
         universal_newlines=True,
         stdout=PIPE,
         shell=True,
     )
     assert run_and_wait_process.returncode == 0
-    pipeline_result = parse_magic_tokens(run_and_wait_process.stdout, "start_marker|", "|end_marker")
-    assert pipeline_result == "success"
 
     return
