@@ -60,7 +60,7 @@ def test_sample_flows(pytestconfig, flow_file_path: str) -> None:
     # run id and capture this to correctly test logging. See the
     # `check_valid_logs_process` process.
     run_and_wait_process = run(
-        f"{_python()} {full_path} kfp run --no-s3-code-package"
+        f"{_python()} {full_path} --datastore=s3 kfp run --no-s3-code-package"
         f" --wait-for-completion --base-image {pytestconfig.getoption('tag')}",
         universal_newlines=True,
         stdout=PIPE,
