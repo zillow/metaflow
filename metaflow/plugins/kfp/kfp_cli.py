@@ -155,7 +155,7 @@ def run(
     pipeline_name=None,
     max_parallelism=None,
     workflow_timeout=None,
-    wait_for_completion=False
+    wait_for_completion=False,
 ):
     """
     Analogous to step_functions_cli.py
@@ -218,7 +218,8 @@ def run(
                     fg="green",
                 )
             else:
-                raise Exception("Flow: {flow_name}, run link: {kfp_run_url} FAILED!".format(
+                raise Exception(
+                    "Flow: {flow_name}, run link: {kfp_run_url} FAILED!".format(
                         flow_name=current.flow_name, kfp_run_url=kfp_run_url
                     )
                 )
