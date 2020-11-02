@@ -7,6 +7,7 @@ DEFAULT_EXPERIMENT_NAME = "mf-on-kfp-experiments"
 
 BASE_IMAGE = "hsezhiyan/metaflow-zillow:1.6"
 
+
 KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
 
 SPLIT_INDEX_SEPARATOR = "_"
