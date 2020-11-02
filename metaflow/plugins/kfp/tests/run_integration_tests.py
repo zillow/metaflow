@@ -62,7 +62,7 @@ def test_sample_flows(pytestconfig, flow_file_path):
     # `check_valid_logs_process` process.
     run_and_wait_process = run(
         f"python3 {full_path} kfp run --no-s3-code-package" 
-        f" --wait-for-completion --base-image hsezhiyan/kfp-base:{pytestconfig.getoption('tag')}",
+        f" --wait-for-completion --base-image {pytestconfig.getoption('tag')}",
         universal_newlines=True,
         stdout=PIPE,
         shell=True,
