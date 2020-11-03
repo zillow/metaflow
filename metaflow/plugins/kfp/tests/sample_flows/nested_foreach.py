@@ -23,6 +23,10 @@ def assert_equals(expected, got):
 
 
 class NestedForeach(FlowSpec):
+    """
+    foreach -> foreach -> foreach -> linear -> join -> join -> join
+    """
+
     @step
     def start(self):
         self.x = "ab"

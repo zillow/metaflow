@@ -4,6 +4,10 @@ import pytest
 
 
 class MergeArtifacts(FlowSpec):
+    """
+    split -> join -> split -> join
+    """
+
     @step
     def start(self):
         self.pass_down = "a"

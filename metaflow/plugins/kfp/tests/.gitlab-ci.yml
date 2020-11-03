@@ -47,6 +47,7 @@ variables:
   script: &build-and-push-docker-image
     # Source the artifact from the init job to enable access to shared-env-variables
     - 'source ${_SHARED_ENV_FILE}'
+    - 'cat ${_SHARED_ENV_FILE}'
 
     # Build Artifact (i.e: Docker Image) in Gitlab current pipeline-job-container
     - 'docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t ${_LOCAL_DOCKER_TAG} .'
@@ -76,13 +77,7 @@ variables:
     - 'echo "Will run docker push" ${_LOCAL_DOCKER_TAG} ${_EXPANDED_VERSION_DOCKER_IMAGE_NAME} ${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}'
     - 'docker_push ${_LOCAL_DOCKER_TAG} ${_EXPANDED_VERSION_DOCKER_IMAGE_NAME} ${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}'
 
-    # Push to artifactory repo (overwrites ARE allowed to docker-images in this repo)
-    - 'echo "Will run docker push" ${_LOCAL_DOCKER_TAG} ${_NAMED_VERSION_DOCKER_IMAGE_NAME} ${_NAMED_VERSION_DOCKER_IMAGE_TAG}'
-    - 'docker_push ${_LOCAL_DOCKER_TAG} ${_NAMED_VERSION_DOCKER_IMAGE_NAME} ${_NAMED_VERSION_DOCKER_IMAGE_TAG}'
-    - 'cat ${_SHARED_ENV_FILE}'
-
     - 'echo "built-image-url: ${DOCKER_REPO_URL}/${_EXPANDED_VERSION_DOCKER_IMAGE_NAME}:${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}"'
-    - 'echo "built-image-url: ${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}"'
    
 .path_to_host_file_directory: # obtains the path to file on the host machine, which is needed to mount a Docker on Docker
   script: &path-to-host-file-directory

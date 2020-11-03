@@ -22,9 +22,8 @@ def assert_equals(expected, got):
 
 class NestedForeachWithBranching(FlowSpec):
     """
-    This flow contains a nested foreach and a static branch
-    on separate branches. The nested foreach and static branch
-    are joined together in `foreach_join_w_x`.
+    split -> foreach -> foreach -> foreach -> linear -> linear -> join -> join -> join -> join (with below split)
+          -> split -> join  (with above split)
     """
 
     @step

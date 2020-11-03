@@ -19,9 +19,9 @@ or not the run was successful. It also checks to make sure the logging
 functionality works.
 
 More specifically, the tests spawn KFP runs and ensure the spawning processes
-have a returncode of 0. However, the logs of the runs within KFP are simply logged
-to the screen, and it is the responsibility of the user to read these logs to ensure
-the run executed correctly on KFP.
+have a returncode of 0. If any test fails within KFP, an exception
+is raised, the test fails, and the user can access the run link to the failed
+KFP run.
 
 Parameters:
 -n: specifies the number of parallel processes used by PyTest.

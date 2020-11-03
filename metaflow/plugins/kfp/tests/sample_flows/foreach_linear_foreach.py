@@ -1,25 +1,5 @@
 # -*- coding: utf-8 -*-
-from metaflow import FlowSpec, step, Parameter, JSONType
-import pprint
-
-
-def truncate(var):
-    var = str(var)
-    if len(var) > 500:
-        var = "%s..." % var[:500]
-    return var
-
-
-class ExpectationFailed(Exception):
-    def __init__(self, expected, got):
-        super(ExpectationFailed, self).__init__(
-            "Expected result: %s, got %s" % (truncate(expected), truncate(got))
-        )
-
-
-def assert_equals(expected, got):
-    if expected != got:
-        raise ExpectationFailed(expected, got)
+from metaflow import FlowSpec, step
 
 
 class ForeachLinearForeach(FlowSpec):
@@ -55,7 +35,6 @@ class ForeachLinearForeach(FlowSpec):
 
     @step
     def foreach_join_z(self, inputs):
-        # pprint.pprint([(input.x, input.y, input.z) for input in inputs])
         self.next(self.foreach_join_start)
 
     @step
