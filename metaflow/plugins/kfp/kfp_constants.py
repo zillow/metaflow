@@ -5,7 +5,7 @@ DEFAULT_KFP_YAML_OUTPUT_PATH = "kfp_pipeline.yaml"
 DEFAULT_RUN_NAME = "run_mf_on_kfp"
 DEFAULT_EXPERIMENT_NAME = "mf-on-kfp-experiments"
 
-BASE_IMAGE = "hsezhiyan/metaflow-zillow:1.6"
+BASE_IMAGE = "hsezhiyan/metaflow-zillow:2.0"
 
 
 KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"

@@ -59,9 +59,19 @@ def test_sample_flows(pytestconfig, flow_file_path: str) -> None:
     # We use the print function in kfp_cli.py to print a magic token containing the
     # run id and capture this to correctly test logging. See the
     # `check_valid_logs_process` process.
+
+    if pytestconfig.getoption("local"):
+        test_cmd = (
+            f"{_python()} {full_path} --datastore=s3 kfp run --wait-for-completion"
+        )
+    else:
+        test_cmd = (
+            f"{_python()} {full_path} --datastore=s3 kfp run --no-s3-code-package"
+            f" --wait-for-completion --base-image {pytestconfig.getoption('image')}"
+        )
+
     run_and_wait_process = run(
-        f"{_python()} {full_path} --datastore=s3 kfp run --no-s3-code-package"
-        f" --wait-for-completion --base-image {pytestconfig.getoption('image')}",
+        test_cmd,
         universal_newlines=True,
         stdout=PIPE,
         shell=True,
