@@ -73,11 +73,11 @@ variables:
     # Login to docker
     - 'echo ${DOCKER_API_KEY} | docker login -u ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}'
 
-    # Push to artifactory repo (overwrites are NOT allowed to docker-images in this repo)
-    - 'echo "Will run docker push" ${_LOCAL_DOCKER_TAG} ${_EXPANDED_VERSION_DOCKER_IMAGE_NAME} ${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}'
-    - 'docker_push ${_LOCAL_DOCKER_TAG} ${_EXPANDED_VERSION_DOCKER_IMAGE_NAME} ${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}'
+    # Push to artifactory repo (overwrites ARE allowed to docker-images in this repo)
+    - 'echo "Will run docker push" ${_LOCAL_DOCKER_TAG} ${_NAMED_VERSION_DOCKER_IMAGE_NAME} ${_NAMED_VERSION_DOCKER_IMAGE_TAG}'
+    - 'docker_push ${_LOCAL_DOCKER_TAG} ${_NAMED_VERSION_DOCKER_IMAGE_NAME} ${_NAMED_VERSION_DOCKER_IMAGE_TAG}'
 
-    - 'echo "built-image-url: ${DOCKER_REPO_URL}/${_EXPANDED_VERSION_DOCKER_IMAGE_NAME}:${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}"'
+    - 'echo "built-image-url: ${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}"'
    
 .path_to_host_file_directory: # obtains the path to file on the host machine, which is needed to mount a Docker on Docker
   script: &path-to-host-file-directory
@@ -90,7 +90,7 @@ build:
   script:
     - *init-docker-variables
     - *build-and-push-docker-image
-    - export BUILT_IMAGE_FULL_PATH=${DOCKER_REPO_URL}/${_EXPANDED_VERSION_DOCKER_IMAGE_NAME}:${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}
+    - export BUILT_IMAGE_FULL_PATH=${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}
     - echo ${BUILT_IMAGE_FULL_PATH} > ${_IMAGE_TAG_FILE} # file _IMAGE_TAG_FILE contains the path to the image
   artifacts:
     paths:
