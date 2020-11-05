@@ -78,6 +78,46 @@ variables:
     - 'docker_push ${_LOCAL_DOCKER_TAG} ${_NAMED_VERSION_DOCKER_IMAGE_NAME} ${_NAMED_VERSION_DOCKER_IMAGE_TAG}'
 
     - 'echo "built-image-url: ${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}"'
+
+.generate_docker_image_version:
+  script: &generate-docker-image-version-script
+  - |
+    if [ -z "${DOCKER_REPO_URL}" ] || [ -z "${MAJOR_VERSION}" ] || [ -z "${MINOR_VERSION}" ]; then
+      echo "No DOCKER_REPO_URL=${DOCKER_REPO_URL}, MAJOR_VERSION=${MAJOR_VERSION} or MINOR_VERSION=${MINOR_VERSION} provided."
+      exit 1
+    fi
+  - IMAGE_TAG="${MAJOR_VERSION}.${MINOR_VERSION}.${CI_COMMIT_SHORT_SHA}.${CI_COMMIT_REF_SLUG}"
+  - |
+    # Unfortunately we require gawk for a number of commands, but mawk is typically installed by default and has different substr behaviour.
+    awk_version=$(awk -W version | sed -n 1p | awk '{print $1}')
+    offset=$(if [ "${awk_version}" == "GNU" ]; then echo 1; else echo 0; fi)
+    # Grab the team name from the closest Gitlab group to the Artificial Intelligence umbrella group.
+    DEFAULT_TEAM_NAME=$(echo $CI_PROJECT_PATH | awk -v offset=$offset '{ split($0,parts,"/artificial-intelligence/");print substr(parts[2],0,index(parts[2],"/")-offset) }')
+    IMAGE_PATH=${ARTIFACT_NAME:-$CI_PROJECT_NAME}
+    if [ ! -z "${TEAM_NAME}" ] || [ ! -z "${DEFAULT_TEAM_NAME}" ]; then
+      # Only if we have successfully found a team name should we construct a path using it.
+      IMAGE_PATH=${TEAM_NAME:-$DEFAULT_TEAM_NAME}/${IMAGE_PATH}
+    fi
+  - export IMAGE_REPOSITORY=${DOCKER_REPO_URL}/${ORGANIZATION_NAME}/${IMAGE_PATH}
+  - export IMAGE_REPOSITORY_TAG=${IMAGE_REPOSITORY}:${IMAGE_TAG}
+  artifacts: &generate-docker-image-version-artifacts
+    paths:
+    - versions
+    expire_in: "6 months"
+
+.build_push_docker_image:
+  # extends: .read_docker_image_version
+  script: &build-push-docker-image
+  # Don't output the DOCKER_API_KEY directly as it's a secret, output the length instead for easy debugging.
+  - |
+    if [ -z "${DOCKER_USERNAME}" ] || [ -z "${DOCKER_REPO_URL}" ] || [ -z "${DOCKER_API_KEY}" ]; then
+      echo "No DOCKER_USERNAME=${DOCKER_USERNAME}, DOCKER_REPO_URL=${DOCKER_REPO_URL}) or len(DOCKER_API_KEY)=${#DOCKER_API_KEY} provided."
+      exit 1
+    fi
+  - docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t ${_LOCAL_DOCKER_TAG} .
+  - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
+  - docker tag ${LOCAL_DOCKER_TAG} 
+  - docker push ${IMAGE_REPOSITORY_TAG}
    
 .path_to_host_file_directory: # obtains the path to file on the host machine, which is needed to mount a Docker on Docker
   script: &path-to-host-file-directory
@@ -88,8 +128,8 @@ variables:
 build:
   stage: build
   script:
-    - *init-docker-variables
-    - *build-and-push-docker-image
+    - *generate-docker-image-version-script
+    - *build-push-docker-image
     - export BUILT_IMAGE_FULL_PATH=${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}
     - echo ${BUILT_IMAGE_FULL_PATH} > ${_IMAGE_TAG_FILE} # file _IMAGE_TAG_FILE contains the path to the image
   artifacts:
