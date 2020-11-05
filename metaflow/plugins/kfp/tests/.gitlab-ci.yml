@@ -108,7 +108,7 @@ test:internal:
     - *path-to-host-file-directory
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} ) # reading the path to the Docker image on Artifactory
     - cp -r /root/.kube .
-    - docker pull ${BUILT_IMAGE_FULL_PATH}
+    - docker pull ${BUILT_IMAGE_FULL_PATH} # always pull latest image because local image is cached
     - docker run 
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube
         --rm 
@@ -118,6 +118,7 @@ test:internal:
         -e AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION 
         ${BUILT_IMAGE_FULL_PATH}
         bash -c "
+          cat /home/zservice/metaflow/metaflow/plugins/kfp/tests/sample_flows/merge_artifacts.py && 
           export KFP_RUN_URL_PREFIX=https://kubeflow.corp.dev-k8s.zg-aip.net/ && 
           export KFP_SDK_NAMESPACE=metaflow-integration-testing && 
           export METAFLOW_DATASTORE_SYSROOT_S3=s3://aip-example-dev/metaflow/ && 
