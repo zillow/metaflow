@@ -114,7 +114,7 @@ variables:
       echo "No DOCKER_USERNAME=${DOCKER_USERNAME}, DOCKER_REPO_URL=${DOCKER_REPO_URL}) or len(DOCKER_API_KEY)=${#DOCKER_API_KEY} provided."
       exit 1
     fi
-  - docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t ${_LOCAL_DOCKER_TAG} .
+  - docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t integration_testing_full_image .
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
   - docker tag ${LOCAL_DOCKER_TAG} 
   - docker push ${IMAGE_REPOSITORY_TAG}
