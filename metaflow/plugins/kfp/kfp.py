@@ -488,7 +488,7 @@ class KubeflowPipelines(object):
 
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
-            dsl.get_pipeline_conf().set_timeout(10)
+            dsl.get_pipeline_conf().set_timeout(1000)
             dsl.get_pipeline_conf().set_ttl_seconds_after_finished(100)
 
         return kfp_pipeline_from_flow
