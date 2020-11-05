@@ -15,69 +15,7 @@ variables:
   MAJOR_VERSION: "1"
   MINOR_VERSION: "0"
   ARTIFACTORY_WEB_APP_URL: https://artifactory.zgtools.net/artifactory/webapp/#/packages/docker
-  _SHARED_ENV_FILE: 'shared.env'
   _IMAGE_TAG_FILE: 'image_tag_file.txt'
-
-.base:job-with-artifacts:
-  artifacts:
-    paths:
-      - ${_SHARED_ENV_FILE}
-
-.init_docker_variables:
-  extends: .base:job-with-artifacts
-  script: &init-docker-variables
-    - 'touch ${_SHARED_ENV_FILE}'
-    - 'export _USER_ID=$(echo ${GITLAB_USER_EMAIL} | sed "s/@.*//")'
-    - 'echo "export _USER_ID=${_USER_ID}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-
-    # Setup required environment-variables
-    - 'echo "export _ARTIFACT_VERSION=${ARTIFACT_MAJOR_VERSION}.${ARTIFACT_MINOR_VERSION}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-    - 'echo "export _LOCAL_DOCKER_TAG=${ARTIFACT_NAME}:${_ARTIFACT_VERSION}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-
-    # Tag: major.minor.commit-sha.branch-name
-    - 'echo "export _EXPANDED_VERSION_DOCKER_IMAGE_NAME=${CI_PROJECT_NAMESPACE}/${ARTIFACT_NAME}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-    - 'echo "export _EXPANDED_VERSION_DOCKER_IMAGE_TAG=${_ARTIFACT_VERSION}.${CI_COMMIT_SHORT_SHA}.${CI_COMMIT_REF_SLUG}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-
-    # Tag: major.minor.branch-name
-    - 'echo "export _NAMED_VERSION_PROJECT_NAMESPACE=$(echo ${CI_PROJECT_NAMESPACE} | cut -d "/" -f 1)/docker-images/$(echo ${CI_PROJECT_NAMESPACE} | cut -d "/" -f 2-)" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-    - 'echo "export _NAMED_VERSION_DOCKER_IMAGE_NAME=${_NAMED_VERSION_PROJECT_NAMESPACE}/${ARTIFACT_NAME}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-    - 'echo "export _NAMED_VERSION_DOCKER_IMAGE_TAG=${_ARTIFACT_VERSION}.${CI_COMMIT_REF_SLUG}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-
-.build_and_push_docker_image:
-  script: &build-and-push-docker-image
-    # Source the artifact from the init job to enable access to shared-env-variables
-    - 'source ${_SHARED_ENV_FILE}'
-    - 'cat ${_SHARED_ENV_FILE}'
-
-    # Build Artifact (i.e: Docker Image) in Gitlab current pipeline-job-container
-    - 'docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t ${_LOCAL_DOCKER_TAG} .'
-
-    # Function definitions for logging and uploading to docker repository
-    - 'function log_upload_path {
-        DOCKER_IMAGE_NAME=$1;
-        DOCKER_IMAGE_TAG=$2;
-        echo "Project Image Repository -" $(echo ${ARTIFACTORY_WEB_APP_URL}/$(echo "${DOCKER_IMAGE_NAME}" | sed "s/\//~2F/g" | xargs -0 printf "%b"));
-      }'
-
-    - 'function docker_push {
-           LOCAL_DOCKER_TAG=$1;
-           DOCKER_IMAGE_NAME=$2;
-           DOCKER_IMAGE_TAG=$3;
-           export DOCKER_REPO_UPLOAD_PATH=${DOCKER_REPO_URL}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG};
-
-           docker tag ${LOCAL_DOCKER_TAG} ${DOCKER_REPO_UPLOAD_PATH};
-           docker push ${DOCKER_REPO_UPLOAD_PATH};
-           log_upload_path ${DOCKER_IMAGE_NAME} ${DOCKER_IMAGE_TAG};
-       }'
-
-    # Login to docker
-    - 'echo ${DOCKER_API_KEY} | docker login -u ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}'
-
-    # Push to artifactory repo (overwrites ARE allowed to docker-images in this repo)
-    - 'echo "Will run docker push" ${_LOCAL_DOCKER_TAG} ${_NAMED_VERSION_DOCKER_IMAGE_NAME} ${_NAMED_VERSION_DOCKER_IMAGE_TAG}'
-    - 'docker_push ${_LOCAL_DOCKER_TAG} ${_NAMED_VERSION_DOCKER_IMAGE_NAME} ${_NAMED_VERSION_DOCKER_IMAGE_TAG}'
-
-    - 'echo "built-image-url: ${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}"'
 
 .generate_docker_image_version:
   script: &generate-docker-image-version-script
@@ -110,6 +48,39 @@ variables:
   script: &build-push-docker-image
   # Don't output the DOCKER_API_KEY directly as it's a secret, output the length instead for easy debugging.
   - |
+    catch() {
+      # Temporarily disable xtrace output since that messes up our capturing of logs.
+      # Dump the logs for this check /dev/null so this is an invisible command to the user.
+      {
+          xtrace_enabled="${-//[^x]/}"
+          if [ ! -z "${xtrace_enabled}" ]; then
+              set +x
+          fi
+      } 2>/dev/null
+
+      eval "$({
+        __2="$(
+          { __1="$("${@:4}")"; } 2>&1;
+          ret=$?;
+          printf '%q=%q\n' "$2" "$__1" >&2;
+          exit $ret
+        )"
+        ret="$?";
+        # One change we've made is to also capture the return code in a separate variable.
+        printf '%s=%q\n' "$1" "$ret" >&2;
+        printf '%s=%q\n' "$3" "$__2" >&2;
+        printf '( exit %q )' "$ret" >&2;
+      } 2>&1 )";
+
+      {
+          ret = "$?"
+          if [ ! -z "${xtrace_enabled}" ]; then
+              set -x
+          fi
+          return $ret
+      } 2>/dev/null
+    }
+  - |
     if [ -z "${DOCKER_USERNAME}" ] || [ -z "${DOCKER_REPO_URL}" ] || [ -z "${DOCKER_API_KEY}" ]; then
       echo "No DOCKER_USERNAME=${DOCKER_USERNAME}, DOCKER_REPO_URL=${DOCKER_REPO_URL}) or len(DOCKER_API_KEY)=${#DOCKER_API_KEY} provided."
       exit 1
@@ -117,8 +88,14 @@ variables:
   - docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t integration_testing_full_image .
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
-  - docker push ${IMAGE_REPOSITORY}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
+  - catch ret stdout stderr docker push ...
+  - echo $stdout
+  - echo $stderr
+  - |
+    if [ $ret -ne 0 ] && [[ $stderr == *"manifest invalid"* ]]; then
+        exit $ret
+    fi
    
 .path_to_host_file_directory: # obtains the path to file on the host machine, which is needed to mount a Docker on Docker
   script: &path-to-host-file-directory
