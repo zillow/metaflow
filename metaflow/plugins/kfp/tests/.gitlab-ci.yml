@@ -108,6 +108,7 @@ test:internal:
     - *path-to-host-file-directory
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} ) # reading the path to the Docker image on Artifactory
     - cp -r /root/.kube .
+    - docker pull ${BUILT_IMAGE_FULL_PATH}
     - docker run 
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube
         --rm 
@@ -137,6 +138,7 @@ test:nonprod:
     - *path-to-host-file-directory  
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} )
     - cp -r /root/.kube .
+    - docker pull ${BUILT_IMAGE_FULL_PATH}
     - docker run
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube 
         --rm
@@ -166,6 +168,7 @@ test:prod:
     - *path-to-host-file-directory
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} )
     - cp -r /root/.kube .
+    - docker pull ${BUILT_IMAGE_FULL_PATH}
     - docker run
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube 
         --rm
