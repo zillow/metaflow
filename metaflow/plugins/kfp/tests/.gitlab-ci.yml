@@ -116,7 +116,7 @@ variables:
     fi
   - docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t integration_testing_full_image .
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
-  - docker tag ${LOCAL_DOCKER_TAG} 
+  - docker tag integration_testing_full_image ${IMAGE_REPOSITORY}
   - docker push ${IMAGE_REPOSITORY_TAG}
    
 .path_to_host_file_directory: # obtains the path to file on the host machine, which is needed to mount a Docker on Docker
