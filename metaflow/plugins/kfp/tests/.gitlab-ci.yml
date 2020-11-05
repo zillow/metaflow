@@ -12,8 +12,8 @@ include:
 
 variables:
   ARTIFACT_NAME: "metaflow_integration_testing"
-  ARTIFACT_MAJOR_VERSION: "1"
-  ARTIFACT_MINOR_VERSION: "0"
+  MAJOR_VERSION: "1"
+  MINOR_VERSION: "0"
   ARTIFACTORY_WEB_APP_URL: https://artifactory.zgtools.net/artifactory/webapp/#/packages/docker
   _SHARED_ENV_FILE: 'shared.env'
   _IMAGE_TAG_FILE: 'image_tag_file.txt'
