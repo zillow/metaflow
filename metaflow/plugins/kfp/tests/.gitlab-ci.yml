@@ -71,6 +71,8 @@ variables:
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
   - echo ${IMAGE_REPOSITORY}
   - catch stdout stderr docker push ${IMAGE_REPOSITORY}
+  - echo $stdout
+  - echo $stderr
   - |
     if [ $? -ne 0 ] && [[ $stderr == *"manifest invalid"* ]]; then
       exit $?
