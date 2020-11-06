@@ -45,21 +45,7 @@ variables:
 
 .build_push_docker_image:
   # extends: .read_docker_image_version
-  script: &build-push-docker-image
-  - |
-    catch() {
-      eval "$({
-      __2="$(
-        { __1="$("${@:3}")"; } 2>&1;
-        ret=$?;
-        printf '%q=%q\n' "$1" "$__1" >&2;
-        exit $ret
-        )"
-      ret="$?";
-      printf '%s=%q\n' "$2" "$__2" >&2;
-      printf '( exit %q )' "$ret" >&2;
-      } 2>&1 )";
-    }
+  script: &build-push-docker-image 
   - |
     if [ -z "${DOCKER_USERNAME}" ] || [ -z "${DOCKER_REPO_URL}" ] || [ -z "${DOCKER_API_KEY}" ]; then
       echo "No DOCKER_USERNAME=${DOCKER_USERNAME}, DOCKER_REPO_URL=${DOCKER_REPO_URL}) or len(DOCKER_API_KEY)=${#DOCKER_API_KEY} provided."
@@ -70,10 +56,14 @@ variables:
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
   - echo ${IMAGE_REPOSITORY}
-  - catch stdout stderr docker push ${IMAGE_REPOSITORY}
+  - STDERR=$(docker push ${IMAGE_REPOSITORY} 2>&1 >/dev/null)
+  - echo $STDERR
   - |
-    if [ $? -ne 0 ] && [[ $stderr == *"manifest invalid"* ]]; then
-      exit 0
+    if [ -z "$STDERR" ] || [[ $STDERR == *"manifest invalid"* ]]; then
+      echo "Successful!"
+    else
+      echo "Error in pushing image to Artifactory."
+      exit 1
     fi
    
 .path_to_host_file_directory: # obtains the path to file on the host machine, which is needed to mount a Docker on Docker
