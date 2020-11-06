@@ -47,6 +47,39 @@ variables:
   # extends: .read_docker_image_version
   script: &build-push-docker-image
   - |
+    catch() {
+      # Temporarily disable xtrace output since that messes up our capturing of logs.
+      # Dump the logs for this check /dev/null so this is an invisible command to the user.
+      {
+          xtrace_enabled="${-//[^x]/}"
+          if [ ! -z "${xtrace_enabled}" ]; then
+              set +x
+          fi
+      } 2>/dev/null
+
+      eval "$({
+        __2="$(
+          { __1="$("${@:4}")"; } 2>&1;
+          ret=$?;
+          printf '%q=%q\n' "$2" "$__1" >&2;
+          exit $ret
+        )"
+        ret="$?";
+        # One change we've made is to also capture the return code in a separate variable.
+        printf '%s=%q\n' "$1" "$ret" >&2;
+        printf '%s=%q\n' "$3" "$__2" >&2;
+        printf '( exit %q )' "$ret" >&2;
+      } 2>&1 )";
+
+      {
+          ret = "$?"
+          if [ ! -z "${xtrace_enabled}" ]; then
+              set -x
+          fi
+          return $ret
+      } 2>/dev/null
+    }
+  - |
     if [ -z "${DOCKER_USERNAME}" ] || [ -z "${DOCKER_REPO_URL}" ] || [ -z "${DOCKER_API_KEY}" ]; then
       echo "No DOCKER_USERNAME=${DOCKER_USERNAME}, DOCKER_REPO_URL=${DOCKER_REPO_URL}) or len(DOCKER_API_KEY)=${#DOCKER_API_KEY} provided."
       exit 1
@@ -55,12 +88,13 @@ variables:
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
-  - docker push ${IMAGE_REPOSITORY}
   - |
     catch ret stdout stderr \
       docker push ${IMAGE_REPOSITORY}
   - echo "${stderr}"
   - echo "${stdout}"
+  - echo "HELLO"
+  - echo "${ret}"
   - |
     if [ $RET -ne 0 ] && [[ $STDERR == *"manifest invalid"* ]]; then
         exit $RET
