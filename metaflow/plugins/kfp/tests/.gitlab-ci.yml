@@ -73,6 +73,7 @@ variables:
   - catch stdout stderr docker push ${IMAGE_REPOSITORY}
   - echo $stdout
   - echo $stderr
+  - echo $?
   - |
     if [ $? -ne 0 ] && [[ $stderr == *"manifest invalid"* ]]; then
       exit $?
