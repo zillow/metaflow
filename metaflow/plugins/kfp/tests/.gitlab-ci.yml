@@ -75,7 +75,7 @@ variables:
 
     # Push to artifactory repo (overwrites are NOT allowed to docker-images in this repo)
     - 'echo "Will run docker push" ${_LOCAL_DOCKER_TAG} ${_EXPANDED_VERSION_DOCKER_IMAGE_NAME} ${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}'
-    - STDERR=$(docker_push analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/metaflow-zillow 2.1 2>&1 >/dev/null) || true
+    - STDERR=$(docker_push analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/metaflow-zillow:2.1 2>&1 >/dev/null) || true
     - echo $STDERR
     - |
       if [ -z "$STDERR" ] || [[ $STDERR == *"manifest invalid"* ]]; then
