@@ -56,7 +56,7 @@ variables:
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
   - echo ${IMAGE_REPOSITORY}
-  - STDERR=$(docker push ${IMAGE_REPOSITORY} 2>&1 >/dev/null)
+  - STDERR=$(docker push ${IMAGE_REPOSITORY} 2>&1 >/dev/null) || true
   - echo $STDERR
   - |
     if [ -z "$STDERR" ] || [[ $STDERR == *"manifest invalid"* ]]; then
