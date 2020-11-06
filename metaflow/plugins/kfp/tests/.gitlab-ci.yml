@@ -54,7 +54,7 @@ variables:
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
-  - STDERR=$(docker puh ${IMAGE_REPOSITORY} 2>&1 >/dev/null) || true
+  - STDERR=$(docker push ${IMAGE_REPOSITORY} 2>&1 >/dev/null) || true
   - echo $STDERR
   - |
     if [ -z "$STDERR" ] || [[ $STDERR == *"manifest invalid"* ]]; then
@@ -75,8 +75,6 @@ build:
   script:
     - *generate-docker-image-version-script
     - *build-push-docker-image
-    # - export BUILT_IMAGE_FULL_PATH=${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}
-    # - echo ${BUILT_IMAGE_FULL_PATH} > ${_IMAGE_TAG_FILE} # file _IMAGE_TAG_FILE contains the path to the image
   artifacts:
     paths:
       - ${_IMAGE_TAG_FILE} # we pass this file as an artifact to be read in the testing stages
