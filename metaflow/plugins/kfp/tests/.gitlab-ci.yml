@@ -98,7 +98,7 @@ build:
   script:
     - *init-docker-variables
     - *build-and-push-docker-image
-    - export BUILT_IMAGE_FULL_PATH=${DOCKER_REPO_URL}/${_NAMED_VERSION_DOCKER_IMAGE_NAME}:${_NAMED_VERSION_DOCKER_IMAGE_TAG}
+    - export BUILT_IMAGE_FULL_PATH=${DOCKER_REPO_URL}/${_EXPANDED_VERSION_DOCKER_IMAGE_NAME}:${_EXPANDED_VERSION_DOCKER_IMAGE_TAG}
     - echo ${BUILT_IMAGE_FULL_PATH} > ${_IMAGE_TAG_FILE} # file _IMAGE_TAG_FILE contains the path to the image
   artifacts:
     paths:
