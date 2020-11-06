@@ -88,6 +88,7 @@ variables:
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
+  - echo ${IMAGE_REPOSITORY}
   - |
     catch ret stdout stderr \
       docker push ${IMAGE_REPOSITORY}
