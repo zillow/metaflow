@@ -131,7 +131,7 @@ class KubeflowPipelines(object):
         commands.extend(environment.bootstrap_commands(step_name))
         commands.append("echo 'Task is starting.'")
         commands.extend(step_cli)
-        subshell_commands = " && ".join(
+        subshell_commands = " && ".join
             commands
         )  # run inside subshell to capture all stdout/stderr
         # redirect stdout/stderr to separate files, using tee to display to UI
