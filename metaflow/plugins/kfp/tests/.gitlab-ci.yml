@@ -16,8 +16,6 @@ variables:
   MINOR_VERSION: "0"
   ARTIFACTORY_WEB_APP_URL: https://artifactory.zgtools.net/artifactory/webapp/#/packages/docker
   _IMAGE_TAG_FILE: 'image_tag_file.txt'
-  METAFLOW_ZILLOW_REPO_TAG: "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/metaflow-zillow"
-  METAFLOW_ZILLOW_REPO: "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/metaflow-zillow:2.0"
 
 .generate_docker_image_version:
   script: &generate-docker-image-version-script
@@ -54,11 +52,9 @@ variables:
     fi
   - docker build -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t integration_testing_full_image .
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
-  - docker tag integration_testing_full_image ${METAFLOW_ZILLOW_REPO}
-  - echo ${METAFLOW_ZILLOW_REPO_TAG} > ${_IMAGE_TAG_FILE}
-  - echo ${METAFLOW_ZILLOW_REPO_TAG}
-  - echo ${METAFLOW_ZILLOW_REPO}
-  - STDERR=$(docker push ${METAFLOW_ZILLOW_REPO_TAG} 2>&1 >/dev/null) || true
+  - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
+  - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
+  - STDERR=$(docker push ${IMAGE_REPOSITORY} 2>&1 >/dev/null) || true
   - echo $STDERR
   - |
     if [ -z "$STDERR" ] || [[ $STDERR == *"manifest invalid"* ]]; then
