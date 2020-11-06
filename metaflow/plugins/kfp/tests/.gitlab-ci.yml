@@ -45,7 +45,6 @@ variables:
 
 .build_push_docker_image:
   # extends: .read_docker_image_version
-  before-script: *catch-function
   script: &build-push-docker-image
   - |
     catch() {
