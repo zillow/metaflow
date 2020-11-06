@@ -46,7 +46,6 @@ variables:
 .build_push_docker_image:
   # extends: .read_docker_image_version
   script: &build-push-docker-image
-  # Don't output the DOCKER_API_KEY directly as it's a secret, output the length instead for easy debugging.
   - |
     catch() {
       # Temporarily disable xtrace output since that messes up our capturing of logs.
@@ -90,12 +89,12 @@ variables:
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
   - docker push ${IMAGE_REPOSITORY}
-  - catch ret stdout stderr docker push ${IMAGE_REPOSITORY}
-  - echo $stdout
-  - echo $stderr
+  - catch RET STDOUT STDERR docker push ${IMAGE_REPOSITORY}
+  - echo $STDOUT
+  - echo $STDERR
   - |
-    if [ $ret -ne 0 ] && [[ $stderr == *"manifest invalid"* ]]; then
-        exit $ret
+    if [ $RET -ne 0 ] && [[ $STDERR == *"manifest invalid"* ]]; then
+        exit $RET
     fi
    
 .path_to_host_file_directory: # obtains the path to file on the host machine, which is needed to mount a Docker on Docker
