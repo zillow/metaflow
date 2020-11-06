@@ -47,7 +47,7 @@ variables:
   # extends: .read_docker_image_version
   script: &build-push-docker-image
   - |
-    catch() {
+    function catch() {
       # Temporarily disable xtrace output since that messes up our capturing of logs.
       # Dump the logs for this check /dev/null so this is an invisible command to the user.
       {
@@ -84,7 +84,7 @@ variables:
       echo "No DOCKER_USERNAME=${DOCKER_USERNAME}, DOCKER_REPO_URL=${DOCKER_REPO_URL}) or len(DOCKER_API_KEY)=${#DOCKER_API_KEY} provided."
       exit 1
     fi
-  - docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t integration_testing_full_image .
+  - docker build -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t integration_testing_full_image .
   - echo ${DOCKER_API_KEY} | docker login --username ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
   - docker tag integration_testing_full_image ${IMAGE_REPOSITORY_TAG}
   - echo ${IMAGE_REPOSITORY_TAG} > ${_IMAGE_TAG_FILE}
