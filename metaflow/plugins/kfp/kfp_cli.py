@@ -133,6 +133,9 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 @click.option(
     "--workflow-timeout", default=None, type=int, help="Workflow timeout in seconds."
 )
+@click.option(
+    "--workflow-ttl", default=None, type=int, help="Workflow time to live in seconds."
+)
 @click.pass_obj
 def run(
     obj,
@@ -147,6 +150,7 @@ def run(
     pipeline_name=None,
     max_parallelism=None,
     workflow_timeout=None,
+    workflow_ttl=None,
 ):
     """
     Analogous to step_functions_cli.py
@@ -162,6 +166,7 @@ def run(
         s3_code_package,
         max_parallelism,
         workflow_timeout,
+        workflow_ttl,
     )
 
     if yaml_only:
@@ -207,6 +212,7 @@ def make_flow(
     s3_code_package,
     max_parallelism,
     workflow_timeout,
+    workflow_ttl,
 ):
     """
     Analogous to step_functions_cli.py
@@ -266,4 +272,5 @@ def make_flow(
         username=get_username(),
         max_parallelism=max_parallelism,
         workflow_timeout=workflow_timeout,
+        workflow_ttl=workflow_ttl,
     )

@@ -9,6 +9,7 @@ import yaml
 import kfp
 from kfp import dsl
 from kfp.dsl import ContainerOp
+from kfp.dsl._pipeline import PipelineConf
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 
 from ... import R
@@ -61,6 +62,7 @@ class KubeflowPipelines(object):
         username=None,
         max_parallelism=None,
         workflow_timeout=None,
+        workflow_ttl=None,
         **kwargs,
     ):
         """
@@ -83,6 +85,9 @@ class KubeflowPipelines(object):
         self.max_parallelism = max_parallelism
         self.workflow_timeout = (
             workflow_timeout if workflow_timeout else 0  # 0 is unlimited
+        )
+        self.workflow_ttl = (
+            workflow_ttl if workflow_ttl else 604800  # 1 week
         )
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
@@ -108,8 +113,12 @@ class KubeflowPipelines(object):
         Creates a new KFP pipeline YAML using `kfp.compiler.Compiler()`.
         Note: Intermediate pipeline YAML is saved at `pipeline_file_path`
         """
+        pipeline_conf = PipelineConf()
+        pipeline_conf.set_timeout(self.workflow_timeout)
+        pipeline_conf.set_ttl_seconds_after_finished(self.workflow_ttl)
+
         kfp.compiler.Compiler().compile(
-            self.create_kfp_pipeline_from_flow_graph(), pipeline_file_path
+            self.create_kfp_pipeline_from_flow_graph(), pipeline_file_path, pipeline_conf=pipeline_conf
         )
         return os.path.abspath(pipeline_file_path)
 
@@ -489,6 +498,7 @@ class KubeflowPipelines(object):
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
             dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
+            dsl.get_pipeline_conf().set_ttl_seconds_after_finished(self.workflow_ttl)
 
         return kfp_pipeline_from_flow
 
