@@ -86,9 +86,7 @@ class KubeflowPipelines(object):
         self.workflow_timeout = (
             workflow_timeout if workflow_timeout else 0  # 0 is unlimited
         )
-        self.workflow_ttl = (
-            workflow_ttl if workflow_ttl else 604800  # 1 week
-        )
+        self.workflow_ttl = workflow_ttl if workflow_ttl else 604800  # 1 week
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
@@ -118,7 +116,9 @@ class KubeflowPipelines(object):
         pipeline_conf.set_ttl_seconds_after_finished(self.workflow_ttl)
 
         kfp.compiler.Compiler().compile(
-            self.create_kfp_pipeline_from_flow_graph(), pipeline_file_path, pipeline_conf=pipeline_conf
+            self.create_kfp_pipeline_from_flow_graph(),
+            pipeline_file_path,
+            pipeline_conf=pipeline_conf,
         )
         return os.path.abspath(pipeline_file_path)
 
