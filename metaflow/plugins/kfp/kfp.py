@@ -8,8 +8,7 @@ import yaml
 
 import kfp
 from kfp import dsl
-from kfp.dsl import ContainerOp
-from kfp.dsl._pipeline import PipelineConf
+from kfp.dsl import ContainerOp, PipelineConf
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
 
 from ... import R
