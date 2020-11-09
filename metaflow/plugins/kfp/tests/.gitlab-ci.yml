@@ -34,10 +34,6 @@ variables:
     - 'echo "export _ARTIFACT_VERSION=${ARTIFACT_MAJOR_VERSION}.${ARTIFACT_MINOR_VERSION}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
     - 'echo "export _LOCAL_DOCKER_TAG=${ARTIFACT_NAME}:${_ARTIFACT_VERSION}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
 
-    # Tag: major.minor.commit-sha.branch-name
-    - 'echo "export _EXPANDED_VERSION_DOCKER_IMAGE_NAME=${CI_PROJECT_NAMESPACE}/${ARTIFACT_NAME}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-    - 'echo "export _EXPANDED_VERSION_DOCKER_IMAGE_TAG=${_ARTIFACT_VERSION}.${CI_COMMIT_SHORT_SHA}.${CI_COMMIT_REF_SLUG}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
-
     # Tag: major.minor.branch-name
     - 'echo "export _NAMED_VERSION_PROJECT_NAMESPACE=$(echo ${CI_PROJECT_NAMESPACE} | cut -d "/" -f 1)/docker-images/$(echo ${CI_PROJECT_NAMESPACE} | cut -d "/" -f 2-)" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
     - 'echo "export _NAMED_VERSION_DOCKER_IMAGE_NAME=${_NAMED_VERSION_PROJECT_NAMESPACE}/${ARTIFACT_NAME}" >> ${_SHARED_ENV_FILE}; source ${_SHARED_ENV_FILE}'
