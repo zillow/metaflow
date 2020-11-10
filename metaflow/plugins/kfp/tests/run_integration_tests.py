@@ -10,8 +10,8 @@ import kfp
 import pytest
 
 """
-From the folder `tests`, run: 
-`python -m pytest -s -n 3 run_integration_tests.py`
+To run these tests locally: 
+`python -m pytest -s -n 3 run_integration_tests.py --local`
 
 This script runs all the flows in the `sample_flows` directory. It creates
 each kfp run, waits for the run to fully complete, and prints whether
