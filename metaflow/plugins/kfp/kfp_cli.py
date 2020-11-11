@@ -184,7 +184,8 @@ def run(
             )
 
         obj.echo(
-            "Deploying *%s* to Kubeflow Pipelines..." % current.flow_name, bold=True
+            "Deploying *%s* to Kubeflow Pipelines..." % current.flow_name,
+            bold=True,
         )
         run_pipeline_result = flow.create_run_on_kfp(experiment_name, run_name)
 
@@ -198,11 +199,14 @@ def run(
         )
 
         kfp_run_url = posixpath.join(
-            KFP_RUN_URL_PREFIX, "_/pipeline/#/runs/details", run_pipeline_result.run_id
+            KFP_RUN_URL_PREFIX,
+            "_/pipeline/#/runs/details",
+            run_pipeline_result.run_id,
         )
 
         obj.echo(
-            "*Run link:* {kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan"
+            "Run link: {kfp_run_url}\n".format(kfp_run_url=kfp_run_url),
+            fg="cyan",
         )
 
         if wait_for_completion:

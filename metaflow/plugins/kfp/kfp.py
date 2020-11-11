@@ -1,6 +1,7 @@
 import inspect
 import os
 import sys
+from collections import namedtuple
 from pathlib import Path
 from typing import Callable, Dict, List, Tuple, Union
 
@@ -10,16 +11,20 @@ import kfp
 from kfp import dsl
 from kfp.dsl import ContainerOp
 from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
+from metaflow.plugins import KfpInternalDecorator
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
 
 from ... import R
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
-from .kfp_constants import INPUT_PATHS_ENV_NAME, SPLIT_INDEX_ENV_NAME, TASK_ID_ENV_NAME, \
-    STEP_ENVIRONMENT_VARIABLES
+from .kfp_constants import (
+    INPUT_PATHS_ENV_NAME,
+    SPLIT_INDEX_ENV_NAME,
+    STEP_ENVIRONMENT_VARIABLES,
+    TASK_ID_ENV_NAME,
+)
 from .kfp_foreach_splits import graph_to_task_ids
-
 
 
 class KfpComponent(object):
@@ -29,11 +34,22 @@ class KfpComponent(object):
         cmd_template: str,
         total_retries: int,
         resource_requirements: Dict[str, str],
+        kfp_decorator: KfpInternalDecorator,
     ):
         self.name = name
         self.cmd_template = cmd_template
         self.total_retries = total_retries
         self.resource_requirements = resource_requirements
+        self.kfp_decorator = kfp_decorator
+        self.kfp_func: Callable = (
+            kfp_decorator.attributes.get("func", None) if kfp_decorator else None
+        )
+        self.kfp_component_inputs: List[str] = (
+            kfp_decorator.attributes["kfp_component_inputs"] if kfp_decorator else []
+        )
+        self.kfp_component_outputs: List[str] = (
+            kfp_decorator.attributes["kfp_component_outputs"] if kfp_decorator else []
+        )
 
 
 class KubeflowPipelines(object):
@@ -232,15 +248,23 @@ class KubeflowPipelines(object):
             step_cli = self._step_cli(node, task_id, user_code_retries)
 
             return KfpComponent(
-                node.name,
-                self._command(
+                name=node.name,
+                cmd_template=self._command(
                     self.code_package_url,
                     self.environment,
                     node.name,
                     [step_cli],
                 ),
-                total_retries,
-                self._get_resource_requirements(node),
+                total_retries=total_retries,
+                resource_requirements=self._get_resource_requirements(node),
+                kfp_decorator=next(
+                    (
+                        deco
+                        for deco in node.decorators
+                        if isinstance(deco, KfpInternalDecorator)
+                    ),
+                    None,  # default
+                ),
             )
 
         # Mapping of steps to their KfpComponent
@@ -345,7 +369,7 @@ class KubeflowPipelines(object):
         cmds.append(f". {STEP_ENVIRONMENT_VARIABLES}")
 
         step = [
-            "--with=kfp_internal",
+            "--with=kfp",
             "step",
             node.name,
             "--run-id %s" % kfp_run_id,
@@ -390,20 +414,67 @@ class KubeflowPipelines(object):
                 vendor=resource_requirements["gpu_vendor"],
             )
 
-    def step_op(self, step_name: str) -> Callable[..., ContainerOp]:
+    def step_op(
+        self, step_name: str, kfp_component_inputs=None, kfp_component_outputs=None
+    ) -> Callable[..., ContainerOp]:
         """
         Workaround of KFP.components.func_to_container_op() to set KFP Component name
         """
         # KFP Component for a step defined in the Metaflow FlowSpec.
         step_op_component: Dict = yaml.load(
             kfp.components.func_to_component_text(
-                kfp_step_function, base_image=self.base_image
+                KubeflowPipelines._update_step_op_func_signature(
+                    kfp_step_function,
+                    kfp_component_inputs=kfp_component_inputs,
+                    kfp_component_outputs=kfp_component_outputs,
+                ),
+                base_image=self.base_image,
             ),
             yaml.SafeLoader,
         )
 
         step_op_component["name"] = step_name
         return kfp.components.load_component_from_text(yaml.dump(step_op_component))
+
+    @staticmethod
+    def _update_step_op_func_signature(
+        func: Callable, kfp_component_inputs, kfp_component_outputs
+    ) -> Callable:
+        # -- Update Parameter Binding
+        params = [
+            "datastore_root",
+            "cmd_template",
+            "kfp_run_id",
+            "passed_in_split_indexes",
+            "kfp_component_inputs",  # contains Flow state fields to expose to KFP
+            "kfp_component_outputs",  # contains list of return fields parameter key names
+        ]
+
+        # kfp_component_outputs are returned by the KFP component to incorporate back into
+        # Metaflow Flow state
+
+        # parameter named "kfp_component_outputs" contains list of return fields parameter key names
+        # for step_op_func to know the list of fields to add to MF state
+        params += kfp_component_outputs  # also add return_field parameter key names
+
+        new_parameters = [
+            inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY) for name in params
+        ]
+
+        # -- Update Return Binding
+        ret = ["foreach_splits"]
+        # kfp_component_inputs are Flow state fields to expose to a KFP step by
+        # returning them as KFP step return values
+        if kfp_component_inputs:
+            ret += kfp_component_inputs
+        return_annotation = namedtuple("StepOpRet", ret)
+
+        # -- Create signature
+        new_sig = inspect.signature(func).replace(
+            parameters=new_parameters, return_annotation=return_annotation
+        )
+        func.__signature__ = new_sig
+        return func
 
     def create_kfp_pipeline_from_flow_graph(self) -> Callable:
         step_to_kfp_component_map: Dict[
@@ -418,24 +489,61 @@ class KubeflowPipelines(object):
         def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
             visited: Dict[str, ContainerOp] = {}
 
-            def build_kfp_dag(node: DAGNode, passed_in_split_indexes=None):
+            def build_kfp_dag(
+                node: DAGNode, passed_in_split_indexes='""', kfp_component_outputs=None
+            ):
                 if node.name in visited:
                     return
 
-                op = visited[node.name] = self.step_op(node.name)(
-                    datastore_root,
-                    step_to_kfp_component_map[node.name].cmd_template,
+                if kfp_component_outputs is None:
+                    kfp_component_outputs = []
+
+                kfp_outputs = {}
+                parent_kfp_component_op = None
+                if (
+                    len(node.in_funcs) > 0
+                    and step_to_kfp_component_map[node.in_funcs[0]].kfp_func
+                ):
+                    parent_kfp_component = step_to_kfp_component_map[node.in_funcs[0]]
+                    parent_op: ContainerOp = visited[node.in_funcs[0]]
+                    parent_kfp_component_op = parent_kfp_component.kfp_func(
+                        *[
+                            parent_op.outputs[mf_field]
+                            for mf_field in parent_kfp_component.kfp_component_inputs
+                        ]
+                    )
+                    kfp_outputs = {
+                        field: parent_kfp_component_op.outputs[field]
+                        for field in parent_kfp_component.kfp_component_outputs
+                    }
+
+                kfp_component: KfpComponent = step_to_kfp_component_map[node.name]
+                step_op_args = dict(
+                    datastore_root=datastore_root,
+                    cmd_template=kfp_component.cmd_template,
                     kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     passed_in_split_indexes=passed_in_split_indexes,
+                    kfp_component_inputs=kfp_component.kfp_component_inputs,
+                    kfp_component_outputs=kfp_component_outputs,
                 )
+                op = visited[node.name] = self.step_op(
+                    node.name,
+                    kfp_component_inputs=kfp_component.kfp_component_inputs,
+                    kfp_component_outputs=kfp_component_outputs,
+                )(**{**step_op_args, **kfp_outputs})
 
-                KubeflowPipelines._set_container_settings(
-                    op, step_to_kfp_component_map[node.name]
-                )
+                if parent_kfp_component_op:
+                    op.after(parent_kfp_component_op)
+
+                next_kfp_component_outputs = kfp_component.kfp_component_outputs
+
+                KubeflowPipelines._set_container_settings(op, kfp_component)
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works
-                    with kfp.dsl.ParallelFor(op.output) as split_index:
+                    with kfp.dsl.ParallelFor(
+                        op.outputs["foreach_splits"]
+                    ) as split_index:
                         # build_kfp_dag() will halt when a foreach join is
                         # reached.
                         # NOTE: A Metaflow foreach node can only have one child
@@ -443,12 +551,15 @@ class KubeflowPipelines(object):
                         build_kfp_dag(
                             self.graph[node.out_funcs[0]],
                             passed_in_split_indexes=split_index,
+                            kfp_component_outputs=next_kfp_component_outputs,
                         )
 
                     # Handle the ParallelFor join step, and pass in
                     # passed_in_split_indexes of parent context
                     build_kfp_dag(
-                        self.graph[node.matching_join], passed_in_split_indexes
+                        self.graph[node.matching_join],
+                        passed_in_split_indexes,
+                        kfp_component_outputs=next_kfp_component_outputs,
                     )
                 else:
                     for step in node.out_funcs:
@@ -463,7 +574,11 @@ class KubeflowPipelines(object):
                             # which handles the ParallelFor join.
                             return
                         else:
-                            build_kfp_dag(step_node, passed_in_split_indexes)
+                            build_kfp_dag(
+                                step_node,
+                                passed_in_split_indexes,
+                                kfp_component_outputs=next_kfp_component_outputs,
+                            )
 
             build_kfp_dag(self.graph["start"])
 

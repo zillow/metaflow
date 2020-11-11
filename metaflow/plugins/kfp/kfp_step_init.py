@@ -6,7 +6,8 @@ from metaflow.plugins.kfp.kfp_constants import (
     INPUT_PATHS_ENV_NAME,
     PASSED_IN_SPLIT_INDEXES_ENV_NAME,
     SPLIT_INDEX_ENV_NAME,
-    TASK_ID_ENV_NAME, STEP_ENVIRONMENT_VARIABLES,
+    STEP_ENVIRONMENT_VARIABLES,
+    TASK_ID_ENV_NAME,
 )
 from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
 

@@ -1,6 +1,7 @@
+import json
 import os
 import tarfile
-from typing import Dict
+from typing import Dict, List, NamedTuple
 from urllib.parse import urlparse
 
 from metaflow import current, util
@@ -9,11 +10,41 @@ from metaflow.datastore.util.s3util import get_s3_client
 from metaflow.decorators import StepDecorator
 from metaflow.metadata import MetaDatum
 from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
+from metaflow.plugins.kfp.kfp_constants import KFP_COMPONENT_INPUTS_PATH
 from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
+
+StepOpBinding = NamedTuple(
+    "StepOpBinding",
+    [("kfp_component_inputs", List[str]), ("kfp_component_outputs", List[str])],
+)
 
 
 class KfpInternalDecorator(StepDecorator):
-    name = "kfp_internal"
+    """
+    TODO: doesn't support KFP component that doesn't return a dictionary of outputs.
+      Example: a component that returns a string
+    @step
+    @kfp(
+        func=my_step_op_func,
+        kfp_component_inputs=["var1", "var2"],
+        kfp_component_outputs=["var3"]
+    )
+    def myStep(self):
+        pass
+    """
+
+    name = "kfp"
+    defaults = {"func": None, "kfp_component_inputs": [], "kfp_component_outputs": []}
+
+    def __init__(self, attributes=None, statically_defined=False):
+        super(KfpInternalDecorator, self).__init__(attributes, statically_defined)
+
+    def step_init(self, flow, graph, step, decos, environment, datastore, logger):
+        if datastore.TYPE != "s3":
+            raise Exception("The *@kfp* decorator requires --datastore=s3.")
+
+        self.datastore = datastore
+        self.logger = logger
 
     def step_init(self, flow, graph, step, decos, environment, datastore, logger):
         if datastore.TYPE != "s3":
@@ -51,8 +82,24 @@ class KfpInternalDecorator(StepDecorator):
         else:
             self.ds_root = None
 
+        kfp_component_outputs: List[str] = json.loads(
+            os.environ["KFP_COMPONENT_OUTPUTS"]
+        )
+        if len(kfp_component_outputs) > 0:
+            for field in kfp_component_outputs:
+                # Update running Flow with environment KFP_COMPONENT_OUTPUTS variables
+                # KFP_COMPONENT_OUTPUTS is a list of environment variables that exist
+                field_value = os.environ[field]
+                flow.__setattr__(field, field_value)
+
     def task_finished(
-        self, step_name, flow, graph, is_task_ok, retry_count, max_user_code_retries
+        self,
+        step_name,
+        flow,
+        graph,
+        is_task_ok,
+        retry_count,
+        max_user_code_retries,
     ):
         """
         Analogous to step_functions_decorator.py
@@ -63,6 +110,17 @@ class KfpInternalDecorator(StepDecorator):
             # continue so no need to do anything here.
             return
         else:
+            kfp_component_inputs: List[str] = json.loads(
+                os.environ["KFP_COMPONENT_INPUTS"]
+            )
+            if len(kfp_component_inputs) > 0:
+                with open(KFP_COMPONENT_INPUTS_PATH, "w") as file:
+                    # Get fields from running Flow and persist as json to local FS
+                    fields_dictionary = {
+                        key: flow.__getattribute__(key) for key in kfp_component_inputs
+                    }
+                    json.dump(fields_dictionary, file)
+
             # TODO: Could we copy [context file, metadata.tgz, stdout files] in
             #   parallel using the S3 client shaving off a few seconds for every
             #   task??  These seconds add up when running lightweight Metaflow
@@ -95,7 +153,11 @@ class KfpInternalDecorator(StepDecorator):
                 # Save context to S3 for downstream DAG steps to access this
                 # step's foreach_splits
                 with KfpForEachSplits(
-                    graph, step_name, current.run_id, self.datastore, self.logger
+                    graph,
+                    step_name,
+                    current.run_id,
+                    self.datastore,
+                    self.logger,
                 ) as split_contexts:
                     foreach_splits: Dict = split_contexts.build_foreach_splits(flow)
 
