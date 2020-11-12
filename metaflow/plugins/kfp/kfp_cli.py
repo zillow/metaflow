@@ -8,7 +8,6 @@ from metaflow.metaflow_config import (
     KFP_RUN_URL_PREFIX,
     KFP_SDK_API_NAMESPACE,
     KFP_SDK_NAMESPACE,
-    ARGO_DEFAULT_TTL,
 )
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
@@ -133,7 +132,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 )
 @click.option(
     "--workflow-kubernetes-resources-ttl",
-    default=ARGO_DEFAULT_TTL,
+    default=None,
     type=int,
     help="Number of seconds until Argo workflows and pods are cleaned up AFTER a run finishes.",
 )
@@ -151,7 +150,7 @@ def run(
     pipeline_name=None,
     max_parallelism=None,
     workflow_timeout=None,
-    workflow_kubernetes_resources_ttl=ARGO_DEFAULT_TTL,
+    workflow_kubernetes_resources_ttl=None,
 ):
     """
     Analogous to step_functions_cli.py

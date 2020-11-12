@@ -112,9 +112,10 @@ class KubeflowPipelines(object):
         """
         pipeline_conf = PipelineConf()
         pipeline_conf.set_timeout(self.workflow_timeout)
-        pipeline_conf.set_ttl_seconds_after_finished(
-            self.workflow_kubernetes_resources_ttl
-        )
+        if self.workflow_kubernetes_resources_ttl is not None: # if None, we use the Argo defaults
+            pipeline_conf.set_ttl_seconds_after_finished(
+                self.workflow_kubernetes_resources_ttl
+            )
 
         kfp.compiler.Compiler().compile(
             self.create_kfp_pipeline_from_flow_graph(),
@@ -251,7 +252,10 @@ class KubeflowPipelines(object):
             return KfpComponent(
                 node.name,
                 self._command(
-                    self.code_package_url, self.environment, node.name, [step_cli],
+                    self.code_package_url, 
+                    self.environment, 
+                    node.name, 
+                    [step_cli],
                 ),
                 total_retries,
                 self._get_resource_requirements(node),
@@ -494,9 +498,10 @@ class KubeflowPipelines(object):
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
             dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
-            dsl.get_pipeline_conf().set_ttl_seconds_after_finished(
-                self.workflow_kubernetes_resources_ttl
-            )
+            if self.workflow_kubernetes_resources_ttl is not None: # # if None, we use the Argo defaults
+                dsl.get_pipeline_conf().set_ttl_seconds_after_finished(
+                    self.workflow_kubernetes_resources_ttl
+                )
 
         return kfp_pipeline_from_flow
 
