@@ -16,10 +16,13 @@ from ... import R
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
-from .kfp_constants import INPUT_PATHS_ENV_NAME, SPLIT_INDEX_ENV_NAME, TASK_ID_ENV_NAME, \
-    STEP_ENVIRONMENT_VARIABLES
+from .kfp_constants import (
+    INPUT_PATHS_ENV_NAME,
+    SPLIT_INDEX_ENV_NAME,
+    TASK_ID_ENV_NAME,
+    STEP_ENVIRONMENT_VARIABLES,
+)
 from .kfp_foreach_splits import graph_to_task_ids
-
 
 
 class KfpComponent(object):
