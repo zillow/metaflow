@@ -110,10 +110,8 @@ class KubeflowPipelines(object):
         """
         pipeline_conf = PipelineConf()
         pipeline_conf.set_timeout(self.workflow_timeout)
-        if ARGO_DEFAULT_TTL is not None: # if None, we use the Argo defaults
-            pipeline_conf.set_ttl_seconds_after_finished(
-                ARGO_DEFAULT_TTL
-            )
+        if ARGO_DEFAULT_TTL is not None:  # if None, we use the Argo defaults
+            pipeline_conf.set_ttl_seconds_after_finished(ARGO_DEFAULT_TTL)
 
         kfp.compiler.Compiler().compile(
             self.create_kfp_pipeline_from_flow_graph(),
@@ -250,10 +248,7 @@ class KubeflowPipelines(object):
             return KfpComponent(
                 node.name,
                 self._command(
-                    self.code_package_url,
-                    self.environment,
-                    node.name,
-                    [step_cli],
+                    self.code_package_url, self.environment, node.name, [step_cli],
                 ),
                 total_retries,
                 self._get_resource_requirements(node),
@@ -315,10 +310,8 @@ class KubeflowPipelines(object):
             # If the start step gets retried, we must be careful not to
             # regenerate multiple parameters tasks. Hence we check first if
             # _parameters exists already.
-            start_task_id_params_path = (
-                "{kfp_run_id}/_parameters/{task_id_params}".format(
-                    kfp_run_id=kfp_run_id, task_id_params=task_id_params
-                )
+            start_task_id_params_path = "{kfp_run_id}/_parameters/{task_id_params}".format(
+                kfp_run_id=kfp_run_id, task_id_params=task_id_params
             )
             exists = entrypoint + [
                 "dump",
@@ -498,10 +491,8 @@ class KubeflowPipelines(object):
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
             dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
-            if ARGO_DEFAULT_TTL is not None: # # if None, we use the Argo defaults
-                dsl.get_pipeline_conf().set_ttl_seconds_after_finished(
-                    ARGO_DEFAULT_TTL
-                )
+            if ARGO_DEFAULT_TTL is not None:  # # if None, we use the Argo defaults
+                dsl.get_pipeline_conf().set_ttl_seconds_after_finished(ARGO_DEFAULT_TTL)
 
         return kfp_pipeline_from_flow
 
