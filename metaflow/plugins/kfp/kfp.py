@@ -3,7 +3,7 @@ import os
 import sys
 from collections import namedtuple
 from pathlib import Path
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union, Optional
 
 import yaml
 
@@ -498,23 +498,25 @@ class KubeflowPipelines(object):
                 if kfp_component_outputs is None:
                     kfp_component_outputs = []
 
-                kfp_outputs = {}
-                parent_kfp_component_op = None
+                kfp_component_outputs_dict: Dict[str, dsl.PipelineParam] = {}
+                parent_kfp_component_op: Optional[ContainerOp] = None
                 if (
                     len(node.in_funcs) > 0
                     and step_to_kfp_component_map[node.in_funcs[0]].kfp_func
                 ):
-                    parent_kfp_component = step_to_kfp_component_map[node.in_funcs[0]]
+                    parent_kfp_component: KfpComponent = step_to_kfp_component_map[
+                        node.in_funcs[0]
+                    ]
                     parent_op: ContainerOp = visited[node.in_funcs[0]]
-                    parent_kfp_component_op = parent_kfp_component.kfp_func(
+                    parent_kfp_component_op: ContainerOp = parent_kfp_component.kfp_func(
                         *[
                             parent_op.outputs[mf_field]
                             for mf_field in parent_kfp_component.kfp_component_inputs
                         ]
                     )
-                    kfp_outputs = {
-                        field: parent_kfp_component_op.outputs[field]
-                        for field in parent_kfp_component.kfp_component_outputs
+                    kfp_component_outputs_dict = {
+                        name: parent_kfp_component_op.outputs[name]
+                        for name in parent_kfp_component.kfp_component_outputs
                     }
 
                 kfp_component: KfpComponent = step_to_kfp_component_map[node.name]
@@ -530,7 +532,7 @@ class KubeflowPipelines(object):
                     node.name,
                     kfp_component_inputs=kfp_component.kfp_component_inputs,
                     kfp_component_outputs=kfp_component_outputs,
-                )(**{**step_op_args, **kfp_outputs})
+                )(**{**step_op_args, **kfp_component_outputs_dict})
 
                 if parent_kfp_component_op:
                     op.after(parent_kfp_component_op)
