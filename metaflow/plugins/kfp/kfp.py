@@ -9,7 +9,7 @@ import yaml
 import kfp
 from kfp import dsl
 from kfp.dsl import ContainerOp, PipelineConf
-from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
+from metaflow.metaflow_config import DATASTORE_SYSROOT_S3, ARGO_DEFAULT_TTL
 
 from ... import R
 from ...environment import MetaflowEnvironment
@@ -61,7 +61,6 @@ class KubeflowPipelines(object):
         username=None,
         max_parallelism=None,
         workflow_timeout=None,
-        workflow_kubernetes_resources_ttl=None,
         **kwargs,
     ):
         """
@@ -85,7 +84,6 @@ class KubeflowPipelines(object):
         self.workflow_timeout = (
             workflow_timeout if workflow_timeout else 0  # 0 is unlimited
         )
-        self.workflow_kubernetes_resources_ttl = workflow_kubernetes_resources_ttl
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
@@ -112,9 +110,9 @@ class KubeflowPipelines(object):
         """
         pipeline_conf = PipelineConf()
         pipeline_conf.set_timeout(self.workflow_timeout)
-        if self.workflow_kubernetes_resources_ttl is not None: # if None, we use the Argo defaults
+        if ARGO_DEFAULT_TTL is not None: # if None, we use the Argo defaults
             pipeline_conf.set_ttl_seconds_after_finished(
-                self.workflow_kubernetes_resources_ttl
+                ARGO_DEFAULT_TTL
             )
 
         kfp.compiler.Compiler().compile(
@@ -500,9 +498,9 @@ class KubeflowPipelines(object):
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
             dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
-            if self.workflow_kubernetes_resources_ttl is not None: # # if None, we use the Argo defaults
+            if ARGO_DEFAULT_TTL is not None: # # if None, we use the Argo defaults
                 dsl.get_pipeline_conf().set_ttl_seconds_after_finished(
-                    self.workflow_kubernetes_resources_ttl
+                    ARGO_DEFAULT_TTL
                 )
 
         return kfp_pipeline_from_flow
