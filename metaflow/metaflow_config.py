@@ -216,7 +216,7 @@ def get_pinned_conda_libs(python_version):
             'boto3': '1.14.47',
             'coverage': '4.5.4'
         }
-
+        
 cached_aws_sandbox_creds = None
 
 

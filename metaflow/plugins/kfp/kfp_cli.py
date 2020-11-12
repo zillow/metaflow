@@ -119,7 +119,10 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     show_default=True,
 )
 @click.option(
-    "--pipeline-name", "pipeline_name", default=None, help="If not set uses flow_name.",
+    "--pipeline-name",
+    "pipeline_name",
+    default=None,
+    help="If not set uses flow_name.",
 )
 @click.option(
     "--max-parallelism",
