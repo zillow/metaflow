@@ -15,19 +15,20 @@ if sys.platform == "darwin":
 
 def init_config():
     # Read configuration from $METAFLOW_HOME/config_<profile>.json.
-    home = os.environ.get('METAFLOW_HOME', '~/.metaflowconfig')
-    profile = os.environ.get('METAFLOW_PROFILE')
-    path_to_config = os.path.join(home, 'config.json')
+    home = os.environ.get("METAFLOW_HOME", "~/.metaflowconfig")
+    profile = os.environ.get("METAFLOW_PROFILE")
+    path_to_config = os.path.join(home, "config.json")
     if profile:
-        path_to_config = os.path.join(home, 'config_%s.json' % profile)
+        path_to_config = os.path.join(home, "config_%s.json" % profile)
     path_to_config = os.path.expanduser(path_to_config)
     config = {}
     if os.path.exists(path_to_config):
         with open(path_to_config) as f:
             return json.load(f)
     elif profile:
-        raise MetaflowException('Unable to locate METAFLOW_PROFILE \'%s\' in \'%s\')' %
-                                (profile, home))
+        raise MetaflowException(
+            "Unable to locate METAFLOW_PROFILE '%s' in '%s')" % (profile, home)
+        )
     return config
 
 
@@ -42,72 +43,79 @@ def from_conf(name, default=None):
 ###
 # Default configuration
 ###
-DEFAULT_DATASTORE = from_conf('METAFLOW_DEFAULT_DATASTORE', 'local')
-DEFAULT_METADATA = from_conf('METAFLOW_DEFAULT_METADATA', 'local')
-METAFLOW_USER = from_conf('METAFLOW_USER')
+DEFAULT_DATASTORE = from_conf("METAFLOW_DEFAULT_DATASTORE", "local")
+DEFAULT_METADATA = from_conf("METAFLOW_DEFAULT_METADATA", "local")
+METAFLOW_USER = from_conf("METAFLOW_USER")
 
 ##
 # KFP configuration
 ###
-KFP_SDK_NAMESPACE = from_conf('KFP_SDK_NAMESPACE', 'kubeflow')
-KFP_SDK_API_NAMESPACE = from_conf('KFP_SDK_API_NAMESPACE', 'kubeflow')
+KFP_SDK_NAMESPACE = from_conf("KFP_SDK_NAMESPACE", "kubeflow")
+KFP_SDK_API_NAMESPACE = from_conf("KFP_SDK_API_NAMESPACE", "kubeflow")
+ARGO_DEFAULT_TTL = from_conf("ARGO_DEFAULT_TTL", 604800)
 
 ###
 # Datastore configuration
 ###
 # Path to the local directory to store artifacts for 'local' datastore.
-DATASTORE_LOCAL_DIR = '.metaflow'
-DATASTORE_SYSROOT_LOCAL = from_conf('METAFLOW_DATASTORE_SYSROOT_LOCAL')
+DATASTORE_LOCAL_DIR = ".metaflow"
+DATASTORE_SYSROOT_LOCAL = from_conf("METAFLOW_DATASTORE_SYSROOT_LOCAL")
 # S3 bucket and prefix to store artifacts for 's3' datastore.
-DATASTORE_SYSROOT_S3 = from_conf('METAFLOW_DATASTORE_SYSROOT_S3')
+DATASTORE_SYSROOT_S3 = from_conf("METAFLOW_DATASTORE_SYSROOT_S3")
 # S3 datatools root location
-DATATOOLS_SUFFIX = from_conf('METAFLOW_DATATOOLS_SUFFIX', 'data')
+DATATOOLS_SUFFIX = from_conf("METAFLOW_DATATOOLS_SUFFIX", "data")
 DATATOOLS_S3ROOT = from_conf(
-    'METAFLOW_DATATOOLS_S3ROOT', 
-        '%s/%s' % (from_conf('METAFLOW_DATASTORE_SYSROOT_S3'), DATATOOLS_SUFFIX)
-            if from_conf('METAFLOW_DATASTORE_SYSROOT_S3') else None)
+    "METAFLOW_DATATOOLS_S3ROOT",
+    "%s/%s" % (from_conf("METAFLOW_DATASTORE_SYSROOT_S3"), DATATOOLS_SUFFIX)
+    if from_conf("METAFLOW_DATASTORE_SYSROOT_S3")
+    else None,
+)
 # Local datatools root location
 DATATOOLS_LOCALROOT = from_conf(
-    'METAFLOW_DATATOOLS_LOCALROOT',
-        '%s/%s' % (from_conf('METAFLOW_DATASTORE_SYSROOT_LOCAL'), DATATOOLS_SUFFIX)
-            if from_conf('METAFLOW_DATASTORE_SYSROOT_LOCAL') else None)
+    "METAFLOW_DATATOOLS_LOCALROOT",
+    "%s/%s" % (from_conf("METAFLOW_DATASTORE_SYSROOT_LOCAL"), DATATOOLS_SUFFIX)
+    if from_conf("METAFLOW_DATASTORE_SYSROOT_LOCAL")
+    else None,
+)
 
 # S3 endpoint url
-S3_ENDPOINT_URL = from_conf('METAFLOW_S3_ENDPOINT_URL', None)
-S3_VERIFY_CERTIFICATE = from_conf('METAFLOW_S3_VERIFY_CERTIFICATE', None)
+S3_ENDPOINT_URL = from_conf("METAFLOW_S3_ENDPOINT_URL", None)
+S3_VERIFY_CERTIFICATE = from_conf("METAFLOW_S3_VERIFY_CERTIFICATE", None)
 
 ###
 # Datastore local cache
 ###
 # Path to the client cache
-CLIENT_CACHE_PATH = from_conf('METAFLOW_CLIENT_CACHE_PATH', '/tmp/metaflow_client')
+CLIENT_CACHE_PATH = from_conf("METAFLOW_CLIENT_CACHE_PATH", "/tmp/metaflow_client")
 # Maximum size (in bytes) of the cache
-CLIENT_CACHE_MAX_SIZE = from_conf('METAFLOW_CLIENT_CACHE_MAX_SIZE', 10000)
+CLIENT_CACHE_MAX_SIZE = from_conf("METAFLOW_CLIENT_CACHE_MAX_SIZE", 10000)
 
 ###
 # Metadata configuration
 ###
-METADATA_SERVICE_URL = from_conf('METAFLOW_SERVICE_URL')
-METADATA_SERVICE_NUM_RETRIES = from_conf('METAFLOW_SERVICE_RETRY_COUNT', 5)
-METADATA_SERVICE_AUTH_KEY = from_conf('METAFLOW_SERVICE_AUTH_KEY')
-METADATA_SERVICE_HEADERS = json.loads(from_conf('METAFLOW_SERVICE_HEADERS', '{}'))
+METADATA_SERVICE_URL = from_conf("METAFLOW_SERVICE_URL")
+METADATA_SERVICE_NUM_RETRIES = from_conf("METAFLOW_SERVICE_RETRY_COUNT", 5)
+METADATA_SERVICE_AUTH_KEY = from_conf("METAFLOW_SERVICE_AUTH_KEY")
+METADATA_SERVICE_HEADERS = json.loads(from_conf("METAFLOW_SERVICE_HEADERS", "{}"))
 if METADATA_SERVICE_AUTH_KEY is not None:
-    METADATA_SERVICE_HEADERS['x-api-key'] = METADATA_SERVICE_AUTH_KEY
+    METADATA_SERVICE_HEADERS["x-api-key"] = METADATA_SERVICE_AUTH_KEY
 
 ###
 # AWS Batch configuration
 ###
 # IAM role for AWS Batch container with Amazon S3 access
 # (and AWS DynamoDb access for AWS StepFunctions, if enabled)
-ECS_S3_ACCESS_IAM_ROLE = from_conf('METAFLOW_ECS_S3_ACCESS_IAM_ROLE')
+ECS_S3_ACCESS_IAM_ROLE = from_conf("METAFLOW_ECS_S3_ACCESS_IAM_ROLE")
 # Job queue for AWS Batch
-BATCH_JOB_QUEUE = from_conf('METAFLOW_BATCH_JOB_QUEUE')
+BATCH_JOB_QUEUE = from_conf("METAFLOW_BATCH_JOB_QUEUE")
 # Default container image for AWS Batch
 BATCH_CONTAINER_IMAGE = from_conf("METAFLOW_BATCH_CONTAINER_IMAGE")
 # Default container registry for AWS Batch
 BATCH_CONTAINER_REGISTRY = from_conf("METAFLOW_BATCH_CONTAINER_REGISTRY")
 # Metadata service URL for AWS Batch
-BATCH_METADATA_SERVICE_URL = from_conf('METAFLOW_SERVICE_INTERNAL_URL', METADATA_SERVICE_URL)
+BATCH_METADATA_SERVICE_URL = from_conf(
+    "METAFLOW_SERVICE_INTERNAL_URL", METADATA_SERVICE_URL
+)
 BATCH_METADATA_SERVICE_HEADERS = METADATA_SERVICE_HEADERS
 
 ###
@@ -130,38 +138,43 @@ SFN_STATE_MACHINE_PREFIX = None
 ###
 # Conda package root location on S3
 CONDA_PACKAGE_S3ROOT = from_conf(
-    'METAFLOW_CONDA_PACKAGE_S3ROOT',
-        '%s/conda' % from_conf('METAFLOW_DATASTORE_SYSROOT_S3'))
+    "METAFLOW_CONDA_PACKAGE_S3ROOT",
+    "%s/conda" % from_conf("METAFLOW_DATASTORE_SYSROOT_S3"),
+)
 
 ###
 # Debug configuration
 ###
-DEBUG_OPTIONS = ['subcommand', 'sidecar', 's3client']
+DEBUG_OPTIONS = ["subcommand", "sidecar", "s3client"]
 
 for typ in DEBUG_OPTIONS:
-    vars()['METAFLOW_DEBUG_%s' % typ.upper()] = from_conf('METAFLOW_DEBUG_%s' % typ.upper())
+    vars()["METAFLOW_DEBUG_%s" % typ.upper()] = from_conf(
+        "METAFLOW_DEBUG_%s" % typ.upper()
+    )
 
 ###
 # AWS Sandbox configuration
 ###
 # Boolean flag for metaflow AWS sandbox access
-AWS_SANDBOX_ENABLED = bool(from_conf('METAFLOW_AWS_SANDBOX_ENABLED', False))
+AWS_SANDBOX_ENABLED = bool(from_conf("METAFLOW_AWS_SANDBOX_ENABLED", False))
 # Metaflow AWS sandbox auth endpoint
-AWS_SANDBOX_STS_ENDPOINT_URL = from_conf('METAFLOW_SERVICE_URL')
+AWS_SANDBOX_STS_ENDPOINT_URL = from_conf("METAFLOW_SERVICE_URL")
 # Metaflow AWS sandbox API auth key
-AWS_SANDBOX_API_KEY = from_conf('METAFLOW_AWS_SANDBOX_API_KEY')
+AWS_SANDBOX_API_KEY = from_conf("METAFLOW_AWS_SANDBOX_API_KEY")
 # Internal Metadata URL
-AWS_SANDBOX_INTERNAL_SERVICE_URL = from_conf('METAFLOW_AWS_SANDBOX_INTERNAL_SERVICE_URL')
+AWS_SANDBOX_INTERNAL_SERVICE_URL = from_conf(
+    "METAFLOW_AWS_SANDBOX_INTERNAL_SERVICE_URL"
+)
 # AWS region
-AWS_SANDBOX_REGION = from_conf('METAFLOW_AWS_SANDBOX_REGION')
+AWS_SANDBOX_REGION = from_conf("METAFLOW_AWS_SANDBOX_REGION")
 
 
 # Finalize configuration
 if AWS_SANDBOX_ENABLED:
-    os.environ['AWS_DEFAULT_REGION'] = AWS_SANDBOX_REGION
+    os.environ["AWS_DEFAULT_REGION"] = AWS_SANDBOX_REGION
     BATCH_METADATA_SERVICE_URL = AWS_SANDBOX_INTERNAL_SERVICE_URL
-    METADATA_SERVICE_HEADERS['x-api-key'] = AWS_SANDBOX_API_KEY
-    SFN_STATE_MACHINE_PREFIX = from_conf('METAFLOW_AWS_SANDBOX_STACK_NAME')
+    METADATA_SERVICE_HEADERS["x-api-key"] = AWS_SANDBOX_API_KEY
+    SFN_STATE_MACHINE_PREFIX = from_conf("METAFLOW_AWS_SANDBOX_STACK_NAME")
 
 
 # MAX_ATTEMPTS is the maximum number of attempts, including the first
@@ -177,15 +190,14 @@ MAX_ATTEMPTS = 6
 # Note: `KFP_RUN_URL_PREFIX` is the URL prefix for KFP runs on your KFP cluster. The prefix includes
 # all parts of the URL except the run_id at the end which we append once the run is created.
 # For eg, this would look like: "https://<your-kf-cluster-url>/pipeline/#/runs/details/"
-KFP_RUN_URL_PREFIX = from_conf('KFP_RUN_URL_PREFIX')
+KFP_RUN_URL_PREFIX = from_conf("KFP_RUN_URL_PREFIX")
 
 # the naughty, naughty driver.py imported by lib2to3 produces
 # spam messages to the root logger. This is what is required
 # to silence it:
 class Filter(logging.Filter):
     def filter(self, record):
-        if record.pathname.endswith('driver.py') and \
-           'grammar' in record.msg:
+        if record.pathname.endswith("driver.py") and "grammar" in record.msg:
             return False
         return True
 
@@ -203,45 +215,46 @@ def get_version(pkg):
 def get_pinned_conda_libs(python_version):
     if python_version.startswith("3.5"):
         return {
-            'click': '7.1.2',
-            'requests': '2.24.0',
-            'boto3': '1.9.88',
-            'coverage': '4.5.1'
+            "click": "7.1.2",
+            "requests": "2.24.0",
+            "boto3": "1.9.88",
+            "coverage": "4.5.1",
         }
     else:
         return {
-            'click': '7.1.2',
-            'requests': '2.24.0',
-            'boto3': '1.14.47',
-            'coverage': '4.5.4'
+            "click": "7.1.2",
+            "requests": "2.24.0",
+            "boto3": "1.14.47",
+            "coverage": "4.5.4",
         }
-        
+
+
 cached_aws_sandbox_creds = None
 
 
 def get_authenticated_boto3_client(module, params={}):
     from metaflow.exception import MetaflowException
     import requests
+
     try:
         import boto3
     except (NameError, ImportError):
-        raise MetaflowException(
-            "Could not import module 'boto3'. Install boto3 first.")
+        raise MetaflowException("Could not import module 'boto3'. Install boto3 first.")
 
     if AWS_SANDBOX_ENABLED:
         global cached_aws_sandbox_creds
         if cached_aws_sandbox_creds is None:
             # authenticate using STS
             url = "%s/auth/token" % AWS_SANDBOX_STS_ENDPOINT_URL
-            headers = {
-                'x-api-key': AWS_SANDBOX_API_KEY
-            }
+            headers = {"x-api-key": AWS_SANDBOX_API_KEY}
             try:
                 r = requests.get(url, headers=headers)
                 r.raise_for_status()
                 cached_aws_sandbox_creds = r.json()
             except requests.exceptions.HTTPError as e:
                 raise MetaflowException(repr(e))
-        return boto3.session.Session(**cached_aws_sandbox_creds).client(module, **params)
+        return boto3.session.Session(**cached_aws_sandbox_creds).client(
+            module, **params
+        )
 
     return boto3.client(module, **params)

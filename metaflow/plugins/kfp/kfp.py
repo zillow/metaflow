@@ -61,7 +61,7 @@ class KubeflowPipelines(object):
         username=None,
         max_parallelism=None,
         workflow_timeout=None,
-        workflow_ttl=None,
+        workflow_kubernetes_resources_ttl=None,
         **kwargs,
     ):
         """
@@ -85,7 +85,7 @@ class KubeflowPipelines(object):
         self.workflow_timeout = (
             workflow_timeout if workflow_timeout else 0  # 0 is unlimited
         )
-        self.workflow_ttl = workflow_ttl if workflow_ttl else 604800  # 1 week
+        self.workflow_kubernetes_resources_ttl = workflow_kubernetes_resources_ttl
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
@@ -112,7 +112,9 @@ class KubeflowPipelines(object):
         """
         pipeline_conf = PipelineConf()
         pipeline_conf.set_timeout(self.workflow_timeout)
-        pipeline_conf.set_ttl_seconds_after_finished(self.workflow_ttl)
+        pipeline_conf.set_ttl_seconds_after_finished(
+            self.workflow_kubernetes_resources_ttl
+        )
 
         kfp.compiler.Compiler().compile(
             self.create_kfp_pipeline_from_flow_graph(),
@@ -249,10 +251,7 @@ class KubeflowPipelines(object):
             return KfpComponent(
                 node.name,
                 self._command(
-                    self.code_package_url,
-                    self.environment,
-                    node.name,
-                    [step_cli],
+                    self.code_package_url, self.environment, node.name, [step_cli],
                 ),
                 total_retries,
                 self._get_resource_requirements(node),
@@ -314,10 +313,8 @@ class KubeflowPipelines(object):
             # If the start step gets retried, we must be careful not to
             # regenerate multiple parameters tasks. Hence we check first if
             # _parameters exists already.
-            start_task_id_params_path = (
-                "{kfp_run_id}/_parameters/{task_id_params}".format(
-                    kfp_run_id=kfp_run_id, task_id_params=task_id_params
-                )
+            start_task_id_params_path = "{kfp_run_id}/_parameters/{task_id_params}".format(
+                kfp_run_id=kfp_run_id, task_id_params=task_id_params
             )
             exists = entrypoint + [
                 "dump",
@@ -497,7 +494,9 @@ class KubeflowPipelines(object):
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
             dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
-            dsl.get_pipeline_conf().set_ttl_seconds_after_finished(self.workflow_ttl)
+            dsl.get_pipeline_conf().set_ttl_seconds_after_finished(
+                self.workflow_kubernetes_resources_ttl
+            )
 
         return kfp_pipeline_from_flow
 
