@@ -46,13 +46,11 @@ DEFAULT_DATASTORE = from_conf('METAFLOW_DEFAULT_DATASTORE', 'local')
 DEFAULT_METADATA = from_conf('METAFLOW_DEFAULT_METADATA', 'local')
 METAFLOW_USER = from_conf('METAFLOW_USER')
 
-METAFLOW_USER = from_conf('METAFLOW_USER')
-
 ##
 # KFP configuration
 ###
-KFP_SDK_NAMESPACE = from_conf("KFP_SDK_NAMESPACE", "kubeflow")
-KFP_SDK_API_NAMESPACE = from_conf("KFP_SDK_API_NAMESPACE", "kubeflow")
+KFP_SDK_NAMESPACE = from_conf('KFP_SDK_NAMESPACE', 'kubeflow')
+KFP_SDK_API_NAMESPACE = from_conf('KFP_SDK_API_NAMESPACE', 'kubeflow')
 
 ###
 # Datastore configuration
@@ -218,14 +216,12 @@ def get_pinned_conda_libs(python_version):
             'coverage': '4.5.4'
         }
 
-
 cached_aws_sandbox_creds = None
 
 
 def get_authenticated_boto3_client(module, params={}):
     from metaflow.exception import MetaflowException
     import requests
-
     try:
         import boto3
     except (NameError, ImportError):
