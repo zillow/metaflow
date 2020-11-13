@@ -1,4 +1,5 @@
 import inspect
+import json
 import os
 import sys
 from pathlib import Path
@@ -89,14 +90,17 @@ class KubeflowPipelines(object):
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
-    def create_run_on_kfp(self, experiment_name: str, run_name: str):
+    def create_run_on_kfp(self, experiment_name: str, run_name: str, pipeline_parameters: dict):
         """
         Creates a new run on KFP using the `kfp.Client()`.
         """
         # TODO: first create KFP Pipeline, then an experiment if provided else default experiment.
         run_pipeline_result = self._client.create_run_from_pipeline_func(
             pipeline_func=self.create_kfp_pipeline_from_flow_graph(),
-            arguments={"datastore_root": DATASTORE_SYSROOT_S3},
+            arguments={
+                "datastore_root": DATASTORE_SYSROOT_S3,
+                "pipeline_parameters": json.dumps(pipeline_parameters)
+            },
             experiment_name=experiment_name,
             run_name=run_name,
             namespace=self.namespace,
@@ -438,7 +442,10 @@ class KubeflowPipelines(object):
             op.execution_options.caching_strategy.max_cache_staleness = "P0D"
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
-        def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
+        def kfp_pipeline_from_flow(
+                datastore_root: str = DATASTORE_SYSROOT_S3,
+                pipeline_parameters: str = None,
+        ):
             visited: Dict[str, ContainerOp] = {}
 
             def build_kfp_dag(node: DAGNode, passed_in_split_indexes=None):
@@ -451,6 +458,7 @@ class KubeflowPipelines(object):
                     kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     passed_in_split_indexes=passed_in_split_indexes,
                     metaflow_service_url=METADATA_SERVICE_URL,
+                    pipeline_parameters=pipeline_parameters
                 )
 
                 KubeflowPipelines._set_container_settings(

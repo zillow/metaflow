@@ -2,7 +2,7 @@ import posixpath
 
 import click
 
-from metaflow import current, decorators
+from metaflow import current, decorators, parameters
 from metaflow.datastore.datastore import TransformableObject
 from metaflow.exception import MetaflowException
 from metaflow.metaflow_config import (
@@ -54,6 +54,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     )
 
 
+@parameters.add_custom_parameters(deploy_mode=True)
 @kubeflow_pipelines.command(
     help="Deploy a new version of this workflow to Kubeflow Pipelines."
 )
@@ -153,6 +154,7 @@ def run(
     max_parallelism=None,
     workflow_timeout=None,
     wait_for_completion=False,
+    **pipeline_parameters
 ):
     """
     Analogous to step_functions_cli.py
@@ -186,7 +188,7 @@ def run(
         obj.echo(
             "Deploying *%s* to Kubeflow Pipelines..." % current.flow_name, bold=True
         )
-        run_pipeline_result = flow.create_run_on_kfp(experiment_name, run_name)
+        run_pipeline_result = flow.create_run_on_kfp(experiment_name, run_name, pipeline_parameters)
 
         obj.echo("\nRun created successfully!\n")
 
