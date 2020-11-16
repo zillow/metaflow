@@ -17,9 +17,9 @@ variables:
   ARTIFACTORY_WEB_APP_URL: https://artifactory.zgtools.net/artifactory/webapp/#/packages/docker
   _SHARED_ENV_FILE: 'shared.env'
   _IMAGE_TAG_FILE: 'image_tag_file.txt'
-  DEPLOY_INTERNAL: "false"
-  DEPLOY_STAGE: "true"
-  DEPLOY_PROD: "true"
+  DEPLOY_INTERNAL: "true"
+  DEPLOY_STAGE: "false"
+  DEPLOY_PROD: "false"
 
 .base:job-with-artifacts:
   artifacts:
