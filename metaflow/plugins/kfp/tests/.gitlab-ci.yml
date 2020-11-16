@@ -107,7 +107,7 @@ build:
     paths:
       - ${_IMAGE_TAG_FILE} # we pass this file as an artifact to be read in the testing stages
 
-test_internal:
+test:internal:
   extends: 
     - .devex_internal_eks # sets up AWS environment variables
     - .generate_kubeconfig # creates the .kube directory for the appropriate cluster
@@ -136,10 +136,9 @@ test_internal:
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH}
         "
   rules:
-    - if: '$DEPLOY_INTERNAL == "false"'
-      when: never
+    - if: '$DEPLOY_INTERNAL == "true"'
 
-test_nonprod:
+test:nonprod:
   extends: 
     - .devex_nonprod_eks
     - .generate_kubeconfig
@@ -168,10 +167,9 @@ test_nonprod:
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH}
         "
   rules:
-    - if: '$DEPLOY_STAGE == "false"'
-      when: never
+    - if: '$DEPLOY_STAGE == "true"'
 
-test_prod:
+test:prod:
   extends: 
     - .devex_prod_eks
     - .generate_kubeconfig
@@ -200,5 +198,4 @@ test_prod:
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH}
         "
   rules:
-    - if: '$DEPLOY_PROD == "false"'
-      when: never
+    - if: '$DEPLOY_PROD == "true"'
