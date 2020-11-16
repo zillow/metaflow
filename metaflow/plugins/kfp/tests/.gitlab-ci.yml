@@ -107,7 +107,7 @@ build:
     paths:
       - ${_IMAGE_TAG_FILE} # we pass this file as an artifact to be read in the testing stages
 
-test:internal:
+test_internal:
   extends: 
     - .devex_internal_eks # sets up AWS environment variables
     - .generate_kubeconfig # creates the .kube directory for the appropriate cluster
@@ -139,7 +139,7 @@ test:internal:
     - if: '$DEPLOY_INTERNAL == "false"'
       when: never
 
-test:nonprod:
+test_nonprod:
   extends: 
     - .devex_nonprod_eks
     - .generate_kubeconfig
@@ -171,7 +171,7 @@ test:nonprod:
     - if: '$DEPLOY_STAGE == "false"'
       when: never
 
-test:prod:
+test_prod:
   extends: 
     - .devex_prod_eks
     - .generate_kubeconfig
