@@ -1,3 +1,3 @@
-FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu
+FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu:latest
 COPY . /home/zservice/metaflow
 RUN pip install -e /home/zservice/metaflow
