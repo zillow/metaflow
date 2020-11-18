@@ -11,6 +11,7 @@ class MergeArtifacts(FlowSpec):
     @step
     def start(self):
         self.pass_down = "a"
+        self.x = 1 / 0
         self.next(self.a, self.b)
 
     @step
