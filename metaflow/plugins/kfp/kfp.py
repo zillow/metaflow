@@ -97,7 +97,7 @@ class KubeflowPipelines(object):
             experiment_name=experiment_name,
             run_name=run_name,
             namespace=self.namespace,
-        )
+        
         return run_pipeline_result
 
     def create_kfp_pipeline_yaml(self, pipeline_file_path) -> str:
