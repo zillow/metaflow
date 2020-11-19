@@ -138,10 +138,17 @@ class KubeflowPipelines(object):
         # to be provided in the `step_op` function. f strings (AFAK) don't support
         # insertion of only a partial number of placeholder strings.
         def copy_log_cmd(log_file):
+            cp_command = environment.get_boto3_copy_command(
+                s3_path=(
+                    f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}"
+                    f"/${TASK_ID_ENV_NAME}/{log_file}"
+                ),
+                local_path=log_file,
+                command="upload_file",
+            )
             return (
                 f". {STEP_ENVIRONMENT_VARIABLES} "  # for $TASK_ID_ENV_NAME
-                f"&& python -m awscli s3 cp --only-show-errors {log_file} "
-                f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/${TASK_ID_ENV_NAME}/{log_file}"
+                f"&& {cp_command}"
             )
 
         # TODO: see datastore get_log_location()
