@@ -60,15 +60,12 @@ def test_sample_flows(pytestconfig, flow_file_path: str) -> None:
     # run id and capture this to correctly test logging. See the
     # `check_valid_logs_process` process.
 
-    if pytestconfig.getoption("local"):
-        test_cmd = (
-            f"{_python()} {full_path} --datastore=s3 kfp run --wait-for-completion"
-        )
-    else:
-        test_cmd = (
-            f"{_python()} {full_path} --datastore=s3 kfp run --no-s3-code-package"
-            f" --wait-for-completion --base-image {pytestconfig.getoption('image')}"
-        )
+    test_cmd = (
+        f"{_python()} {full_path} --datastore=s3 kfp run "
+        f"--wait-for-completion --max-parallelism 3  "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += "--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
 
     run_and_wait_process = run(
         test_cmd,
