@@ -51,7 +51,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("sample_flows"))
 def test_sample_flows(pytestconfig, flow_file_path: str) -> None:
-    full_path = join("sample_flows", flow_file_path)
+    full_path = join("flows", flow_file_path)
     # In the process below, stdout=PIPE because we only want to capture stdout.
     # The reason is that the click echo function prints to stderr, and contains
     # the main logs (run link, graph validation, package uploading, etc). We
