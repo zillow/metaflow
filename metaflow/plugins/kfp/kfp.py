@@ -8,14 +8,13 @@ import yaml
 
 import kfp
 from kfp import dsl
-
 from kfp.dsl import ContainerOp, PipelineConf
-from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
 from metaflow.metaflow_config import (
-    DATASTORE_SYSROOT_S3,
     ARGO_DEFAULT_TTL,
+    DATASTORE_SYSROOT_S3,
     METADATA_SERVICE_URL,
 )
+from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
 
 from ... import R
 from ...environment import MetaflowEnvironment
@@ -24,8 +23,8 @@ from ...plugins.resources_decorator import ResourcesDecorator
 from .kfp_constants import (
     INPUT_PATHS_ENV_NAME,
     SPLIT_INDEX_ENV_NAME,
-    TASK_ID_ENV_NAME,
     STEP_ENVIRONMENT_VARIABLES,
+    TASK_ID_ENV_NAME,
 )
 from .kfp_foreach_splits import graph_to_task_ids
 
