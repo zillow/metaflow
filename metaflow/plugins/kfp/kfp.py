@@ -9,8 +9,12 @@ import yaml
 
 import kfp
 from kfp import dsl
-from kfp.dsl import ContainerOp
-from metaflow.metaflow_config import DATASTORE_SYSROOT_S3
+from kfp.dsl import ContainerOp, PipelineConf
+from metaflow.metaflow_config import (
+    DATASTORE_SYSROOT_S3,
+    KFP_TTL_SECONDS_AFTER_FINISHED,
+    METADATA_SERVICE_URL,
+)
 from metaflow.plugins import KfpInternalDecorator
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
 
@@ -117,8 +121,17 @@ class KubeflowPipelines(object):
         Creates a new KFP pipeline YAML using `kfp.compiler.Compiler()`.
         Note: Intermediate pipeline YAML is saved at `pipeline_file_path`
         """
+        pipeline_conf = PipelineConf()
+        pipeline_conf.set_timeout(self.workflow_timeout)
+        if (
+            KFP_TTL_SECONDS_AFTER_FINISHED is not None
+        ):  # if None, we use the Argo defaults
+            pipeline_conf.set_ttl_seconds_after_finished(KFP_TTL_SECONDS_AFTER_FINISHED)
+
         kfp.compiler.Compiler().compile(
-            self.create_kfp_pipeline_from_flow_graph(), pipeline_file_path
+            self.create_kfp_pipeline_from_flow_graph(),
+            pipeline_file_path,
+            pipeline_conf=pipeline_conf,
         )
         return os.path.abspath(pipeline_file_path)
 
@@ -151,10 +164,17 @@ class KubeflowPipelines(object):
         # to be provided in the `step_op` function. f strings (AFAK) don't support
         # insertion of only a partial number of placeholder strings.
         def copy_log_cmd(log_file):
+            cp_command = environment.get_boto3_copy_command(
+                s3_path=(
+                    f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}"
+                    f"/${TASK_ID_ENV_NAME}/{log_file}"
+                ),
+                local_path=log_file,
+                command="upload_file",
+            )
             return (
                 f". {STEP_ENVIRONMENT_VARIABLES} "  # for $TASK_ID_ENV_NAME
-                f"&& python -m awscli s3 cp --only-show-errors {log_file} "
-                f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}/${TASK_ID_ENV_NAME}/{log_file}"
+                f"&& {cp_command}"
             )
 
         # TODO: see datastore get_log_location()
@@ -527,6 +547,7 @@ class KubeflowPipelines(object):
                     passed_in_split_indexes=passed_in_split_indexes,
                     kfp_component_inputs=kfp_component.kfp_component_inputs,
                     kfp_component_outputs=kfp_component_outputs,
+                    metaflow_service_url=METADATA_SERVICE_URL,
                 )
                 op = visited[node.name] = self.step_op(
                     node.name,
@@ -598,6 +619,12 @@ class KubeflowPipelines(object):
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
             dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
+            if (
+                KFP_TTL_SECONDS_AFTER_FINISHED is not None
+            ):  # if None, we use the Argo defaults
+                dsl.get_pipeline_conf().set_ttl_seconds_after_finished(
+                    KFP_TTL_SECONDS_AFTER_FINISHED
+                )
 
         kfp_pipeline_from_flow.__name__ = self.name
         return kfp_pipeline_from_flow

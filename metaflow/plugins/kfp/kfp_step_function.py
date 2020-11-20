@@ -29,6 +29,7 @@ def kfp_step_function(**kwargs) -> object:
     kfp_component_outputs: List[str] = json.loads(
         kwargs.get("kfp_component_outputs", "[]")
     )
+    metaflow_service_url: str = kwargs.get("metaflow_service_url", "")
 
     cmd = cmd_template.format(
         run_id=kfp_run_id,
@@ -51,6 +52,7 @@ def kfp_step_function(**kwargs) -> object:
                 KFP_COMPONENT_INPUTS=json.dumps(kfp_component_inputs),
                 KFP_COMPONENT_OUTPUTS=json.dumps(kfp_component_outputs),
                 METAFLOW_USER="kfp-user",  # TODO: what should this be for a non-scheduled run?
+                METAFLOW_SERVICE_URL=metaflow_service_url,
             ),
             **{field: kwargs[field] for field in kfp_component_outputs},
         },
