@@ -10,8 +10,12 @@ import kfp
 from kfp import dsl
 
 from kfp.dsl import ContainerOp, PipelineConf
-from metaflow.metaflow_config import DATASTORE_SYSROOT_S3, ARGO_DEFAULT_TTL
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
+from metaflow.metaflow_config import (
+    DATASTORE_SYSROOT_S3,
+    ARGO_DEFAULT_TTL,
+    METADATA_SERVICE_URL,
+)
 
 from ... import R
 from ...environment import MetaflowEnvironment
@@ -445,6 +449,7 @@ class KubeflowPipelines(object):
                     step_to_kfp_component_map[node.name].cmd_template,
                     kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     passed_in_split_indexes=passed_in_split_indexes,
+                    metaflow_service_url=METADATA_SERVICE_URL,
                 )
 
                 KubeflowPipelines._set_container_settings(
