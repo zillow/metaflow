@@ -13,7 +13,7 @@ import pytest
 To run these tests from your terminal, go to the tests directory and run: 
 `python -m pytest -s -n 3 run_integration_tests.py`
 
-This script runs all the flows in the `sample_flows` directory. It creates
+This script runs all the flows in the `flows` directory. It creates
 each kfp run, waits for the run to fully complete, and prints whether
 or not the run was successful. It also checks to make sure the logging
 functionality works.
@@ -49,8 +49,8 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     return file_paths
 
 
-@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("sample_flows"))
-def test_sample_flows(pytestconfig, flow_file_path: str) -> None:
+@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+def test_flows(pytestconfig, flow_file_path: str) -> None:
     full_path = join("flows", flow_file_path)
     # In the process below, stdout=PIPE because we only want to capture stdout.
     # The reason is that the click echo function prints to stderr, and contains
