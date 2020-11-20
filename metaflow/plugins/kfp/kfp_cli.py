@@ -1,5 +1,6 @@
-import click
 import posixpath
+
+import click
 
 from metaflow import current, decorators
 from metaflow.datastore.datastore import TransformableObject
@@ -13,11 +14,8 @@ from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
     check_metadata_service_version,
 )
-from metaflow.plugins.kfp.kfp_constants import (
-    BASE_IMAGE,
-    DEFAULT_EXPERIMENT_NAME,
-    DEFAULT_KFP_YAML_OUTPUT_PATH,
-)
+from metaflow.plugins.kfp.kfp_constants import BASE_IMAGE
+from metaflow.plugins.kfp.kfp_step_init import save_step_environment_variables
 from metaflow.util import get_username
 
 
@@ -45,8 +43,6 @@ def kubeflow_pipelines(obj):
 @click.option("--task_id")
 @click.pass_obj
 def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
-    from metaflow.plugins.kfp.kfp import save_step_environment_variables
-
     save_step_environment_variables(
         obj.datastore,
         obj.graph,
@@ -64,8 +60,9 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 @click.option(
     "--experiment-name",
     "experiment_name",
-    default=DEFAULT_EXPERIMENT_NAME,
-    help="The associated experiment name for the run",
+    default=None,
+    help="The associated experiment name for the run. "
+    "Default of None uses KFP 'default' experiment",
     show_default=True,
 )
 @click.option(
@@ -100,7 +97,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 @click.option(
     "--pipeline-path",
     "pipeline_path",
-    default=DEFAULT_KFP_YAML_OUTPUT_PATH,
+    default=None,
     help="The output path of the generated KFP pipeline yaml file",
     show_default=True,
 )
@@ -144,12 +141,12 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 @click.pass_obj
 def run(
     obj,
-    experiment_name=DEFAULT_EXPERIMENT_NAME,
+    experiment_name=None,
     run_name=None,
     namespace=KFP_SDK_NAMESPACE,
     api_namespace=KFP_SDK_API_NAMESPACE,
     yaml_only=False,
-    pipeline_path=DEFAULT_KFP_YAML_OUTPUT_PATH,
+    pipeline_path=None,
     s3_code_package=True,
     base_image=BASE_IMAGE,
     pipeline_name=None,
@@ -164,7 +161,7 @@ def run(
     check_metadata_service_version(obj)
     flow = make_flow(
         obj,
-        pipeline_name if pipeline_path else current.flow_name,
+        pipeline_name if pipeline_path else obj.flow.name,
         namespace,
         api_namespace,
         base_image,
@@ -204,19 +201,17 @@ def run(
             KFP_RUN_URL_PREFIX, "_/pipeline/#/runs/details", run_pipeline_result.run_id
         )
 
-        obj.echo("Run link: {kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan")
+        obj.echo(
+            "*Run link:* {kfp_run_url}\n".format(kfp_run_url=kfp_run_url), fg="cyan"
+        )
 
         if wait_for_completion:
             response = flow._client.wait_for_run_completion(
                 run_pipeline_result.run_id, 500
             )
+
             if response.run.status == "Succeeded":
-                obj.echo(
-                    "Flow: {flow_name}, run link: {kfp_run_url}\n  SUCCEEDED!".format(
-                        flow_name=current.flow_name, kfp_run_url=kfp_run_url
-                    ),
-                    fg="green",
-                )
+                obj.echo("SUCCEEDED!", fg="green")
             else:
                 raise Exception(
                     "Flow: {flow_name}, run link: {kfp_run_url} FAILED!".format(
@@ -255,7 +250,7 @@ def make_flow(
 
     # Attach KFP decorator to the flow
     decorators._attach_decorators(obj.flow, [KfpInternalDecorator.name])
-    decorators._init_decorators(
+    decorators._init_step_decorators(
         obj.flow, obj.graph, obj.environment, obj.datastore, obj.logger
     )
 
@@ -271,8 +266,8 @@ def make_flow(
 
     if package_url:
         obj.echo(
-            "Uploaded package to: {package_url}".format(package_url=package_url),
-            fg="magenta",
+            "*Uploaded package to:* {package_url}".format(package_url=package_url),
+            fg="cyan",
         )
 
     return KubeflowPipelines(
