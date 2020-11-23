@@ -127,7 +127,7 @@ class KubeflowPipelines(object):
         code_package_url: str,
         environment: MetaflowEnvironment,
         step_name: str,
-        step_cli: List[str],
+        step_cli: List[str,
     ) -> str:
         """
         Analogous to batch.py
