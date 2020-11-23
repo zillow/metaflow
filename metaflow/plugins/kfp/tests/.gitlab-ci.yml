@@ -18,7 +18,7 @@ variables:
   _SHARED_ENV_FILE: 'shared.env'
   _IMAGE_TAG_FILE: 'image_tag_file.txt'
   DEPLOY_INTERNAL: "false"
-  DEPLOY_NONPROD: "true" # want to mimic the example projects which run on stage
+  DEPLOY_NONPROD: "true" # want to mimic the example projects, which run on nonprod
   DEPLOY_PROD: "false"
 
 .base:job-with-artifacts:
