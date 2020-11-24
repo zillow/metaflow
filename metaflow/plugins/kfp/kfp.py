@@ -143,6 +143,8 @@ class KubeflowPipelines(object):
         )
         commands.extend(environment.bootstrap_commands(step_name))
         commands.append("echo 'Task is starting.'")
+        commands.append("echo 'Running some debug commands...'")
+        commands.append("python -c \"params = os.environ.get('METAFLOW_PARAMETERS', '{}'); print(params)\"")
         commands.extend(step_cli)
         subshell_commands = " && ".join(
             commands
