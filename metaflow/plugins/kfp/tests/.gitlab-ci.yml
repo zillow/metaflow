@@ -164,7 +164,7 @@ test:nonprod:
           export METAFLOW_DATASTORE_SYSROOT_S3=s3://aip-example-stage/metaflow/ && 
           export METAFLOW_USER=${GITLAB_USER_EMAIL} &&
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests && 
-          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-report term --cov=/home/zservice/metaflow/metaflow/plugins/kfp
+          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-report term --cov=/home/zservice/metaflow/metaflow/plugins/kfp --cov-config=.coveragerc
         "
   rules:
     - if: '$DEPLOY_NONPROD == "true"'
