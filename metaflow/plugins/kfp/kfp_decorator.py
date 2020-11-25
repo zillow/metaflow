@@ -27,8 +27,20 @@ StepOpBinding = NamedTuple(
 
 class KfpInternalDecorator(StepDecorator):
     """
-    TODO: doesn't support KFP component that doesn't return a dictionary of outputs.
-      Example: a component that returns a string
+    kfp_component_inputs:
+      kfp_component_outputs are returned by the KFP component to incorporate
+      back into Metaflow Flow state.  We do this by having the previous step
+      return these as a namedtuple to KFP.  They are saved to
+      KFP_COMPONENT_INPUTS_PATH in task_finished
+
+    kfp_component_outputs:
+      kfp_component_inputs are Flow state fields to expose to a KFP step by
+      returning them as KFP step return values.  It is a list of KFP component
+      returned namedtuple to bind to Metaflow self state.  These are
+      environment set as environment variables and loaded to Metaflow self
+      state within task_pre_step.
+
+
     @step
     @kfp(
         container_op_func=my_step_op_func,

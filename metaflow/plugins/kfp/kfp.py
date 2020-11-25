@@ -51,7 +51,7 @@ class KfpComponent(object):
             else None
         )
 
-        def binding(binding_name: str) -> List[str]:
+        def bindings(binding_name: str) -> List[str]:
             if kfp_decorator:
                 binding_fields = kfp_decorator.attributes[binding_name]
                 if isinstance(binding_fields, str):
@@ -61,8 +61,8 @@ class KfpComponent(object):
             else:
                 return []
 
-        self.kfp_component_inputs: List[str] = binding("kfp_component_inputs")
-        self.kfp_component_outputs: List[str] = binding("kfp_component_outputs")
+        self.kfp_component_inputs: List[str] = bindings("kfp_component_inputs")
+        self.kfp_component_outputs: List[str] = bindings("kfp_component_outputs")
 
 
 class KubeflowPipelines(object):
@@ -444,7 +444,10 @@ class KubeflowPipelines(object):
             )
 
     def step_op(
-        self, step_name: str, kfp_component_inputs=None, kfp_component_outputs=None
+        self,
+        step_name: str,
+        kfp_component_inputs: List[str] = None,
+        kfp_component_outputs: List[str] = None,
     ) -> Callable[..., ContainerOp]:
         """
         Workaround of KFP.components.func_to_container_op() to set KFP Component name
@@ -471,7 +474,6 @@ class KubeflowPipelines(object):
         kfp_component_inputs: List[str],
         kfp_component_outputs: List[str],
     ) -> Callable:
-        # -- Update Parameter Binding
         params = [
             "datastore_root",
             "cmd_template",
@@ -482,11 +484,13 @@ class KubeflowPipelines(object):
             "metaflow_service_url",
         ]
 
-        # kfp_component_outputs are returned by the KFP component to incorporate back into
-        # Metaflow Flow state
+        # -- Update Parameter Binding
+        # kfp_component_outputs are returned by the KFP component to
+        # incorporate back into Metaflow Flow state
 
-        # parameter named "kfp_component_outputs" contains list of return fields parameter key names
-        # for step_op_func to know the list of fields to add to MF state
+        # parameter named "kfp_component_outputs" contains list of return
+        # fields parameter key names for step_op_func to know the list of
+        # fields to add to MF state
         params += kfp_component_outputs  # also add return_field parameter key names
 
         new_parameters = [
@@ -536,7 +540,7 @@ class KubeflowPipelines(object):
                 # If any of this node's children has a kfp_func then
                 # create (kfp_decorator_component, kfp_component_inputs)
                 next_kfp_decorator_component: Optional[KfpComponent] = None
-                kfp_component_inputs = []
+                kfp_component_inputs: List[str] = []
                 if any(
                     step_to_kfp_component_map[child].kfp_func
                     for child in node.out_funcs
@@ -565,11 +569,13 @@ class KubeflowPipelines(object):
                     if METADATA_SERVICE_URL
                     else "",
                 )
-                container_op = visited[node.name] = self.step_op(
+                container_op: ContainerOp = self.step_op(
                     node.name,
                     kfp_component_inputs=kfp_component_inputs,
                     kfp_component_outputs=kfp_component.kfp_component_outputs,
                 )(**{**step_op_args, **kfp_component_outputs_dict})
+
+                visited[node.name] = container_op
 
                 if kfp_component_op:
                     container_op.after(kfp_component_op)

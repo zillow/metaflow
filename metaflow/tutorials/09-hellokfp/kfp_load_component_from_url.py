@@ -3,6 +3,9 @@ from kfp.components import load_component_from_url
 from metaflow import FlowSpec, step, kfp
 
 
+URL = "https://raw.githubusercontent.com/kubeflow/pipelines/6931fe84f5b9e5fc9747ddc924890de41e4cd10e/sdk/python/kfp/v2/compiler_cli_tests/test_data/component_yaml/add_component.yaml"
+
+
 class KfpLoadComponent(FlowSpec):
     """
     A Flow that decorates a Metaflow Step with a KFP component
@@ -18,11 +21,7 @@ class KfpLoadComponent(FlowSpec):
         self.next(self.end)
 
     @kfp(
-        container_op_func=load_component_from_url(
-            "https://raw.githubusercontent.com/kubeflow/pipelines/"
-            "6931fe84f5b9e5fc9747ddc924890de41e4cd10e/"
-            "sdk/python/kfp/v2/compiler_cli_tests/test_data/component_yaml/add_component.yaml"
-        ),
+        container_op_func=load_component_from_url(URL),
         kfp_component_inputs="op1 op2",
         kfp_component_outputs="result",
     )
@@ -32,6 +31,7 @@ class KfpLoadComponent(FlowSpec):
         kfp.kfp_component_outputs ["result"] is now available as Metaflow Flow state
         """
         print(f"result = {self.result}")
+        assert int(self.result) == 5
 
 
 if __name__ == "__main__":

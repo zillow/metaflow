@@ -15,7 +15,7 @@ def kfp_step_function(**kwargs) -> object:
     from subprocess import Popen
     from collections import namedtuple
     from metaflow.cli import logger
-    from typing import List
+    from typing import Dict, List
 
     datastore_root = kwargs["datastore_root"]
     cmd_template = kwargs["cmd_template"]
@@ -29,6 +29,11 @@ def kfp_step_function(**kwargs) -> object:
     kfp_component_outputs: List[str] = json.loads(
         kwargs.get("kfp_component_outputs", "[]")
     )
+    # expose passed KFP passed in arguments as environment variables to
+    # the bash command
+    kfp_component_outputs_env: Dict[str, str] = {
+        field: kwargs[field] for field in kfp_component_outputs
+    }
     metaflow_service_url: str = kwargs.get("metaflow_service_url", "")
 
     cmd = cmd_template.format(
@@ -54,7 +59,7 @@ def kfp_step_function(**kwargs) -> object:
                 METAFLOW_USER="kfp-user",  # TODO: what should this be for a non-scheduled run?
                 METAFLOW_SERVICE_URL=metaflow_service_url,
             ),
-            **{field: kwargs[field] for field in kfp_component_outputs},
+            **kfp_component_outputs_env,
         },
     ) as process:
         pass
