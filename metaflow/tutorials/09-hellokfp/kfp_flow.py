@@ -25,11 +25,6 @@ class KfpFlow(FlowSpec):
     A Flow that decorates a Metaflow Step with a KFP component
     """
 
-    @kfp(
-        func=my_step_op_func,
-        kfp_component_inputs=["x", "y"],
-        kfp_component_outputs=["r1", "r2"],
-    )
     @step
     def start(self):
         """
@@ -40,6 +35,11 @@ class KfpFlow(FlowSpec):
 
         self.next(self.end)
 
+    @kfp(
+        container_op_func=my_step_op_func,
+        kfp_component_inputs=["x", "y"],
+        kfp_component_outputs=["r1", "r2"],
+    )
     @step
     def end(self):
         """

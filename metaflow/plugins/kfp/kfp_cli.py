@@ -4,7 +4,7 @@ import click
 
 from metaflow import current, decorators
 from metaflow.datastore.datastore import TransformableObject
-from metaflow.exception import MetaflowException
+from metaflow.exception import CommandException, MetaflowException
 from metaflow.metaflow_config import (
     KFP_RUN_URL_PREFIX,
     KFP_SDK_API_NAMESPACE,
@@ -161,7 +161,7 @@ def run(
     check_metadata_service_version(obj)
     flow = make_flow(
         obj,
-        pipeline_name if pipeline_path else obj.flow.name,
+        pipeline_name if pipeline_name else obj.flow.name,
         namespace,
         api_namespace,
         base_image,
@@ -171,6 +171,9 @@ def run(
     )
 
     if yaml_only:
+        if pipeline_path is None:
+            raise CommandException("Please specify --pipeline-path")
+
         pipeline_path = flow.create_kfp_pipeline_yaml(pipeline_path)
         obj.echo(
             "\nDone converting *{name}* to {path}".format(
@@ -179,7 +182,7 @@ def run(
         )
     else:
         if s3_code_package and flow.datastore.TYPE != "s3":
-            raise MetaflowException(
+            raise CommandException(
                 "Kubeflow Pipelines s3-code-package requires --datastore=s3."
             )
 

@@ -3,7 +3,7 @@ import os
 import sys
 from collections import namedtuple
 from pathlib import Path
-from typing import Callable, Dict, List, Tuple, Union, Optional
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -46,7 +46,9 @@ class KfpComponent(object):
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
         self.kfp_func: Callable = (
-            kfp_decorator.attributes.get("func", None) if kfp_decorator else None
+            kfp_decorator.attributes.get("container_op_func", None)
+            if kfp_decorator
+            else None
         )
         self.kfp_component_inputs: List[str] = (
             kfp_decorator.attributes["kfp_component_inputs"] if kfp_decorator else []
@@ -468,6 +470,7 @@ class KubeflowPipelines(object):
             "passed_in_split_indexes",
             "kfp_component_inputs",  # contains Flow state fields to expose to KFP
             "kfp_component_outputs",  # contains list of return fields parameter key names
+            "metaflow_service_url",
         ]
 
         # kfp_component_outputs are returned by the KFP component to incorporate back into
@@ -510,34 +513,36 @@ class KubeflowPipelines(object):
             visited: Dict[str, ContainerOp] = {}
 
             def build_kfp_dag(
-                node: DAGNode, passed_in_split_indexes='""', kfp_component_outputs=None
+                node: DAGNode,
+                passed_in_split_indexes: str = '""',
+                kfp_component_op: ContainerOp = None,
+                kfp_component_outputs_dict: Dict[str, dsl.PipelineParam] = None,
             ):
                 if node.name in visited:
                     return
 
-                if kfp_component_outputs is None:
-                    kfp_component_outputs = []
+                if kfp_component_outputs_dict is None:
+                    kfp_component_outputs_dict = {}
 
-                kfp_component_outputs_dict: Dict[str, dsl.PipelineParam] = {}
-                parent_kfp_component_op: Optional[ContainerOp] = None
-                if (
-                    len(node.in_funcs) > 0
-                    and step_to_kfp_component_map[node.in_funcs[0]].kfp_func
+                # If any of this node's children has a kfp_func then
+                # create (kfp_decorator_component, kfp_component_inputs)
+                next_kfp_decorator_component: Optional[KfpComponent] = None
+                kfp_component_inputs = []
+                if any(
+                    step_to_kfp_component_map[child].kfp_func
+                    for child in node.out_funcs
                 ):
-                    parent_kfp_component: KfpComponent = step_to_kfp_component_map[
-                        node.in_funcs[0]
-                    ]
-                    parent_op: ContainerOp = visited[node.in_funcs[0]]
-                    parent_kfp_component_op: ContainerOp = parent_kfp_component.kfp_func(
-                        *[
-                            parent_op.outputs[mf_field]
-                            for mf_field in parent_kfp_component.kfp_component_inputs
+                    next_kfp_decorator_component: KfpComponent = (
+                        step_to_kfp_component_map[
+                            node.out_funcs[
+                                0
+                            ]  # TODO: validate that node is a Linear Step only!
                         ]
                     )
-                    kfp_component_outputs_dict = {
-                        name: parent_kfp_component_op.outputs[name]
-                        for name in parent_kfp_component.kfp_component_outputs
-                    }
+                    # fields to return from Flow state to KFP
+                    kfp_component_inputs = (
+                        next_kfp_decorator_component.kfp_component_inputs
+                    )
 
                 kfp_component: KfpComponent = step_to_kfp_component_map[node.name]
                 step_op_args = dict(
@@ -545,27 +550,44 @@ class KubeflowPipelines(object):
                     cmd_template=kfp_component.cmd_template,
                     kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     passed_in_split_indexes=passed_in_split_indexes,
-                    kfp_component_inputs=kfp_component.kfp_component_inputs,
-                    kfp_component_outputs=kfp_component_outputs,
+                    kfp_component_inputs=kfp_component_inputs,
+                    kfp_component_outputs=kfp_component.kfp_component_outputs,
                     metaflow_service_url=METADATA_SERVICE_URL,
                 )
-                op = visited[node.name] = self.step_op(
+                container_op = visited[node.name] = self.step_op(
                     node.name,
-                    kfp_component_inputs=kfp_component.kfp_component_inputs,
-                    kfp_component_outputs=kfp_component_outputs,
+                    kfp_component_inputs=kfp_component_inputs,
+                    kfp_component_outputs=kfp_component.kfp_component_outputs,
                 )(**{**step_op_args, **kfp_component_outputs_dict})
 
-                if parent_kfp_component_op:
-                    op.after(parent_kfp_component_op)
+                if kfp_component_op:
+                    container_op.after(kfp_component_op)
 
-                next_kfp_component_outputs = kfp_component.kfp_component_outputs
+                # If any of this node's children has a kfp_func then
+                # create (next_kfp_component_outputs_dict, next_kfp_component_op)
+                # to pass along to next step
+                next_kfp_component_op: Optional[ContainerOp] = None
+                next_kfp_component_outputs_dict: Dict[str, dsl.PipelineParam] = {}
+                if next_kfp_decorator_component:
+                    next_kfp_component_op: ContainerOp = next_kfp_decorator_component.kfp_func(
+                        *[
+                            container_op.outputs[mf_field]
+                            for mf_field in next_kfp_decorator_component.kfp_component_inputs
+                        ]
+                    )
 
-                KubeflowPipelines._set_container_settings(op, kfp_component)
+                    next_kfp_component_op.after(container_op)
+                    next_kfp_component_outputs_dict = {
+                        name: next_kfp_component_op.outputs[name]
+                        for name in next_kfp_decorator_component.kfp_component_outputs
+                    }
+
+                KubeflowPipelines._set_container_settings(container_op, kfp_component)
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works
                     with kfp.dsl.ParallelFor(
-                        op.outputs["foreach_splits"]
+                        container_op.outputs["foreach_splits"]
                     ) as split_index:
                         # build_kfp_dag() will halt when a foreach join is
                         # reached.
@@ -573,8 +595,9 @@ class KubeflowPipelines(object):
                         #  or one out_func
                         build_kfp_dag(
                             self.graph[node.out_funcs[0]],
-                            passed_in_split_indexes=split_index,
-                            kfp_component_outputs=next_kfp_component_outputs,
+                            split_index,
+                            next_kfp_component_op,
+                            next_kfp_component_outputs_dict,
                         )
 
                     # Handle the ParallelFor join step, and pass in
@@ -582,7 +605,8 @@ class KubeflowPipelines(object):
                     build_kfp_dag(
                         self.graph[node.matching_join],
                         passed_in_split_indexes,
-                        kfp_component_outputs=next_kfp_component_outputs,
+                        next_kfp_component_op,
+                        next_kfp_component_outputs_dict,
                     )
                 else:
                     for step in node.out_funcs:
@@ -600,7 +624,8 @@ class KubeflowPipelines(object):
                             build_kfp_dag(
                                 step_node,
                                 passed_in_split_indexes,
-                                kfp_component_outputs=next_kfp_component_outputs,
+                                next_kfp_component_op,
+                                next_kfp_component_outputs_dict,
                             )
 
             build_kfp_dag(self.graph["start"])

@@ -8,10 +8,16 @@ from metaflow import current, util
 from metaflow.datastore import MetaflowDataStore
 from metaflow.datastore.util.s3util import get_s3_client
 from metaflow.decorators import StepDecorator
+from metaflow.exception import MetaflowException
 from metaflow.metadata import MetaDatum
 from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
 from metaflow.plugins.kfp.kfp_constants import KFP_COMPONENT_INPUTS_PATH
 from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
+
+
+class KfpException(MetaflowException):
+    headline = "KFP plugin error"
+
 
 StepOpBinding = NamedTuple(
     "StepOpBinding",
@@ -25,7 +31,7 @@ class KfpInternalDecorator(StepDecorator):
       Example: a component that returns a string
     @step
     @kfp(
-        func=my_step_op_func,
+        container_op_func=my_step_op_func,
         kfp_component_inputs=["var1", "var2"],
         kfp_component_outputs=["var3"]
     )
@@ -34,21 +40,30 @@ class KfpInternalDecorator(StepDecorator):
     """
 
     name = "kfp"
-    defaults = {"func": None, "kfp_component_inputs": [], "kfp_component_outputs": []}
+    defaults = {
+        "container_op_func": None,
+        "kfp_component_inputs": [],
+        "kfp_component_outputs": [],
+    }
 
     def __init__(self, attributes=None, statically_defined=False):
         super(KfpInternalDecorator, self).__init__(attributes, statically_defined)
 
     def step_init(self, flow, graph, step, decos, environment, datastore, logger):
         if datastore.TYPE != "s3":
-            raise Exception("The *@kfp* decorator requires --datastore=s3.")
+            raise KfpException("The *@kfp* decorator requires --datastore=s3.")
 
-        self.datastore = datastore
-        self.logger = logger
+        if self.attributes["container_op_func"] is not None:
+            node = graph[step]
+            if step == "start":
+                raise KfpException(
+                    "A @kfp container_op_func cannot be on the start step."
+                )
 
-    def step_init(self, flow, graph, step, decos, environment, datastore, logger):
-        if datastore.TYPE != "s3":
-            raise Exception("The *@kfp_internal* decorator requires --datastore=s3.")
+            if len(node.in_funcs) > 1 or graph[node.in_funcs[0]].type != "linear":
+                raise KfpException(
+                    "The incoming step of a @kfp with a container_op_func must be linear."
+                )
 
         self.datastore = datastore
         self.logger = logger

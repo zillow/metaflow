@@ -10,9 +10,11 @@ def flip_coin_func(s3_root: str) -> str:
     import random
     from metaflow import S3
 
-    print("s3_root", s3_root)
+    result = "tails" if random.randint(0, 2) == 0 else "heads"
 
-    result = "heads" if random.randint(0, 1) == 0 else "tails"
+    print("s3_root", s3_root)
+    print("result", result)
+
     if result == "tails":
         with S3(s3root=s3_root) as s3:
             s3.put("my_result", result)
@@ -38,7 +40,6 @@ class KfpGraphComponentFlow(FlowSpec):
     A Flow that decorates a Metaflow Step with a KFP graph_component
     """
 
-    @kfp(func=my_recursive_component, kfp_component_inputs=["s3_root"])
     @step
     def start(self):
         """
@@ -53,6 +54,7 @@ class KfpGraphComponentFlow(FlowSpec):
 
         self.next(self.end)
 
+    @kfp(container_op_func=my_recursive_component, kfp_component_inputs=["s3_root"])
     @step
     def end(self):
         """
