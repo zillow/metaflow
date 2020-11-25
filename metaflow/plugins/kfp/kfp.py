@@ -50,12 +50,19 @@ class KfpComponent(object):
             if kfp_decorator
             else None
         )
-        self.kfp_component_inputs: List[str] = (
-            kfp_decorator.attributes["kfp_component_inputs"] if kfp_decorator else []
-        )
-        self.kfp_component_outputs: List[str] = (
-            kfp_decorator.attributes["kfp_component_outputs"] if kfp_decorator else []
-        )
+
+        def binding(binding_name: str) -> List[str]:
+            if kfp_decorator:
+                binding_fields = kfp_decorator.attributes[binding_name]
+                if isinstance(binding_fields, str):
+                    return binding_fields.split(" ")
+                else:
+                    return binding_fields
+            else:
+                return []
+
+        self.kfp_component_inputs: List[str] = binding("kfp_component_inputs")
+        self.kfp_component_outputs: List[str] = binding("kfp_component_outputs")
 
 
 class KubeflowPipelines(object):
@@ -460,7 +467,9 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _update_step_op_func_signature(
-        func: Callable, kfp_component_inputs, kfp_component_outputs
+        func: Callable,
+        kfp_component_inputs: List[str],
+        kfp_component_outputs: List[str],
     ) -> Callable:
         # -- Update Parameter Binding
         params = [
@@ -552,7 +561,9 @@ class KubeflowPipelines(object):
                     passed_in_split_indexes=passed_in_split_indexes,
                     kfp_component_inputs=kfp_component_inputs,
                     kfp_component_outputs=kfp_component.kfp_component_outputs,
-                    metaflow_service_url=METADATA_SERVICE_URL,
+                    metaflow_service_url=METADATA_SERVICE_URL
+                    if METADATA_SERVICE_URL
+                    else "",
                 )
                 container_op = visited[node.name] = self.step_op(
                     node.name,
@@ -577,8 +588,16 @@ class KubeflowPipelines(object):
                     )
 
                     next_kfp_component_op.after(container_op)
+
+                    num_outputs = len(
+                        next_kfp_decorator_component.kfp_component_outputs
+                    )
                     next_kfp_component_outputs_dict = {
-                        name: next_kfp_component_op.outputs[name]
+                        name: (
+                            next_kfp_component_op.outputs[name]
+                            if num_outputs > 1
+                            else next_kfp_component_op.output
+                        )
                         for name in next_kfp_decorator_component.kfp_component_outputs
                     }
 

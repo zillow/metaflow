@@ -208,7 +208,7 @@ def run(
         )
 
         obj.echo(
-            "Run link: {kfp_run_url}\n".format(kfp_run_url=kfp_run_url),
+            "*Run link:* {kfp_run_url}\n".format(kfp_run_url=kfp_run_url),
             fg="cyan",
         )
 
