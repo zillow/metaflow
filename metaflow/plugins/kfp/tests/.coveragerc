@@ -1,2 +1,16 @@
-[run]
+[coverage:run]
 omit = ./*
+
+[coverage:report]
+fail_under = 65
+exclude_lines =
+    pragma: no cover
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    response = requests.get
+    response = requests.put
+
+# pytest
+[tool:pytest]
+addopts = -vv
