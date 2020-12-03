@@ -151,6 +151,7 @@ test:nonprod:
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} )
     - cp -r /root/.kube .
     - docker run
+        --name integration_testing_container
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube 
         --rm
         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID 
@@ -166,6 +167,16 @@ test:nonprod:
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests && 
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg
         "
+    - pwd
+    - ls
+    - ls ../
+    - ls ../../
+    - ls ../../../
+    - ls ../../../../
+    - docker cp integration_testing_container:/home/zservice/htmlcov public/
+  artifacts:
+    paths:
+      - public
   rules:
     - if: '$DEPLOY_NONPROD == "true"'
 
