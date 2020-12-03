@@ -153,7 +153,6 @@ test:nonprod:
     - docker run
         --name integration_testing_container
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube 
-        --rm
         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID 
         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY 
         -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN 
