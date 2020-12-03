@@ -171,7 +171,7 @@ test:nonprod:
           ls ../ &&
           ls ../../ &&
           ls ../../../ && 
-          ls ../../../../ &&
+          ls ../../../../
         "
     - docker cp integration_testing_container:/home/zservice/htmlcov public/
   artifacts:
