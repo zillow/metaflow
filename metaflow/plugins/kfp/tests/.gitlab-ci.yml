@@ -119,9 +119,9 @@ test:internal:
     - *path-to-host-file-directory
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} ) # reading the path to the Docker image on Artifactory
     - cp -r /root/.kube .
-    - docker run 
+    - docker run
+        --name integration_testing_container
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube
-        --rm 
         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID 
         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY 
         -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN 
@@ -135,6 +135,11 @@ test:internal:
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests && 
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg
         "
+    - docker start integration_testing_container
+    - docker cp integration_testing_container:/home/zservice/metaflow/metaflow/plugins/kfp/tests/htmlcov public/
+  artifacts:
+    paths:
+      - public
   rules:
     - if: '$DEPLOY_INTERNAL == "true"'
 
@@ -166,8 +171,6 @@ test:nonprod:
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests && 
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg
         "
-    - docker ps
-    - docker ps -a
     - docker start integration_testing_container
     - docker cp integration_testing_container:/home/zservice/metaflow/metaflow/plugins/kfp/tests/htmlcov public/
   artifacts:
@@ -189,8 +192,8 @@ test:prod:
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} )
     - cp -r /root/.kube .
     - docker run
+        --name integration_testing_container
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube 
-        --rm
         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID 
         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY 
         -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN 
@@ -204,5 +207,10 @@ test:prod:
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests && 
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg
         "
+    - docker start integration_testing_container
+    - docker cp integration_testing_container:/home/zservice/metaflow/metaflow/plugins/kfp/tests/htmlcov public/
+  artifacts:
+    paths:
+      - public
   rules:
     - if: '$DEPLOY_PROD == "true"'
