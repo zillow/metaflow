@@ -157,7 +157,7 @@ test:nonprod:
     - *path-to-host-file-directory  
     - export BUILT_IMAGE_FULL_PATH=$( cat ${_IMAGE_TAG_FILE} )
     - cp -r /root/.kube .
-    - export CONTAINER_NAME=$(uuidgen)
+    - export CONTAINER_NAME=$(cat /proc/sys/kernel/random/uuid)
     - docker run
         --name $CONTAINER_NAME
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube 
