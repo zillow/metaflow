@@ -14,21 +14,21 @@ class KfpLoadComponent(FlowSpec):
     @step
     def start(self):
         """
-        kfp.kfp_component_inputs Flow state ["op1", "op2"] is passed to the KFP component as arguments
+        kfp.preceding_component_inputs Flow state ["op1", "op2"] is passed to the KFP component as arguments
         """
         self.op1 = 2
         self.op2 = 3
         self.next(self.end)
 
     @kfp(
-        container_op_func=load_component_from_url(URL),
-        kfp_component_inputs="op1 op2",
-        kfp_component_outputs="result",
+        preceding_component=load_component_from_url(URL),
+        preceding_component_inputs="op1 op2",
+        preceding_component_outputs="result",
     )
     @step
     def end(self):
         """
-        kfp.kfp_component_outputs ["result"] is now available as Metaflow Flow state
+        kfp.preceding_component_outputs ["result"] is now available as Metaflow Flow state
         """
         print(f"result = {self.result}")
         assert int(self.result) == 5

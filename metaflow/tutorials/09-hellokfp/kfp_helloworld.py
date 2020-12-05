@@ -18,20 +18,20 @@ class KfpHelloWorld(FlowSpec):
     @step
     def start(self):
         """
-        kfp.kfp_component_inputs Flow state ["who"] is passed to the KFP component as arguments
+        kfp.preceding_component_inputs Flow state ["who"] is passed to the KFP component as arguments
         """
         self.who = "world"
         self.next(self.end)
 
     @kfp(
-        container_op_func=my_hello_step_op_func,
-        kfp_component_inputs=["who"],
-        kfp_component_outputs=["message"],
+        preceding_component=my_hello_step_op_func,
+        preceding_component_inputs=["who"],
+        preceding_component_outputs=["message"],
     )
     @step
     def end(self):
         """
-        kfp.kfp_component_outputs ["message"] is now available as Metaflow Flow state
+        kfp.preceding_component_outputs ["message"] is now available as Metaflow Flow state
         """
         print("message", self.message)
 

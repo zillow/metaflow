@@ -123,6 +123,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 )
 @click.option(
     "--max-parallelism",
+    "-m",
     default=10,
     show_default=True,
     help="Maximum number of parallel pods.",
@@ -132,6 +133,8 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 )
 @click.option(
     "--wait-for-completion",
+    "--wait",
+    "-w",
     "wait_for_completion",
     is_flag=True,
     default=False,

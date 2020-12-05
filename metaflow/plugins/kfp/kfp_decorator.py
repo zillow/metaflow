@@ -11,7 +11,7 @@ from metaflow.decorators import StepDecorator
 from metaflow.exception import MetaflowException
 from metaflow.metadata import MetaDatum
 from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
-from metaflow.plugins.kfp.kfp_constants import KFP_COMPONENT_INPUTS_PATH
+from metaflow.plugins.kfp.kfp_constants import preceding_component_inputs_PATH
 from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
 
 
@@ -21,20 +21,23 @@ class KfpException(MetaflowException):
 
 StepOpBinding = NamedTuple(
     "StepOpBinding",
-    [("kfp_component_inputs", List[str]), ("kfp_component_outputs", List[str])],
+    [
+        ("preceding_component_inputs", List[str]),
+        ("preceding_component_outputs", List[str]),
+    ],
 )
 
 
 class KfpInternalDecorator(StepDecorator):
     """
-    kfp_component_inputs:
-      kfp_component_outputs are returned by the KFP component to incorporate
+    preceding_component_inputs:
+      preceding_component_outputs are returned by the KFP component to incorporate
       back into Metaflow Flow state.  We do this by having the previous step
       return these as a namedtuple to KFP.  They are saved to
-      KFP_COMPONENT_INPUTS_PATH in task_finished
+      preceding_component_inputs_PATH in task_finished
 
-    kfp_component_outputs:
-      kfp_component_inputs are Flow state fields to expose to a KFP step by
+    preceding_component_outputs:
+      preceding_component_inputs are Flow state fields to expose to a KFP step by
       returning them as KFP step return values.  It is a list of KFP component
       returned namedtuple to bind to Metaflow self state.  These are
       environment set as environment variables and loaded to Metaflow self
@@ -43,9 +46,9 @@ class KfpInternalDecorator(StepDecorator):
 
     @step
     @kfp(
-        container_op_func=my_step_op_func,
-        kfp_component_inputs=["var1", "var2"],
-        kfp_component_outputs=["var3"]
+        preceding_component=my_step_op_func,
+        preceding_component_inputs=["var1", "var2"],
+        preceding_component_outputs=["var3"]
     )
     def myStep(self):
         pass
@@ -53,9 +56,9 @@ class KfpInternalDecorator(StepDecorator):
 
     name = "kfp"
     defaults = {
-        "container_op_func": None,
-        "kfp_component_inputs": [],
-        "kfp_component_outputs": [],
+        "preceding_component": None,
+        "preceding_component_inputs": [],
+        "preceding_component_outputs": [],
     }
 
     def __init__(self, attributes=None, statically_defined=False):
@@ -65,16 +68,16 @@ class KfpInternalDecorator(StepDecorator):
         if datastore.TYPE != "s3":
             raise KfpException("The *@kfp* decorator requires --datastore=s3.")
 
-        if self.attributes["container_op_func"] is not None:
+        if self.attributes["preceding_component"] is not None:
             node = graph[step]
             if step == "start":
                 raise KfpException(
-                    "A @kfp container_op_func cannot be on the start step."
+                    "A @kfp preceding_component cannot be on the start step."
                 )
 
             if len(node.in_funcs) > 1 or graph[node.in_funcs[0]].type != "linear":
                 raise KfpException(
-                    "The incoming step of a @kfp with a container_op_func must be linear."
+                    "The incoming step of a @kfp with a preceding_component must be linear."
                 )
 
         self.datastore = datastore
@@ -109,13 +112,13 @@ class KfpInternalDecorator(StepDecorator):
         else:
             self.ds_root = None
 
-        kfp_component_outputs: List[str] = json.loads(
-            os.environ["KFP_COMPONENT_OUTPUTS"]
+        preceding_component_outputs: List[str] = json.loads(
+            os.environ["PRECEDING_COMPONENT_OUTPUTS"]
         )
-        if len(kfp_component_outputs) > 0:
-            for field in kfp_component_outputs:
-                # Update running Flow with environment KFP_COMPONENT_OUTPUTS variables
-                # KFP_COMPONENT_OUTPUTS is a list of environment variables that exist
+        if len(preceding_component_outputs) > 0:
+            for field in preceding_component_outputs:
+                # Update running Flow with environment preceding_component_outputs variables
+                # preceding_component_outputs is a list of environment variables that exist
                 field_value = os.environ[field]
                 flow.__setattr__(field, field_value)
 
@@ -137,14 +140,15 @@ class KfpInternalDecorator(StepDecorator):
             # continue so no need to do anything here.
             return
         else:
-            kfp_component_inputs: List[str] = json.loads(
-                os.environ["KFP_COMPONENT_INPUTS"]
+            preceding_component_inputs: List[str] = json.loads(
+                os.environ["PRECEDING_COMPONENT_INPUTS"]
             )
-            if len(kfp_component_inputs) > 0:
-                with open(KFP_COMPONENT_INPUTS_PATH, "w") as file:
+            if len(preceding_component_inputs) > 0:
+                with open(preceding_component_inputs_PATH, "w") as file:
                     # Get fields from running Flow and persist as json to local FS
                     fields_dictionary = {
-                        key: flow.__getattribute__(key) for key in kfp_component_inputs
+                        key: flow.__getattribute__(key)
+                        for key in preceding_component_inputs
                     }
                     json.dump(fields_dictionary, file)
 

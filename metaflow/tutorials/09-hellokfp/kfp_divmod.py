@@ -19,16 +19,16 @@ class DivModFlow(FlowSpec):
     @step
     def start(self):
         """
-        kfp.kfp_component_inputs Flow state ["who"] is passed to the KFP component as arguments
+        kfp.preceding_component_inputs Flow state ["who"] is passed to the KFP component as arguments
         """
         self.dividend = 26
         self.divisor = 7
         self.next(self.end)
 
     @kfp(
-        container_op_func=div_mod,
-        kfp_component_inputs="dividend divisor",
-        kfp_component_outputs="quotient remainder",
+        preceding_component=div_mod,
+        preceding_component_inputs="dividend divisor",
+        preceding_component_outputs="quotient remainder",
     )
     @step
     def end(self):

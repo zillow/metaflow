@@ -43,7 +43,7 @@ class KfpGraphComponentFlow(FlowSpec):
     @step
     def start(self):
         """
-        kfp.kfp_component_inputs ["s3_root"] is passed to the graph_component because
+        kfp.preceding_component_inputs ["s3_root"] is passed to the graph_component because
         graph_components cannot return KFP outputs, and hence we use S3 flow root as the data
         passing mechanism.  See how the end step uses S3 to get the result.
         """
@@ -54,7 +54,7 @@ class KfpGraphComponentFlow(FlowSpec):
 
         self.next(self.end)
 
-    @kfp(container_op_func=my_recursive_component, kfp_component_inputs=["s3_root"])
+    @kfp(preceding_component=my_recursive_component, preceding_component_inputs=["s3_root"])
     @step
     def end(self):
         """
