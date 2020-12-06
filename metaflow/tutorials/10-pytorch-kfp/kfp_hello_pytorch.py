@@ -4,6 +4,9 @@ from kfp.dsl import graph_component
 from metaflow import FlowSpec, Parameter, step, kfp, current
 
 
+# TODO: wrapping train_model_io, to load it at runtime within the container
+#  once, the mnist-example project doit debug image works to submit a pipeline
+#  then my_train_model_io() can be removed.
 def my_train_model_io(
     input_data_path: str = "/opt/zillow/mnist_pytorch_example/data",
     out_path: str = "/opt/zillow/mnist_cnn.pth",
@@ -37,17 +40,16 @@ train_component_resources = {
     "container": {
         "set_memory_request": "1G",
         "set_memory_limit": "2G",
-        # "set_gpu_limit": "1",
         "set_cpu_request": "500m",
         "set_cpu_limit": "5",
     },
-    "set_retry": 2,
 }
 
 base_image: str = (
     "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/"
     "mnist-pytorch-example:0.1.766a5007.master"
 )
+
 
 class HelloPyTorch(FlowSpec):
     """
@@ -84,14 +86,33 @@ class HelloPyTorch(FlowSpec):
         self.run_id = current.run_id
         self.next(self.end)
 
+    # TODO: decorators don't have access to Metaflow parameters
+    #  but could they have access to the CLI arguments somehow?
+    #  Also, how could world_size, then also be a pipeline argument anymore?
+    #  Only if kfp_pytorch were a graph_component that accepts (world_size, base_image)
+    #  as a parameter.
     @kfp(
-        preceding_component=graph_component(kfp_pytorch(  # TODO: kfp_pytorch bug needs graph_component
-            func=my_train_model_io,
-            base_image=base_image,
-            component_resources=train_component_resources,
-            world_size=2,
-            # rank=0
-        )),
+        # TODO: kfp_pytorch bug needs graph_component, else dependency graph is off!
+        preceding_component=graph_component(
+            kfp_pytorch(
+                func=my_train_model_io,
+                base_image=base_image,
+                component_resources=train_component_resources,
+                world_size=2,
+            )
+        ),
+        # TODO: kfp_pytorch when world_size=2 doesn't accept following kfp parameters!
+        #  world_size=1 however works and accepts the parameters with this change:
+        #    diff --git a/aip_kfp_sdk/components/pytorch.py b/aip_kfp_sdk/components/pytorch.py
+        #    index 28dd32c..1a221ca 100644
+        #    --- a/aip_kfp_sdk/components/pytorch.py
+        #    +++ b/aip_kfp_sdk/components/pytorch.py
+        #    @@ -137,7 +137,7 @@ def kfp_pytorch(
+        #             else:
+        #                 return kfp_component(
+        #                     func, base_image=base_image, component_resources=component_resources
+        #    -            )(**wrapper_kwargs)
+        #    +            )(*args, **wrapper_kwargs)
         # preceding_component_inputs="input_data_path out_path batch_size test_batch_size epochs optimizer lr momentum seed world_size"
     )
     @step
