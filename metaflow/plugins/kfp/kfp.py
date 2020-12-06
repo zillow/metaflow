@@ -5,11 +5,11 @@ from collections import namedtuple
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import yaml
-
 import kfp
+import yaml
 from kfp import dsl
 from kfp.dsl import ContainerOp, PipelineConf
+
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
     KFP_TTL_SECONDS_AFTER_FINISHED,
@@ -559,7 +559,8 @@ class KubeflowPipelines(object):
 
         def pipeline_transform(op: ContainerOp):
             # Disable caching because Metaflow doesn't have memoization
-            op.execution_options.caching_strategy.max_cache_staleness = "P0D"
+            if isinstance(op, ContainerOp):
+                op.execution_options.caching_strategy.max_cache_staleness = "P0D"
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
         def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):

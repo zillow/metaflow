@@ -1,4 +1,7 @@
+import json
 import posixpath
+import shutil
+import subprocess
 
 import click
 
@@ -208,12 +211,8 @@ def run(
 
         obj.echo("\nRun created successfully!\n")
 
-        obj.echo(
-            "Metaflow run_id=*kfp-{run_id}* \n".format(
-                run_id=run_pipeline_result.run_id
-            ),
-            fg="magenta",
-        )
+        run_id = f"kfp-{run_pipeline_result.run_id}"
+        obj.echo(f"Metaflow run_id=*{run_id}* \n", fg="magenta")
 
         kfp_run_url = posixpath.join(
             KFP_RUN_URL_PREFIX,
@@ -227,18 +226,38 @@ def run(
         )
 
         if wait_for_completion:
-            response = flow._client.wait_for_run_completion(
-                run_pipeline_result.run_id, 1200
-            )
-
-            if response.run.status == "Succeeded":
-                obj.echo("SUCCEEDED!", fg="green")
-            else:
-                raise Exception(
-                    "Flow: {flow_name}, run link: {kfp_run_url} FAILED!".format(
-                        flow_name=current.flow_name, kfp_run_url=kfp_run_url
-                    )
+            argo_path: str = shutil.which("argo")
+            if argo_path:
+                run_info = flow._client.get_run(run_pipeline_result.run_id)
+                workflow_manifest = json.loads(
+                    run_info.pipeline_runtime.workflow_manifest
                 )
+                argo_workflow_name = workflow_manifest["metadata"]["name"]
+                argo_cmd = f"{argo_path} -n {namespace} "
+                cmd = f"{argo_cmd} watch {argo_workflow_name}"
+                subprocess.run(cmd, shell=True, universal_newlines=True)
+
+                cmd = f"{argo_cmd} get {argo_workflow_name} | grep Status | awk '{{print $2}}'"
+                ret = subprocess.run(
+                    cmd, shell=True, stdout=subprocess.PIPE, encoding="utf8"
+                )
+                succeeded = "Succeeded" in ret.stdout
+            else:
+                response = flow._client.wait_for_run_completion(
+                    run_pipeline_result.run_id, 500
+                )
+                succeeded = (response.run.status == "Succeeded",)
+
+            show_status(run_id, kfp_run_url, obj.echo, succeeded)
+
+
+def show_status(run_id: str, kfp_run_url: str, echo: callable, succeeded: bool):
+    if succeeded:
+        echo("\nSUCCEEDED!", fg="green")
+    else:
+        raise Exception(
+            f"Flow: {current.flow_name}, run_id: {run_id}, run_link: {kfp_run_url} FAILED!"
+        )
 
 
 def make_flow(
