@@ -135,8 +135,8 @@ test:internal:
           export METAFLOW_USER=${GITLAB_USER_EMAIL} &&
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests && 
           python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg; 
-          export exit_code=$? &&
-          mv /home/zservice/metaflow/metaflow/plugins/kfp/tests/htmlcov /home/zservice/public &&
+          export exit_code=$?;
+          mv /home/zservice/metaflow/metaflow/plugins/kfp/tests/htmlcov /home/zservice/public;
           exit $exit_code
         "
   artifacts:
