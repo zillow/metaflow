@@ -140,6 +140,7 @@ test:internal:
           exit $exit_code
         "
   artifacts:
+    when: always
     paths:
       - public
   rules:
