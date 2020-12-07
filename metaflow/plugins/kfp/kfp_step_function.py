@@ -13,6 +13,7 @@ def kfp_step_function(
         str
     ] = None,  # fields to be pushed into Flow state from KFP
     metaflow_service_url: str = "",
+    flow_parameters_json: str = None,  # json formatted string
     **kwargs
 ) -> object:
     """
@@ -23,10 +24,10 @@ def kfp_step_function(
     """
     import os
     import json
-    from subprocess import Popen
     from collections import namedtuple
-    from metaflow.cli import logger
+    from subprocess import Popen
     from typing import Dict
+    from metaflow.cli import logger
 
     if preceding_component_inputs is None:
         preceding_component_inputs = []
@@ -45,23 +46,23 @@ def kfp_step_function(
         passed_in_split_indexes=passed_in_split_indexes,
     )
 
+    env = {
+        **os.environ,
+        "METAFLOW_DATASTORE_SYSROOT_S3": datastore_root,
+        "METAFLOW_SERVICE_URL": metaflow_service_url,
+        "PRECEDING_COMPONENT_INPUTS": json.dumps(preceding_component_inputs),
+        "PRECEDING_COMPONENT_OUTPUTS": json.dumps(preceding_component_outputs),
+        "METAFLOW_USER": "kfp-user",  # TODO: what should this be for a non-scheduled run?
+        **preceding_component_outputs_env,
+    }
+    if flow_parameters_json is not None:
+        env["METAFLOW_PARAMETERS"] = flow_parameters_json
+
     # TODO: Map username to KFP specific user/profile/namespace
     # Running Metaflow
     # KFP orchestrator -> running MF runtime (runs user code, handles state)
     with Popen(
-        cmd,
-        shell=True,
-        universal_newlines=True,
-        executable="/bin/bash",
-        env={
-            "METAFLOW_DATASTORE_SYSROOT_S3": datastore_root,
-            "METAFLOW_SERVICE_URL": metaflow_service_url,
-            "PRECEDING_COMPONENT_INPUTS": json.dumps(preceding_component_inputs),
-            "PRECEDING_COMPONENT_OUTPUTS": json.dumps(preceding_component_outputs),
-            "METAFLOW_USER": "kfp-user",  # TODO: what should this be for a non-scheduled run?
-            **preceding_component_outputs_env,
-            **os.environ,
-        },
+        cmd, shell=True, universal_newlines=True, executable="/bin/bash", env=env
     ) as process:
         pass
 
