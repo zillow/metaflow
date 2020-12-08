@@ -8,7 +8,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 import kfp
 import yaml
 from kfp import dsl
-from kfp.dsl import ContainerOp, PipelineConf
+from kfp.dsl import ContainerOp, PipelineConf, VolumeOp
 
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
@@ -17,11 +17,6 @@ from metaflow.metaflow_config import (
 )
 from metaflow.plugins import KfpInternalDecorator
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
-
-from ... import R
-from ...environment import MetaflowEnvironment
-from ...graph import DAGNode
-from ...plugins.resources_decorator import ResourcesDecorator
 from .kfp_constants import (
     INPUT_PATHS_ENV_NAME,
     SPLIT_INDEX_ENV_NAME,
@@ -29,6 +24,10 @@ from .kfp_constants import (
     TASK_ID_ENV_NAME,
 )
 from .kfp_foreach_splits import graph_to_task_ids
+from ... import R
+from ...environment import MetaflowEnvironment
+from ...graph import DAGNode
+from ...plugins.resources_decorator import ResourcesDecorator
 
 
 class KfpComponent(object):
@@ -161,7 +160,7 @@ class KubeflowPipelines(object):
         Analogous to batch.py
         """
         commands = (
-            environment.get_package_commands(code_package_url, pip_install=False)
+            environment.get_package_commands(code_package_url, pip_install=True)
             if self.s3_code_package
             else ["cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)]
         )
@@ -432,6 +431,9 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _set_container_settings(container_op: ContainerOp, kfp_component: KfpComponent):
+        # container_op.container.add_port(V1ContainerPort(container_port=5000, protocol="TCP"))
+        # container_op.container.add_port(V1ContainerPort(container_port=5001, protocol="TCP"))
+
         resource_requirements: Dict[str, str] = kfp_component.resource_requirements
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
@@ -566,6 +568,14 @@ class KubeflowPipelines(object):
         def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
             visited: Dict[str, ContainerOp] = {}
 
+            # Create VolumeOp for shared file system
+            vop: Optional[VolumeOp] = VolumeOp(
+                name=f"create-shared-vol",
+                resource_name="shared-vol",
+                modes=dsl.VOLUME_MODE_RWO,
+                size="1G",
+            )
+
             def build_kfp_dag(
                 node: DAGNode,
                 passed_in_split_indexes: str = '""',
@@ -609,6 +619,11 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
                 )(**{**step_op_args, **preceding_component_outputs_dict})
+
+                shared_volume_dir: str = "/opt/zillow/shared/"
+                container_op.add_pvolumes({shared_volume_dir: vop.volume})
+                if node.name == "start":
+                    container_op.after(vop)
 
                 visited[node.name] = container_op
 

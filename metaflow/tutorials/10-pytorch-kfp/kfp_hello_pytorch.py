@@ -75,7 +75,6 @@ class HelloPyTorch(FlowSpec):
     momentum = Parameter("momentum", help="Momentum for gradient descent", default=0.5)
     seed = Parameter("seed", help="Init seed", default=42)
     world_size = Parameter("world_size", help="world_size", default=2)
-    rank = Parameter("rank", help="rank", default=0)
 
     @step
     def start(self):
@@ -101,8 +100,7 @@ class HelloPyTorch(FlowSpec):
                 world_size=2,
             )
         ),
-        # TODO: kfp_pytorch when world_size=2 doesn't accept following kfp parameters!
-        #  world_size=1 however works and accepts the parameters with this change:
+        # TODO: world_size=1 only works and accepts the KFP parameters with this change:
         #    diff --git a/aip_kfp_sdk/components/pytorch.py b/aip_kfp_sdk/components/pytorch.py
         #    index 28dd32c..1a221ca 100644
         #    --- a/aip_kfp_sdk/components/pytorch.py
@@ -113,7 +111,8 @@ class HelloPyTorch(FlowSpec):
         #                     func, base_image=base_image, component_resources=component_resources
         #    -            )(**wrapper_kwargs)
         #    +            )(*args, **wrapper_kwargs)
-        # preceding_component_inputs="input_data_path out_path batch_size test_batch_size epochs optimizer lr momentum seed world_size"
+        # TODO: kfp_pytorch when world_size=2 doesn't accept following kfp parameters!
+        preceding_component_inputs="input_data_path out_path batch_size test_batch_size epochs optimizer lr momentum seed world_size"
     )
     @step
     def end(self):

@@ -23,9 +23,9 @@ def kfp_step_function(
     """
     import os
     import json
+    import logging
     from subprocess import Popen
     from collections import namedtuple
-    from metaflow.cli import logger
     from typing import Dict
 
     if preceding_component_inputs is None:
@@ -66,9 +66,9 @@ def kfp_step_function(
         pass
 
     if process.returncode != 0:
-        logger(f"---- Following command returned: {process.returncode}")
-        logger(cmd.replace(" && ", "\n"))
-        logger("----")
+        logging.info(f"---- Following command returned: {process.returncode}")
+        logging.info(cmd.replace(" && ", "\n"))
+        logging.info("----")
         raise Exception("Returned: %s" % process.returncode)
 
     task_context_dict = {}
