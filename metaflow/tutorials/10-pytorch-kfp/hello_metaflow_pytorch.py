@@ -6,7 +6,7 @@ class HelloMetaflowPyTorch(FlowSpec):
     A Flow that decorates a Metaflow Step with a KFP component
     """
     input_data_path = Parameter(
-        "data_path",
+        "input_data_path",
         help="MNIST dataset path, local or S3",
         default="/opt/zillow/mnist_pytorch_example/data",
     )
@@ -76,6 +76,10 @@ class HelloMetaflowPyTorch(FlowSpec):
         self.next(self.evaluate)
 
 
+    @resources(
+        cpu=1, cpu_limit=2,
+        memory="1G", memory_limit="5G"
+    )
     @step
     def evaluate(self, inputs):
         train_input = next((x for x in inputs if x.rank == 0), None)
@@ -100,7 +104,7 @@ class HelloMetaflowPyTorch(FlowSpec):
         """
         Done! Can now publish or validate the results.
         """
-        print(f"model: {self.model_state_dict}")
+        print(f"model_state_dict: {self.model_state_dict}")
         print(f"evaluate_results: {self.evaluate_results}")
 
 
