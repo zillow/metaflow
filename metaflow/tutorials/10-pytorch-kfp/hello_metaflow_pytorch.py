@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, Parameter, step, current, resources
+from metaflow import FlowSpec, Parameter, step, pytorch, resources
 
 
 class HelloMetaflowPyTorch(FlowSpec):
@@ -10,8 +10,8 @@ class HelloMetaflowPyTorch(FlowSpec):
         help="MNIST dataset path, local or S3",
         default="/opt/zillow/mnist_pytorch_example/data",
     )
-    out_path = Parameter(
-        "out_path", help="Output path to save trained model", default="/opt/zillow/mnist_cnn.pth"
+    model_path = Parameter(
+        "model_path", help="Output path to save trained model", default="/opt/zillow/mnist_cnn.pth"
     )
     batch_size = Parameter("batch_size", help="Training batch size", default=1000)
     test_batch_size = Parameter(
@@ -25,10 +25,21 @@ class HelloMetaflowPyTorch(FlowSpec):
     momentum = Parameter("momentum", help="Momentum for gradient descent", default=0.5)
     seed = Parameter("seed", help="Init seed", default=42)
     world_size = Parameter("world_size", help="world_size", default=1)
+    train_accuracy_threshold = Parameter(
+        "train_accuracy_threshold",
+        help="Training dataset accuracy threshold",
+        default=0.5
+    )
+    test_accuracy_threshold = Parameter(
+        "test_accuracy_threshold",
+        help="Test dataset accuracy threshold",
+        default=0.5
+    )
 
     @step
     def start(self):
         """
+        Initialize the world_size ranks for PyTorch trainers
         """
         self.ranks = list(range(self.world_size))
         print(f"ranks: {self.ranks}")
@@ -38,18 +49,19 @@ class HelloMetaflowPyTorch(FlowSpec):
         cpu=1, cpu_limit=2,
         memory="2G", memory_limit="5G"
     )
+    @pytorch(shared_volume_dir="/opt/zillow/shared/")  # TODO: train_model should use the default
     @step
     def train(self):
         """
         PyTorch train step
         """
-        from mnist_pytorch_example.models.train import train_model_io
-
         self.rank = self.input
         print("self.rank", self.rank)
-        out_path = train_model_io(  # TODO: not call it _io, can return the model
+
+        from mnist_pytorch_example.models.train import train_model
+        self.model_state_dict = train_model(
             input_data_path=self.input_data_path,
-            out_path=self.out_path,
+            model_path=self.model_path,
             batch_size=self.batch_size,
             test_batch_size=self.test_batch_size,
             epochs=self.epochs,
@@ -61,11 +73,6 @@ class HelloMetaflowPyTorch(FlowSpec):
             rank=self.rank
         )
 
-        if self.rank == 0:
-            import torch
-            self.model = torch.load(out_path)
-            self.model_path = out_path  # TODO: don't need this, it's returned by train_model()
-
         self.next(self.evaluate)
 
 
@@ -73,22 +80,17 @@ class HelloMetaflowPyTorch(FlowSpec):
     def evaluate(self, inputs):
         train_input = next((x for x in inputs if x.rank == 0), None)
 
-        print(train_input)
-        self.model = train_input.model
-        self.model_path = train_input.model_path
+        print("train_input", train_input)
+        self.model_state_dict = train_input.model_state_dict
 
-        # Evaluate!
-        import torch
-        from mnist_pytorch_example.models.evaluate import evaluate_io
-
-        torch.save(self.model.state_dict(), self.model_path)  # TODO: update evalauate_io
-        self.evaluate_results = evaluate_io(
-            model_state_dict_path=self.model_path,
+        from mnist_pytorch_example.models.evaluate import evaluate_model
+        self.evaluate_results = evaluate_model(
+            model_state_dict=self.model_state_dict,
             input_data_path=self.input_data_path,
             batch_size=self.batch_size,
             test_batch_size=self.test_batch_size,
-            test_accuracy_threshold=0.1,
-            train_accuracy_threshold=0.1,
+            train_accuracy_threshold=self.train_accuracy_threshold,
+            test_accuracy_threshold=self.test_accuracy_threshold
         )
 
         self.next(self.end)
@@ -96,9 +98,9 @@ class HelloMetaflowPyTorch(FlowSpec):
     @step
     def end(self):
         """
-        kfp.preceding_component_outputs ["message"] is now available as Metaflow Flow state
+        Done! Can now publish or validate the results.
         """
-        print(f"model: {self.model}")
+        print(f"model: {self.model_state_dict}")
         print(f"evaluate_results: {self.evaluate_results}")
 
 

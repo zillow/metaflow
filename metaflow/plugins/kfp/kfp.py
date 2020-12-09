@@ -26,6 +26,7 @@ from .kfp_constants import (
     TASK_ID_ENV_NAME,
 )
 from .kfp_foreach_splits import graph_to_task_ids
+from .pytorch_decorator import PyTorchDecorator
 from ... import R
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
@@ -40,6 +41,7 @@ class KfpComponent(object):
         total_retries: int,
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
+        pytorch_decorator: PyTorchDecorator,
     ):
         self.name = name
         self.cmd_template = cmd_template
@@ -51,6 +53,7 @@ class KfpComponent(object):
             if kfp_decorator
             else None
         )
+        self.pytorch_decorator = pytorch_decorator
 
         def bindings(binding_name: str) -> List[str]:
             if kfp_decorator:
@@ -303,6 +306,14 @@ class KubeflowPipelines(object):
                         deco
                         for deco in node.decorators
                         if isinstance(deco, KfpInternalDecorator)
+                    ),
+                    None,  # default
+                ),
+                pytorch_decorator=next(
+                    (
+                        deco
+                        for deco in node.decorators
+                        if isinstance(deco, PyTorchDecorator)
                     ),
                     None,  # default
                 ),
@@ -578,19 +589,12 @@ class KubeflowPipelines(object):
         ):
             visited: Dict[str, ContainerOp] = {}
 
-            # Create VolumeOp for shared file system
-            vop: Optional[VolumeOp] = VolumeOp(
-                name=f"create-shared-vol",
-                resource_name="shared-vol",
-                modes=dsl.VOLUME_MODE_RWO,
-                size="1G",
-            )
-
             def build_kfp_dag(
                 node: DAGNode,
                 passed_in_split_indexes: str = '""',
                 preceding_kfp_component_op: ContainerOp = None,
                 preceding_component_outputs_dict: Dict[str, dsl.PipelineParam] = None,
+                volume_op: Optional[VolumeOp] = None,
             ):
                 if node.name in visited:
                     return
@@ -635,10 +639,11 @@ class KubeflowPipelines(object):
 
                 visited[node.name] = container_op
 
-                shared_volume_dir: str = "/opt/zillow/shared/"
-                container_op.add_pvolumes({shared_volume_dir: vop.volume})
-                if node.name == "start":
-                    container_op.after(vop)
+                pytorch_deco = kfp_component.pytorch_decorator
+                if pytorch_deco:
+                    container_op.add_pvolumes(
+                        {pytorch_deco.attributes["shared_volume_dir"]: volume_op.volume}
+                    )
 
                 if preceding_kfp_component_op:
                     container_op.after(preceding_kfp_component_op)
@@ -674,6 +679,23 @@ class KubeflowPipelines(object):
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works
+                    next_step_name = node.out_funcs[0]
+                    next_kfp_component: KfpComponent = step_to_kfp_component_map[
+                        next_step_name
+                    ]
+
+                    if next_kfp_component.pytorch_decorator and volume_op is None:
+                        # Create VolumeOp for shared file system
+                        # TODO: we don't delete it because it hangs on delete, what is the K8s bug?
+                        volume_op = VolumeOp(
+                            name=f"create-shared-volume",
+                            resource_name="shared-volume",
+                            modes=dsl.VOLUME_MODE_RWO,
+                            size=next_kfp_component.pytorch_decorator.attributes[
+                                "shared_volume_size"
+                            ],
+                        )
+
                     with kfp.dsl.ParallelFor(
                         container_op.outputs["foreach_splits"]
                     ) as split_index:
@@ -682,10 +704,11 @@ class KubeflowPipelines(object):
                         # NOTE: A Metaflow foreach node can only have one child
                         #  or one out_func
                         build_kfp_dag(
-                            self.graph[node.out_funcs[0]],
+                            self.graph[next_step_name],
                             split_index,
                             preceding_kfp_component_op=next_kfp_component_op,
                             preceding_component_outputs_dict=next_preceding_component_outputs_dict,
+                            volume_op=volume_op,
                         )
 
                     # Handle the ParallelFor join step, and pass in
@@ -695,6 +718,7 @@ class KubeflowPipelines(object):
                         passed_in_split_indexes,
                         preceding_kfp_component_op=next_kfp_component_op,
                         preceding_component_outputs_dict=next_preceding_component_outputs_dict,
+                        volume_op=volume_op,
                     )
                 else:
                     for step in node.out_funcs:
@@ -714,6 +738,7 @@ class KubeflowPipelines(object):
                                 passed_in_split_indexes,
                                 preceding_kfp_component_op=next_kfp_component_op,
                                 preceding_component_outputs_dict=next_preceding_component_outputs_dict,
+                                volume_op=volume_op,
                             )
 
             build_kfp_dag(self.graph["start"])
