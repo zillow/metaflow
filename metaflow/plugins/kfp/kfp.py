@@ -1,12 +1,14 @@
 import inspect
+import json
 import os
 import sys
 from collections import namedtuple
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import kfp
 import yaml
+
+import kfp
 from kfp import dsl
 from kfp.dsl import ContainerOp, PipelineConf, VolumeOp
 
@@ -116,14 +118,19 @@ class KubeflowPipelines(object):
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
-    def create_run_on_kfp(self, experiment_name: str, run_name: str):
+    def create_run_on_kfp(
+        self, experiment_name: str, run_name: str, flow_parameters: dict
+    ):
         """
         Creates a new run on KFP using the `kfp.Client()`.
         """
         # TODO: first create KFP Pipeline, then an experiment if provided else default experiment.
         run_pipeline_result = self._client.create_run_from_pipeline_func(
             pipeline_func=self.create_kfp_pipeline_from_flow_graph(),
-            arguments={"datastore_root": DATASTORE_SYSROOT_S3},
+            arguments={
+                "datastore_root": DATASTORE_SYSROOT_S3,
+                "flow_parameters_json": json.dumps(flow_parameters),
+            },
             experiment_name=experiment_name,
             run_name=run_name,
             namespace=self.namespace,
@@ -565,7 +572,10 @@ class KubeflowPipelines(object):
                 op.execution_options.caching_strategy.max_cache_staleness = "P0D"
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
-        def kfp_pipeline_from_flow(datastore_root: str = DATASTORE_SYSROOT_S3):
+        def kfp_pipeline_from_flow(
+            datastore_root: str = DATASTORE_SYSROOT_S3,
+            flow_parameters_json: str = None,
+        ):
             visited: Dict[str, ContainerOp] = {}
 
             # Create VolumeOp for shared file system
@@ -613,6 +623,9 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
                     metaflow_service_url=METADATA_SERVICE_URL,
+                    flow_parameters_json=flow_parameters_json
+                    if node.name == "start"
+                    else None,
                 )
                 container_op: ContainerOp = self.step_op(
                     node.name,
@@ -620,12 +633,12 @@ class KubeflowPipelines(object):
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
                 )(**{**step_op_args, **preceding_component_outputs_dict})
 
+                visited[node.name] = container_op
+
                 shared_volume_dir: str = "/opt/zillow/shared/"
                 container_op.add_pvolumes({shared_volume_dir: vop.volume})
                 if node.name == "start":
                     container_op.after(vop)
-
-                visited[node.name] = container_op
 
                 if preceding_kfp_component_op:
                     container_op.after(preceding_kfp_component_op)
