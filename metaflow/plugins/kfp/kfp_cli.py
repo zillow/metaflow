@@ -155,6 +155,15 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     help="Wait for KFP run to complete before process exits.",
     show_default=True,
 )
+@click.option(
+    "--argo-wait",
+    "-aw",
+    "argo_wait",
+    is_flag=True,
+    default=False,
+    help="Use Argo CLI watch to wait for KFP run to complete.",
+    show_default=True,
+)
 @click.pass_obj
 def run(
     obj,
@@ -171,6 +180,7 @@ def run(
     max_parallelism=None,
     workflow_timeout=None,
     wait_for_completion=False,
+    argo_wait=False,
     **kwargs
 ):
     """
@@ -241,29 +251,26 @@ def run(
             fg="cyan",
         )
 
-        if wait_for_completion:
+        if argo_wait:
             argo_path: str = shutil.which("argo")
-            if argo_path:
-                run_info = flow._client.get_run(run_pipeline_result.run_id)
-                workflow_manifest = json.loads(
-                    run_info.pipeline_runtime.workflow_manifest
-                )
-                argo_workflow_name = workflow_manifest["metadata"]["name"]
-                argo_cmd = f"{argo_path} -n {namespace} "
-                cmd = f"{argo_cmd} watch {argo_workflow_name}"
-                subprocess.run(cmd, shell=True, universal_newlines=True)
+            run_info = flow._client.get_run(run_pipeline_result.run_id)
+            workflow_manifest = json.loads(run_info.pipeline_runtime.workflow_manifest)
+            argo_workflow_name = workflow_manifest["metadata"]["name"]
+            argo_cmd = f"{argo_path} -n {namespace} "
+            cmd = f"{argo_cmd} watch {argo_workflow_name}"
+            subprocess.run(cmd, shell=True, universal_newlines=True)
 
-                cmd = f"{argo_cmd} get {argo_workflow_name} | grep Status | awk '{{print $2}}'"
-                ret = subprocess.run(
-                    cmd, shell=True, stdout=subprocess.PIPE, encoding="utf8"
-                )
-                succeeded = "Succeeded" in ret.stdout
-            else:
-                response = flow._client.wait_for_run_completion(
-                    run_pipeline_result.run_id, 500
-                )
-                succeeded = (response.run.status == "Succeeded",)
-
+            cmd = f"{argo_cmd} get {argo_workflow_name} | grep Status | awk '{{print $2}}'"
+            ret = subprocess.run(
+                cmd, shell=True, stdout=subprocess.PIPE, encoding="utf8"
+            )
+            succeeded = "Succeeded" in ret.stdout
+            show_status(run_id, kfp_run_url, obj.echo, succeeded)
+        elif wait_for_completion:
+            response = flow._client.wait_for_run_completion(
+                run_pipeline_result.run_id, 500
+            )
+            succeeded = (response.run.status == "Succeeded",)
             show_status(run_id, kfp_run_url, obj.echo, succeeded)
 
 
