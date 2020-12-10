@@ -15,7 +15,7 @@ class HelloPyTorch(FlowSpec):
         help="MNIST dataset path, local or S3",
         default="./mnist_data",
     )
-    model_path = Parameter("model_path", default="/opt/zillow/mnist_cnn.pth")
+    model_path = Parameter("model_path", default="/tmp/mnist_cnn.pth")
     batch_size = Parameter("batch_size", default=1000)
     test_batch_size = Parameter("test_batch_size", default=1000)
     epochs = Parameter("epochs", default=1)
