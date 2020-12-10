@@ -465,9 +465,10 @@ class KubeflowPipelines(object):
             container_op.container.set_cpu_limit(resource_requirements["cpu_limit"])
         if "gpu" in resource_requirements:
             # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
+            gpu_vendor = resource_requirements.get("gpu_vendor", None)
             container_op.container.set_gpu_limit(
                 resource_requirements["gpu"],
-                vendor=resource_requirements["gpu_vendor"],
+                vendor=gpu_vendor if gpu_vendor else "nvidia",
             )
 
     def step_op(

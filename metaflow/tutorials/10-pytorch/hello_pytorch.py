@@ -8,11 +8,12 @@ class HelloPyTorch(FlowSpec):
     """
     A Feed Forward Neural Network trained with PyTorch
     """
+
     # Hyper-parameters
     input_data_path = Parameter(
         "input_data_path",
         help="MNIST dataset path, local or S3",
-        default="./mnist_data"
+        default="./mnist_data",
     )
     model_path = Parameter("model_path", default="/opt/zillow/mnist_cnn.pth")
     batch_size = Parameter("batch_size", default=1000)
@@ -21,7 +22,7 @@ class HelloPyTorch(FlowSpec):
     optimizer = Parameter("optimizer", default="sgd")
     lr = Parameter("learning_rate", default=0.01)
     momentum = Parameter("momentum", default=0.5)
-    seed = Parameter("seed",  default=42)
+    seed = Parameter("seed", default=42)
     world_size = Parameter("world_size", help="world_size", default=1)
     train_accuracy_threshold = Parameter("train_accuracy_threshold", default=0.5)
     test_accuracy_threshold = Parameter("test_accuracy_threshold", default=0.5)
@@ -31,18 +32,12 @@ class HelloPyTorch(FlowSpec):
         """
         Initialize the world_size ranks for PyTorch trainers
         """
-        # Device configuration
-        print("self.input_data_path", self.input_data_path)
-
         self.ranks = list(range(self.world_size))
         print(f"ranks: {self.ranks}")
         self.next(self.train, foreach="ranks")
 
-    @resources(
-        cpu=1, cpu_limit=2,
-        memory="2G", memory_limit="5G"
-    )
-    @pytorch(shared_volume_dir="/opt/zillow/shared/")  # TODO: train_model should use the default
+    @resources(cpu=1, cpu_limit=2, memory="2G", memory_limit="5G")
+    @pytorch
     @step
     def train(self):
         """
@@ -62,21 +57,17 @@ class HelloPyTorch(FlowSpec):
             momentum=self.momentum,
             seed=self.seed,
             world_size=self.world_size,
-            rank=self.rank
+            rank=self.rank,
         )
 
         self.next(self.evaluate)
 
-
-    @resources(
-        cpu=1, cpu_limit=2,
-        memory="1G", memory_limit="5G"
-    )
+    @resources(cpu=1, cpu_limit=2, gpu=1, memory="1G", memory_limit="5G")
     @step
     def evaluate(self, inputs):
         train_input = next((x for x in inputs if x.rank == 0), None)
-
         print("train_input", train_input)
+
         self.model_state_dict = train_input.model_state_dict
 
         self.evaluate_results = evaluate_model(
@@ -85,7 +76,7 @@ class HelloPyTorch(FlowSpec):
             batch_size=self.batch_size,
             test_batch_size=self.test_batch_size,
             train_accuracy_threshold=self.train_accuracy_threshold,
-            test_accuracy_threshold=self.test_accuracy_threshold
+            test_accuracy_threshold=self.test_accuracy_threshold,
         )
 
         self.next(self.end)

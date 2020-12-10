@@ -11,10 +11,7 @@ from torchvision.datasets import MNIST
 
 
 def evaluate(
-    model: Net,
-    train_loader: DataLoader,
-    test_loader: DataLoader,
-    device: torch.device
+    model: Net, train_loader: DataLoader, test_loader: DataLoader, device: torch.device
 ) -> Tuple[float, float]:
     train_accuracy = validate(model, device, train_loader)
     test_accuracy = validate(model, device, test_loader)
@@ -34,7 +31,7 @@ def evaluate_model(
     test_batch_size: int = 64,
     test_accuracy_threshold: float = 0.9,
     train_accuracy_threshold: float = 0.9,
-) -> MLPipeline_EvaluationResults:
+) -> Tuple[float, float]:
     print(f"Starting evaluation..")
 
     use_cuda = torch.cuda.is_available()
@@ -73,10 +70,14 @@ def evaluate_model(
     test_accuracy, train_accuracy = evaluate(model, train_loader, test_loader, device)
 
     if test_accuracy < test_accuracy_threshold:
-        raise Exception(f"test_accuracy is {test_accuracy} threshold {test_accuracy_threshold}")
+        raise Exception(
+            f"test_accuracy is {test_accuracy} threshold {test_accuracy_threshold}"
+        )
 
     if train_accuracy < train_accuracy_threshold:
-        raise Exception(f"train_accuracy is {train_accuracy} threshold: {train_accuracy_threshold}")
+        raise Exception(
+            f"train_accuracy is {train_accuracy} threshold: {train_accuracy_threshold}"
+        )
 
     metrics = {
         "metrics": [

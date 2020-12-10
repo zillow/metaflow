@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 from collections import OrderedDict
-import logging
 import time
 from math import ceil
 
@@ -12,8 +11,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from models.cnn import Net
 from torchvision import datasets, transforms
-
-logger = logging.getLogger(__name__)
 
 
 def train(model, device, train_loader, optimizer, epoch):
@@ -26,7 +23,7 @@ def train(model, device, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         if batch_idx % 10 == 0:
-            logger.info(
+            print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tloss={:.4f}".format(
                     epoch,
                     batch_idx * len(data),
@@ -54,7 +51,7 @@ def validate(model, device, val_loader):
     test_loss /= len(val_loader.dataset)
 
     accuracy = float(correct) / len(val_loader.dataset)
-    logger.info("\naccuracy={:.4f}\n".format(accuracy))
+    print("\naccuracy={:.4f}\n".format(accuracy))
 
     return accuracy
 
@@ -64,25 +61,26 @@ def is_distributed():
 
 
 def train_model(
-        input_data_path: str,
-        model_path: str,
-        batch_size: int = 64,
-        test_batch_size: int = 64,
-        epochs: int = 1,
-        optimizer: str = "sgd",
-        lr: float = 0.01,
-        momentum: float = 0.5,
-        seed: int = 42,
-        world_size: int = 1,
-        rank: int = 0,
-        data_loading_workers: int = 1,
+    input_data_path: str,
+    model_path: str,
+    batch_size: int = 64,
+    test_batch_size: int = 64,
+    epochs: int = 1,
+    optimizer: str = "sgd",
+    lr: float = 0.01,
+    momentum: float = 0.5,
+    seed: int = 42,
+    world_size: int = 1,
+    rank: int = 0,
+    data_loading_workers: int = 1,
 ) -> OrderedDict:
     # check if GPU is available
     use_cuda = torch.cuda.is_available()
     if use_cuda:
-        logger.info("Using CUDA")
+        print("Using CUDA")
         pytorch_backend = "nccl"
     else:
+        print("Using CPU")
         pytorch_backend = "gloo"
 
     torch.manual_seed(seed)
@@ -91,19 +89,18 @@ def train_model(
     device = torch.device("cuda" if use_cuda else "cpu")
 
     # init distributed training if more than 1 nodes are available for distributed training
-    # TODO(anchita): Add PyTorch distributed training util functions to aip-kfp-sdk
     if dist.is_available() and world_size > 1:
-        logger.info("Using distributed PyTorch with {} backend".format(pytorch_backend))
+        print("Using distributed PyTorch with {} backend".format(pytorch_backend))
         dist.init_process_group(
             backend=pytorch_backend,
-            init_method="file:///opt/zillow/shared/sharedfile",
+            init_method="file:///opt/pytorch_shared/sharedfile",
             world_size=world_size,
             rank=rank,
         )
         world_size = dist.get_world_size()
         rank = dist.get_rank()
-    logger.info(f"WORLD_SIZE = {world_size}")
-    logger.info(f"RANK = {rank}")
+    print(f"WORLD_SIZE = {world_size}")
+    print(f"RANK = {rank}")
 
     # load MNIST dataset
     train_dataset = datasets.MNIST(
@@ -114,7 +111,7 @@ def train_model(
             [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
         ),
     )
-    logger.info(f"Dataset size = {train_dataset.data.size()}")
+    print(f"Dataset size = {train_dataset.data.size()}")
 
     # create data sampler to divide a training batch into sub-batches
     if is_distributed():
@@ -135,9 +132,9 @@ def train_model(
         sampler=train_sampler,
     )
     num_batches = ceil(len(train_loader.dataset) / float(batch_size))
-    logger.info(f"num_batches = {num_batches}")
-    logger.info(f"batch size = {batch_size}")
-    logger.info(f"Train dataset size for this node = {train_loader.sampler.num_samples}")
+    print(f"num_batches = {num_batches}")
+    print(f"batch size = {batch_size}")
+    print(f"Train dataset size for this node = {train_loader.sampler.num_samples}")
 
     val_loader = torch.utils.data.DataLoader(
         datasets.MNIST(
@@ -169,20 +166,20 @@ def train_model(
     if optimizer == "sgd":
         optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
     else:
-        logger.info("Optimizer not defined.")
+        print("Optimizer not defined.")
 
     start = time.time()
     for epoch in range(1, epochs + 1):
         if is_distributed():
-            logger.info(f"Train sampler epoch = {epoch}")
+            print(f"Train sampler epoch = {epoch}")
             train_sampler.set_epoch(epoch)
         train(model, device, train_loader, optimizer, epoch)
         validate(model, device, val_loader)
     end = time.time()
     delta = end - start
-    logger.info(f"Model trained in {delta:.2f}s")
+    print(f"Model trained in {delta:.2f}s")
 
-    logger.info(f"Model trained successfully.")
+    print(f"Model trained successfully.")
 
     if world_size > 1:
         model_state_dict = model.module.state_dict()
@@ -201,5 +198,5 @@ if __name__ == "__main__":
         input_data_path="/Users/anchita/playground/data/MNIST",
         model_path="/Users/anchita/mnist_cnn.pth",
         batch_size=1024,
-        test_batch_size=1024
+        test_batch_size=1024,
     )
