@@ -27,6 +27,7 @@ from .kfp_constants import (
 )
 from .kfp_foreach_splits import graph_to_task_ids
 from .pytorch_decorator import PyTorchDecorator
+from .spark_decorator import SparkDecorator
 from ... import R
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
@@ -42,6 +43,7 @@ class KfpComponent(object):
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         pytorch_decorator: PyTorchDecorator,
+        spark_decorator: SparkDecorator,
     ):
         self.name = name
         self.cmd_template = cmd_template
@@ -54,6 +56,7 @@ class KfpComponent(object):
             else None
         )
         self.pytorch_decorator = pytorch_decorator
+        self.spark_decorator = spark_decorator
 
         def bindings(binding_name: str) -> List[str]:
             if kfp_decorator:
@@ -317,6 +320,14 @@ class KubeflowPipelines(object):
                     ),
                     None,  # default
                 ),
+                spark_decorator=next(
+                    (
+                        deco
+                        for deco in node.decorators
+                        if isinstance(deco, SparkDecorator)
+                    ),
+                    None,  # default
+                )
             )
 
         # Mapping of steps to their KfpComponent
@@ -342,7 +353,22 @@ class KubeflowPipelines(object):
             entrypoint = [R.entrypoint()]
         else:
             entrypoint = [executable, script_name]
-
+        
+        spark_executable = False
+        spark_deco = None
+        for deco in node.decorators:
+            if isinstance(deco, SparkDecorator):
+                spark_executable = True
+                spark_deco = deco
+                break
+                
+        if spark_executable:
+            entrypoint = ["spark-submit", "--master", "local", 
+                          "--deploy-mode", "client"]
+            for conf in spark_deco.attributes["conf"]:
+                entrypoint.extend(["--conf", conf])
+            entrypoint.append(script_name)
+        
         kfp_run_id = "kfp-" + dsl.RUN_ID_PLACEHOLDER
         start_task_id_params_path = None
 
@@ -476,11 +502,14 @@ class KubeflowPipelines(object):
         step_name: str,
         preceding_component_inputs: List[str] = None,
         preceding_component_outputs: List[str] = None,
+        spark_deco = None
     ) -> Callable[..., ContainerOp]:
         """
         Workaround of KFP.components.func_to_container_op() to set KFP Component name
         """
         # KFP Component for a step defined in the Metaflow FlowSpec.
+        # Need to specify a spark image (which contains spark-submit) for spark steps
+        spark_image = "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu-spark:2.3.878c044f.hs-spark-image-to-run-as-root"
         step_op_component: Dict = yaml.load(
             kfp.components.func_to_component_text(
                 KubeflowPipelines._update_step_op_func_signature(
@@ -488,14 +517,14 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=preceding_component_outputs,
                 ),
-                base_image=self.base_image,
+                base_image=self.base_image if spark_deco is None else spark_image
             ),
             yaml.SafeLoader,
         )
 
         step_op_component["name"] = step_name
         return kfp.components.load_component_from_text(yaml.dump(step_op_component))
-
+    
     @staticmethod
     def _update_step_op_func_signature(
         func: Callable,
@@ -636,6 +665,7 @@ class KubeflowPipelines(object):
                     node.name,
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
+                    spark_deco=kfp_component.spark_decorator
                 )(**{**step_op_args, **preceding_component_outputs_dict})
 
                 visited[node.name] = container_op
