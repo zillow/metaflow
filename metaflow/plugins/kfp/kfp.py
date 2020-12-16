@@ -28,6 +28,7 @@ from .kfp_constants import (
 from .kfp_foreach_splits import graph_to_task_ids
 from .pytorch_distributed_decorator import PyTorchDistributedDecorator
 from ... import R
+from ...debug import debug
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
@@ -41,7 +42,7 @@ class KfpComponent(object):
         total_retries: int,
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
-        pytorch_decorator: PyTorchDistributedDecorator,
+        pytorch_distributed_decorator: PyTorchDistributedDecorator,
     ):
         self.name = name
         self.cmd_template = cmd_template
@@ -53,7 +54,7 @@ class KfpComponent(object):
             if kfp_decorator
             else None
         )
-        self.pytorch_decorator = pytorch_decorator
+        self.pytorch_distributed_decorator = pytorch_distributed_decorator
 
         def bindings(binding_name: str) -> List[str]:
             if kfp_decorator:
@@ -169,7 +170,10 @@ class KubeflowPipelines(object):
         """
         Analogous to batch.py
         """
-        commands = (
+        # debug.subcommand is true if this env variable is set:
+        #   export METAFLOW_DEBUG_SUBCOMMAND=1
+        commands = ["set -x" if debug.subcommand else "true"]
+        commands.extend(
             environment.get_package_commands(code_package_url, pip_install=True)
             if self.s3_code_package
             else ["cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)]
@@ -309,7 +313,7 @@ class KubeflowPipelines(object):
                     ),
                     None,  # default
                 ),
-                pytorch_decorator=next(
+                pytorch_distributed_decorator=next(
                     (
                         deco
                         for deco in node.decorators
@@ -449,9 +453,6 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _set_container_settings(container_op: ContainerOp, kfp_component: KfpComponent):
-        # container_op.container.add_port(V1ContainerPort(container_port=5000, protocol="TCP"))
-        # container_op.container.add_port(V1ContainerPort(container_port=5001, protocol="TCP"))
-
         resource_requirements: Dict[str, str] = kfp_component.resource_requirements
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
@@ -640,9 +641,8 @@ class KubeflowPipelines(object):
 
                 visited[node.name] = container_op
 
-                pytorch_deco = kfp_component.pytorch_decorator
+                pytorch_deco = kfp_component.pytorch_distributed_decorator
                 if pytorch_deco:
-                    # TODO: Delete the volume.  This is a Q1 work item.
                     container_op.add_pvolumes(
                         {pytorch_deco.attributes["shared_volume_dir"]: volume_op.volume}
                     )
@@ -686,14 +686,18 @@ class KubeflowPipelines(object):
                         next_step_name
                     ]
 
-                    if next_kfp_component.pytorch_decorator and volume_op is None:
+                    if (
+                        next_kfp_component.pytorch_distributed_decorator
+                        and volume_op is None
+                    ):
                         # Create VolumeOp for shared file system
-                        # TODO: we don't delete it because it hangs on delete, what is the K8s bug?
+                        # TODO: AIP-1652 We don't delete it because it hangs on delete
+                        #  The long term solution would likely be to move to PyTorch RPC
                         volume_op = VolumeOp(
                             name=f"create-shared-volume",
                             resource_name="shared-volume",
                             modes=dsl.VOLUME_MODE_RWO,
-                            size=next_kfp_component.pytorch_decorator.attributes[
+                            size=next_kfp_component.pytorch_distributed_decorator.attributes[
                                 "shared_volume_size"
                             ],
                         )
