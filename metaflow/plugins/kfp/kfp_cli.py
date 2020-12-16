@@ -181,7 +181,7 @@ def run(
     workflow_timeout=None,
     wait_for_completion=False,
     argo_wait=False,
-    **kwargs
+    **kwargs,
 ):
     """
     Analogous to step_functions_cli.py

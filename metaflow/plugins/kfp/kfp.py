@@ -26,7 +26,7 @@ from .kfp_constants import (
     TASK_ID_ENV_NAME,
 )
 from .kfp_foreach_splits import graph_to_task_ids
-from .pytorch_decorator import PyTorchDecorator
+from .pytorch_distributed_decorator import PyTorchDistributedDecorator
 from ... import R
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
@@ -41,7 +41,7 @@ class KfpComponent(object):
         total_retries: int,
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
-        pytorch_decorator: PyTorchDecorator,
+        pytorch_decorator: PyTorchDistributedDecorator,
     ):
         self.name = name
         self.cmd_template = cmd_template
@@ -313,7 +313,7 @@ class KubeflowPipelines(object):
                     (
                         deco
                         for deco in node.decorators
-                        if isinstance(deco, PyTorchDecorator)
+                        if isinstance(deco, PyTorchDistributedDecorator)
                     ),
                     None,  # default
                 ),
@@ -642,6 +642,7 @@ class KubeflowPipelines(object):
 
                 pytorch_deco = kfp_component.pytorch_decorator
                 if pytorch_deco:
+                    # TODO: Delete the volume.  This is a Q1 work item.
                     container_op.add_pvolumes(
                         {pytorch_deco.attributes["shared_volume_dir"]: volume_op.volume}
                     )
