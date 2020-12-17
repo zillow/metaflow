@@ -12,6 +12,7 @@ import kfp
 from kfp import dsl
 from kfp.dsl import ContainerOp, PipelineConf, VolumeOp
 
+from metaflow.plugins.kfp.kfp_constants import SPARK_IMAGE
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
     KFP_TTL_SECONDS_AFTER_FINISHED,
@@ -32,6 +33,27 @@ from ... import R
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
+
+class SparkSessionCreator(object):
+    """
+    Creates a new SparkSession with the provided name and configuration
+    settings, and stops the SparkSession after completion.
+    """
+    def __init__(self, app_name: str, configs: List[Tuple[str, str]]):
+        from pyspark import SparkConf
+        from pyspark.sql import SparkSession
+        spark_conf = (
+            SparkConf()
+            .setMaster("local")
+        )
+        spark_conf.setAppName(app_name)
+        for config in configs:
+            spark_conf.set(config[0], config[1])
+        self.spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+    def __enter__(self):
+        return self.spark
+    def __exit__(self, type, value, traceback):
+        self.spark.stop()
 
 
 class KfpComponent(object):
@@ -353,22 +375,7 @@ class KubeflowPipelines(object):
             entrypoint = [R.entrypoint()]
         else:
             entrypoint = [executable, script_name]
-        
-        spark_executable = False
-        spark_deco = None
-        for deco in node.decorators:
-            if isinstance(deco, SparkDecorator):
-                spark_executable = True
-                spark_deco = deco
-                break
                 
-        if spark_executable:
-            entrypoint = ["spark-submit", "--master", "local", 
-                          "--deploy-mode", "client"]
-            for conf in spark_deco.attributes["conf"]:
-                entrypoint.extend(["--conf", conf])
-            entrypoint.append(script_name)
-        
         kfp_run_id = "kfp-" + dsl.RUN_ID_PLACEHOLDER
         start_task_id_params_path = None
 
@@ -509,7 +516,6 @@ class KubeflowPipelines(object):
         """
         # KFP Component for a step defined in the Metaflow FlowSpec.
         # Need to specify a spark image (which contains spark-submit) for spark steps
-        spark_image = "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu-spark:2.3.878c044f.hs-spark-image-to-run-as-root"
         step_op_component: Dict = yaml.load(
             kfp.components.func_to_component_text(
                 KubeflowPipelines._update_step_op_func_signature(
@@ -517,7 +523,7 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=preceding_component_outputs,
                 ),
-                base_image=self.base_image if spark_deco is None else spark_image
+                base_image=self.base_image if spark_deco is None else SPARK_IMAGE
             ),
             yaml.SafeLoader,
         )

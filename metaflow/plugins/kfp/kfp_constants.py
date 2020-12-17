@@ -2,6 +2,7 @@
 
 # Defaults for running MF on KFP
 BASE_IMAGE = "hsezhiyan/metaflow-zillow:2.0"
+SPARK_IMAGE = "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu-spark:2.3.878c044f.hs-spark-image-to-run-as-root"
 
 
 KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"

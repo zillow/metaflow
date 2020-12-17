@@ -1,44 +1,45 @@
-from metaflow import FlowSpec, step, resources, spark
-
+from typing import List, Tuple
+from metaflow import FlowSpec, step, resources, spark, Parameter
+from metaflow.plugins.kfp.kfp import SparkSessionCreator
 
 class SparkFlow(FlowSpec):
     """
     A flow which uses the @spark decorator to run a spark job within a single step.
     """
+    spark_eventLog_enabled = Parameter(
+        'spark_eventLog_enabled',
+        help='param with default',
+        default="false",
+    )
 
     @spark()
     @step
     def start(self):
-        from pyspark.sql import SparkSession
-        sample_text = "aaaaabbbbbccccc\naaaaabbbbbccccc\naaaaabbbbbccccc"
+        sample_text = "aaaaabbbbbccccc\naaaaabbbbbccccc"
         sample_text_file = "/home/zservice/sample_text.txt"
-        sample_text_file_f = open(sample_text_file, "w")
-        sample_text_file_f.write(sample_text)
-        sample_text_file_f.close()
+        # sample_text_file = "/Users/hariharans/Desktop/sample_text.txt"
 
-        spark = SparkSession.builder.appName("SimpleApp").getOrCreate()
-        logData = spark.read.text(sample_text_file).cache()
+        with open(sample_text_file, "w") as sample_text_file_f:
+            sample_text_file_f.write(sample_text)
 
-        numAs = logData.filter(logData.value.contains('a')).count()
-        numBs = logData.filter(logData.value.contains('b')).count()
+        with SparkSessionCreator("SimpleSparkApp", [("spark.eventLog.enabled", self.spark_eventLog_enabled)]) as spark_sess:
+            logData = spark_sess.read.text(sample_text_file).cache()
 
-        print("Lines with a: %i, lines with b: %i" % (numAs, numBs))
+            numAs = logData.filter(logData.value.contains('a')).count()
+            numBs = logData.filter(logData.value.contains('b')).count()
 
-        spark.stop()
-
+            print("Lines with a: %i, lines with b: %i" % (numAs, numBs))
+            
         self.numAs = str(numAs)
         self.numBs = str(numBs)
         self.next(self.end)
     
     @step
     def end(self):
-        print("numAs: ", self.numAs)
-        print("numBs: ", self.numBs)
+        assert self.numAs == "2"
+        assert self.numBs == "2"
 
-        assert self.numAs == "3"
-        assert self.numBs == "3"
-
-        print("___ENDING SPARK PIPELINE____")
+        print("____ENDING SPARK PIPELINE____")
 
 if __name__ == '__main__':
     SparkFlow()
