@@ -26,9 +26,12 @@ from .kfp_constants import (
     STEP_ENVIRONMENT_VARIABLES,
     TASK_ID_ENV_NAME,
 )
+
 from .kfp_foreach_splits import graph_to_task_ids
 from .spark_decorator import SparkDecorator
+from .pytorch_distributed_decorator import PyTorchDistributedDecorator
 from ... import R
+from ...debug import debug
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
@@ -43,11 +46,15 @@ class SparkSessionCreator(object):
     def __init__(self, app_name: str, configs: List[Tuple[str, str]]):
         from pyspark import SparkConf
         from pyspark.sql import SparkSession
+        import subprocess
+        # generate the spark-defaults.conf for this cluster
+        subprocess.run(["bash", "/opt/spark/conf/generate_conf.sh"])
 
         spark_conf = SparkConf().setMaster("local")
         spark_conf.setAppName(app_name)
         for config in configs:
             spark_conf.set(config[0], config[1])
+
         self.spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
 
     def __enter__(self):
@@ -55,14 +62,6 @@ class SparkSessionCreator(object):
 
     def __exit__(self, type, value, traceback):
         self.spark.stop()
-
-
-from .pytorch_distributed_decorator import PyTorchDistributedDecorator
-from ... import R
-from ...debug import debug
-from ...environment import MetaflowEnvironment
-from ...graph import DAGNode
-from ...plugins.resources_decorator import ResourcesDecorator
 
 
 class KfpComponent(object):
