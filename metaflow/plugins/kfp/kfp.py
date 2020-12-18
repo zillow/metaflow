@@ -47,6 +47,7 @@ class SparkSessionCreator(object):
         from pyspark import SparkConf
         from pyspark.sql import SparkSession
         import subprocess
+
         # generate the spark-defaults.conf for this cluster
         subprocess.run(["bash", "/opt/spark/conf/generate_conf.sh"])
 
