@@ -75,6 +75,7 @@ class SparkFlowS3(FlowSpec):
             time_str = str(now.year) + str(now.month) + str(now.day) + str(now.hour) + str(now.minute) + str(now.second) + str(now.microsecond) 
 
             aws_helper.save_to_s3_csv(df, f"s3a://aip-example-dev/metaflow/SparkOnMetaflowData/sample_csv_files/{time_str}")
+            # TODO: try to get parquet storage working consistently
             # aws_helper.save_to_s3_parquet(df, f"s3a://aip-example-dev/metaflow/SparkOnMetaflowData/sample_parquet_files/{time_str}")
 
         self.next(self.end)

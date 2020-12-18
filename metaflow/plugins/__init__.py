@@ -58,7 +58,7 @@ from .aws.batch.batch_decorator import BatchDecorator
 from .aws.step_functions.step_functions_decorator import StepFunctionsInternalDecorator
 from .conda.conda_step_decorator import CondaStepDecorator
 from .kfp.kfp_decorator import KfpInternalDecorator
-from .kfp.pytorch_decorator import PyTorchDecorator
+from .kfp.pytorch_distributed_decorator import PyTorchDistributedDecorator
 from .kfp.spark_decorator import SparkDecorator
 
 STEP_DECORATORS = _merge_lists([CatchDecorator,
@@ -69,7 +69,7 @@ STEP_DECORATORS = _merge_lists([CatchDecorator,
                                 BatchDecorator,
                                 StepFunctionsInternalDecorator,
                                 CondaStepDecorator,
-                                PyTorchDecorator,
+                                PyTorchDistributedDecorator,
                                 SparkDecorator,
                                 KfpInternalDecorator], ext_plugins.STEP_DECORATORS, 'name')
 

@@ -17,7 +17,6 @@ class SparkFlow(FlowSpec):
     def start(self):
         sample_text = "aaaaabbbbbccccc\naaaaabbbbbccccc"
         sample_text_file = "/home/zservice/sample_text.txt"
-        # sample_text_file = "/Users/hariharans/Desktop/sample_text.txt"
 
         with open(sample_text_file, "w") as sample_text_file_f:
             sample_text_file_f.write(sample_text)

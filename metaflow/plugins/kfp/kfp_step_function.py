@@ -14,7 +14,7 @@ def kfp_step_function(
     ] = None,  # fields to be pushed into Flow state from KFP
     metaflow_service_url: str = "",
     flow_parameters_json: str = None,  # json formatted string
-    **kwargs
+    **kwargs,
 ) -> object:
     """
     Renders and runs the cmd_template containing Metaflow step/init commands to

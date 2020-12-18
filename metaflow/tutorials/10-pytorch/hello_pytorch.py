@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, Parameter, step, pytorch, resources, conda_base
+from metaflow import FlowSpec, Parameter, step, pytorch_distributed, resources
 
 from models.train import train_model
 from models.evaluate import evaluate_model
@@ -23,7 +23,7 @@ class HelloPyTorch(FlowSpec):
     lr = Parameter("learning_rate", default=0.01)
     momentum = Parameter("momentum", default=0.5)
     seed = Parameter("seed", default=42)
-    world_size = Parameter("world_size", help="world_size", default=1)
+    world_size = Parameter("world_size", default=1)
     train_accuracy_threshold = Parameter("train_accuracy_threshold", default=0.5)
     test_accuracy_threshold = Parameter("test_accuracy_threshold", default=0.5)
 
@@ -36,8 +36,8 @@ class HelloPyTorch(FlowSpec):
         print(f"ranks: {self.ranks}")
         self.next(self.train, foreach="ranks")
 
-    @resources(cpu=1, cpu_limit=2, memory="2G", memory_limit="5G")
-    @pytorch
+    @resources(cpu=1, cpu_limit=2, gpu="1", memory="2G", memory_limit="5G")
+    @pytorch_distributed
     @step
     def train(self):
         """
@@ -81,12 +81,12 @@ class HelloPyTorch(FlowSpec):
 
         self.next(self.end)
 
+    @resources(gpu=1)
     @step
     def end(self):
         """
         Done! Can now publish or validate the results.
         """
-        print(f"model_state_dict: {self.model_state_dict}")
         print(f"evaluate_results: {self.evaluate_results}")
 
 

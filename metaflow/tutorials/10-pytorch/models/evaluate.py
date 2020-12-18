@@ -10,20 +10,6 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 
-def evaluate(
-    model: Net, train_loader: DataLoader, test_loader: DataLoader, device: torch.device
-) -> Tuple[float, float]:
-    train_accuracy = validate(model, device, train_loader)
-    test_accuracy = validate(model, device, test_loader)
-    return test_accuracy, train_accuracy
-
-
-MLPipeline_EvaluationResults = NamedTuple(
-    "MLPipeline_EvaluationResults",
-    [("mlpipeline_ui_metadata", "UI_metadata"), ("mlpipeline_metrics", "Metrics")],
-)
-
-
 def evaluate_model(
     model_state_dict: OrderedDict,
     input_data_path: str,
@@ -41,7 +27,6 @@ def evaluate_model(
 
     print(f"Loading trained model state dict.")
     model.load_state_dict(model_state_dict)
-    model.eval()
 
     print("Loading dataset.")
     train_loader = DataLoader(
@@ -55,6 +40,8 @@ def evaluate_model(
         ),
         batch_size=batch_size,
     )
+    train_accuracy = validate(model, device, train_loader)
+    print(f"Training dataset accuracy = {train_accuracy}")
 
     test_loader = DataLoader(
         MNIST(
@@ -66,8 +53,8 @@ def evaluate_model(
         ),
         batch_size=test_batch_size,
     )
-
-    test_accuracy, train_accuracy = evaluate(model, train_loader, test_loader, device)
+    test_accuracy = validate(model, device, test_loader)
+    print(f"Test dataset accuracy = {test_accuracy}")
 
     if test_accuracy < test_accuracy_threshold:
         raise Exception(
@@ -79,23 +66,14 @@ def evaluate_model(
             f"train_accuracy is {train_accuracy} threshold: {train_accuracy_threshold}"
         )
 
-    metrics = {
-        "metrics": [
-            {"name": "train_accuracy", "numberValue": train_accuracy},
-            {"name": "test_accuracy", "numberValue": test_accuracy},
-        ]
-    }
-    ui_metadata = {}
-
-    print(metrics)
-    return MLPipeline_EvaluationResults(json.dumps(ui_metadata), json.dumps(metrics))
+    return (train_accuracy, test_accuracy)
 
 
 if __name__ == "__main__":
-    model_state_dict = torch.load("/Users/anchita/mnist_cnn.pth")
+    model_state_dict = torch.load("/opt/zillow/shared/anchit/playground/mnist_cnn.pth")
     evaluate_model(
         model_state_dict=model_state_dict,
-        input_data_path="/Users/anchita/playground/data/MNIST",
+        input_data_path="/opt/zillow/shared/anchit/playground/data/MNIST",
         batch_size=512,
         test_batch_size=512,
         test_accuracy_threshold=0.5,
