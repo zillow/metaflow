@@ -383,7 +383,7 @@ class KubeflowPipelines(object):
             entrypoint = [R.entrypoint()]
         else:
             entrypoint = [executable, script_name]
-                
+
         kfp_run_id = "kfp-" + dsl.RUN_ID_PLACEHOLDER
         start_task_id_params_path = None
 
@@ -490,8 +490,8 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _set_container_settings(container_op: ContainerOp, kfp_component: KfpComponent):
-        # container_op.container.add_port(V1ContainerPort(container_port=5000, protocol="TCP"))
-        # container_op.container.add_port(V1ContainerPort(container_port=5001, protocol="TCP"))
+
+
 
         resource_requirements: Dict[str, str] = kfp_component.resource_requirements
         if "memory" in resource_requirements:
@@ -538,7 +538,7 @@ class KubeflowPipelines(object):
 
         step_op_component["name"] = step_name
         return kfp.components.load_component_from_text(yaml.dump(step_op_component))
-    
+
     @staticmethod
     def _update_step_op_func_signature(
         func: Callable,
