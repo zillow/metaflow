@@ -33,26 +33,30 @@ from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
 
+
 class SparkSessionCreator(object):
     """
     Creates a new SparkSession with the provided name and configuration
     settings, and stops the SparkSession after completion.
     """
+
     def __init__(self, app_name: str, configs: List[Tuple[str, str]]):
         from pyspark import SparkConf
         from pyspark.sql import SparkSession
-        spark_conf = (
-            SparkConf()
-            .setMaster("local")
-        )
+
+        spark_conf = SparkConf().setMaster("local")
         spark_conf.setAppName(app_name)
         for config in configs:
             spark_conf.set(config[0], config[1])
         self.spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+
     def __enter__(self):
         return self.spark
+
     def __exit__(self, type, value, traceback):
         self.spark.stop()
+
+
 from .pytorch_distributed_decorator import PyTorchDistributedDecorator
 from ... import R
 from ...debug import debug
@@ -357,7 +361,7 @@ class KubeflowPipelines(object):
                         if isinstance(deco, SparkDecorator)
                     ),
                     None,  # default
-                )
+                ),
             )
 
         # Mapping of steps to their KfpComponent
@@ -491,8 +495,6 @@ class KubeflowPipelines(object):
     @staticmethod
     def _set_container_settings(container_op: ContainerOp, kfp_component: KfpComponent):
 
-
-
         resource_requirements: Dict[str, str] = kfp_component.resource_requirements
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
@@ -517,7 +519,7 @@ class KubeflowPipelines(object):
         step_name: str,
         preceding_component_inputs: List[str] = None,
         preceding_component_outputs: List[str] = None,
-        spark_deco = None
+        spark_deco=None,
     ) -> Callable[..., ContainerOp]:
         """
         Workaround of KFP.components.func_to_container_op() to set KFP Component name
@@ -531,7 +533,7 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=preceding_component_outputs,
                 ),
-                base_image=self.base_image if spark_deco is None else SPARK_IMAGE
+                base_image=self.base_image if spark_deco is None else SPARK_IMAGE,
             ),
             yaml.SafeLoader,
         )
@@ -679,7 +681,7 @@ class KubeflowPipelines(object):
                     node.name,
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
-                    spark_deco=kfp_component.spark_decorator
+                    spark_deco=kfp_component.spark_decorator,
                 )(**{**step_op_args, **preceding_component_outputs_dict})
 
                 visited[node.name] = container_op
