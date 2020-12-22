@@ -1,6 +1,8 @@
 from typing import List, Tuple
 from metaflow import FlowSpec, step, resources, spark, Parameter
-from metaflow.plugins.kfp.kfp import SparkSessionCreator
+from metaflow.current import current
+# from metaflow.plugins.kfp.kfp import SparkSessionCreator
+from aip_spark_sdk.spark_utilities import SparkSessionCreator
 
 class SparkFlow(FlowSpec):
     """
@@ -12,16 +14,20 @@ class SparkFlow(FlowSpec):
         default="false",
     )
 
-    @spark()
     @step
     def start(self):
         sample_text = "aaaaabbbbbccccc\naaaaabbbbbccccc"
-        sample_text_file = "/home/zservice/sample_text.txt"
+        sample_text_file = "/Users/hariharans/Desktop/sample_text.txt"
+        # sample_text_file = "/home/zservice/sample_text.txt"
 
         with open(sample_text_file, "w") as sample_text_file_f:
             sample_text_file_f.write(sample_text)
 
-        with SparkSessionCreator("SimpleSparkApp", [("spark.eventLog.enabled", self.spark_eventLog_enabled)]) as spark_sess:
+        configs = {
+            "spark.eventLog.enabled": self.spark_eventLog_enabled
+        }
+
+        with SparkSessionCreator(configs=configs) as spark_sess:
             logData = spark_sess.read.text(sample_text_file).cache()
 
             numAs = logData.filter(logData.value.contains('a')).count()
@@ -37,7 +43,6 @@ class SparkFlow(FlowSpec):
     def end(self):
         assert self.numAs == "2"
         assert self.numBs == "2"
-
         print("____ENDING SPARK PIPELINE____")
 
 if __name__ == '__main__':

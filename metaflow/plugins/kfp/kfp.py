@@ -36,33 +36,84 @@ from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
 
+from metaflow.current import current
 
-class SparkSessionCreator(object):
+# from contextlib import contextmanager
+
+# class SparkSessionCreator(object):
+#     """
+#     Creates a new SparkSession with the provided name and configuration
+#     settings, and stops the SparkSession after completion.
+#     """
+
+#     def __init__(self, app_name: str = None, configs: List[Tuple[str, str]] = None):
+#         from pyspark import SparkConf
+#         from pyspark.sql import SparkSession
+#         import subprocess
+
+#         # # generate the spark-defaults.conf for this cluster
+#         # subprocess.run(["bash", "/opt/spark/conf/generate_conf.sh"])
+
+#         # generated_app_name = current.run_id + "-" + current.task_id
+#         spark_conf = SparkConf().setMaster("local")
+#         # spark_conf = SparkConf().setAppName(app_name if app_name is not None else generated_app_name)
+#         # spark_conf = SparkConf()
+#         if configs is not None:
+#             for config, value in configs.items():
+#                 spark_conf.set(config, value)
+
+#         self.spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
+
+#     def __enter__(self):
+#         return self.spark
+
+#     def __exit__(self, type, value, traceback):
+#         self.spark.stop()
+
+from pyspark.sql import SparkSession
+from pyspark import SparkConf
+
+class SparkSessionCreator():
     """
-    Creates a new SparkSession with the provided name and configuration
+    Creates a new SparkSession with the provided configuration
     settings, and stops the SparkSession after completion.
+
+    Can be used as a context manager or as a factory.
+
+
+    with SparkSessionCreator(configs={"spark.eventLog.enabled", self.spark_eventLog_enabled}) as spark_sess:
+        spark_sess.do_stuff()
+
+    OR
+
+    spark_sess = SparkSessionCreator(configs={"spark.eventLog.enabled", self.spark_eventLog_enabled})
+    spark_sess.do_stuff()
+    spark_sess.stop() 
     """
-
-    def __init__(self, app_name: str, configs: List[Tuple[str, str]]):
-        from pyspark import SparkConf
-        from pyspark.sql import SparkSession
-        import subprocess
-
-        # generate the spark-defaults.conf for this cluster
-        subprocess.run(["bash", "/opt/spark/conf/generate_conf.sh"])
-
+    def __init__(self, configs: Dict[str, str] = None):
+        print("Entered")
         spark_conf = SparkConf().setMaster("local")
-        spark_conf.setAppName(app_name)
-        for config in configs:
-            spark_conf.set(config[0], config[1])
+        if configs is not None:
+            for config, value in configs.items():
+                spark_conf.set(config, value)
 
         self.spark = SparkSession.builder.config(conf=spark_conf).getOrCreate()
-
+        
     def __enter__(self):
-        return self.spark
+        return self
 
     def __exit__(self, type, value, traceback):
         self.spark.stop()
+    
+    def __getattr__(self, attr):
+        """
+        Proxies all attribute accesses of SparkSessionCreator to self.spark, so in the syntax
+        spark_sess = SparkSessionCreator()
+        spark_sess acts as a SparkSession object.
+        """
+        if hasattr(self.spark, attr):
+            return getattr(self.spark, attr)
+        raise AttributeError(attr)
 
 
 class KfpComponent(object):

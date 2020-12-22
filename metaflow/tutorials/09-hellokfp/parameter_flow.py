@@ -23,7 +23,6 @@ class ParameterFlow(FlowSpec):
         'beta',
         help='param with no default',
         type=int,
-        required=True
     )
 
     host_name = Parameter(
@@ -31,7 +30,18 @@ class ParameterFlow(FlowSpec):
         help='Deploy-time param evaluated at deployment',
         type=str,
         default=get_host_name,
-        required=True
+    )
+
+    sample_list = Parameter(
+        'sample_list',
+        help='sample list',
+        default=[i for i in range(100)]
+    )
+
+    sample_dict = Parameter(
+        'sample_dict',
+        help='sample_dict list',
+        default={x: x for x in range(100)}
     )
 
     @step
@@ -42,6 +52,8 @@ class ParameterFlow(FlowSpec):
         print(f"Alpha: {self.alpha}")
         print(f"Beta: {self.beta}")
         print(f"Host name: {self.host_name}")
+        # print("Sample list: ", self.sample_list)
+        print("Sample dict: ", self.sample_dict)
         self.next(self.end)
 
     @step
