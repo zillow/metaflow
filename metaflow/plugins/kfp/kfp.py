@@ -32,6 +32,7 @@ from ...debug import debug
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
+from .kfp_pod_decorator import PodAnnotationDecorator, PodLabelDecorator
 
 
 class KfpComponent(object):
@@ -40,14 +41,14 @@ class KfpComponent(object):
         name: str,
         cmd_template: str,
         total_retries: int,
-        resource_requirements: Dict[str, str],
+        container_attrs: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         pytorch_distributed_decorator: PyTorchDistributedDecorator,
     ):
         self.name = name
         self.cmd_template = cmd_template
         self.total_retries = total_retries
-        self.resource_requirements = resource_requirements
+        self.container_attrs = container_attrs
         self.kfp_decorator = kfp_decorator
         self.preceding_kfp_func: Callable = (
             kfp_decorator.attributes.get("preceding_component", None)
@@ -239,20 +240,23 @@ class KubeflowPipelines(object):
         return max_user_code_retries, max_user_code_retries + max_error_retries
 
     @staticmethod
-    def _get_resource_requirements(node: DAGNode) -> Dict[str, str]:
+    def _get_pod_customization(node: DAGNode) -> Dict[str, str]:
         """
         Get resource request or limit for a Metaflow step (node) set by @resources decorator.
+        Get pod labels and annotations from @pod_label and @pod_annotation decorators
 
+        For resources:
         Supported parameters: 'cpu', 'cpu_limit', 'gpu', 'gpu_vendor', 'memory', 'memory_limit'
         Keys with no suffix set resource request (minimum);
         keys with 'limit' suffix sets resource limit (maximum).
-
         Eventually resource request and limits link back to kubernetes, see
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-
         Default unit for memory is megabyte, aligning with existing resource decorator usage.
 
-        Example using resource decorator:
+        Example usage handled by this function:
+            @pod_label(name="namespace", value="aip_kfp_example")
+            @pod_label(name="team", value="aip")
+            @pod_annotation(name="description", value="KFP pipeline from Metaflow")
             @resource(cpu=0.5, cpu_limit=2, gpu=1, memory=300)
             @step
             def my_kfp_step(): ...
@@ -266,16 +270,28 @@ class KubeflowPipelines(object):
                 value = f"{value}M"
             return value
 
-        resource_requirements = {}
+        container_attrs = {}
         for deco in node.decorators:
             if isinstance(deco, ResourcesDecorator):
                 for attr_key, attr_value in deco.attributes.items():
                     if attr_value is not None:
-                        resource_requirements[attr_key] = to_k8s_resource_format(
+                        container_attrs[attr_key] = to_k8s_resource_format(
                             attr_key, attr_value
                         )
+            elif isinstance(deco, PodLabelDecorator):
+                if "labels" not in container_attrs:
+                    container_attrs["labels"] = dict()
+                container_attrs["labels"][deco.attributes["key"]] = deco.attributes[
+                    "value"
+                ]
+            elif isinstance(deco, PodAnnotationDecorator):
+                if "annotations" not in container_attrs:
+                    container_attrs["annotations"] = dict()
+                container_attrs["annotations"][
+                    deco.attributes["key"]
+                ] = deco.attributes["value"]
 
-        return resource_requirements
+        return container_attrs
 
     def create_kfp_components_from_graph(self) -> Dict[str, KfpComponent]:
         """
@@ -304,7 +320,7 @@ class KubeflowPipelines(object):
                     [step_cli],
                 ),
                 total_retries=total_retries,
-                resource_requirements=self._get_resource_requirements(node),
+                container_attrs=self._get_pod_customization(node),
                 kfp_decorator=next(
                     (
                         deco
@@ -453,24 +469,28 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _set_container_settings(container_op: ContainerOp, kfp_component: KfpComponent):
-        resource_requirements: Dict[str, str] = kfp_component.resource_requirements
-        if "memory" in resource_requirements:
-            container_op.container.set_memory_request(resource_requirements["memory"])
-        if "memory_limit" in resource_requirements:
-            container_op.container.set_memory_limit(
-                resource_requirements["memory_limit"]
-            )
-        if "cpu" in resource_requirements:
-            container_op.container.set_cpu_request(resource_requirements["cpu"])
-        if "cpu_limit" in resource_requirements:
-            container_op.container.set_cpu_limit(resource_requirements["cpu_limit"])
-        if "gpu" in resource_requirements:
+        container_attrs: Dict[str, str] = kfp_component.container_attrs
+        if "memory" in container_attrs:
+            container_op.container.set_memory_request(container_attrs["memory"])
+        if "memory_limit" in container_attrs:
+            container_op.container.set_memory_limit(container_attrs["memory_limit"])
+        if "cpu" in container_attrs:
+            container_op.container.set_cpu_request(container_attrs["cpu"])
+        if "cpu_limit" in container_attrs:
+            container_op.container.set_cpu_limit(container_attrs["cpu_limit"])
+        if "gpu" in container_attrs:
             # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
-            gpu_vendor = resource_requirements.get("gpu_vendor", None)
+            gpu_vendor = container_attrs.get("gpu_vendor", None)
             container_op.container.set_gpu_limit(
-                resource_requirements["gpu"],
+                container_attrs["gpu"],
                 vendor=gpu_vendor if gpu_vendor else "nvidia",
             )
+        if "annotations" in container_attrs:
+            for name, value in container_attrs["annotations"].items():
+                container_op.add_pod_annotation(name, value)
+        if "labels" in container_attrs:
+            for name, value in container_attrs["labels"].items():
+                container_op.add_pod_label(name, value)
 
     def step_op(
         self,

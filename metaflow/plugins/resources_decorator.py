@@ -40,7 +40,7 @@ class ResourcesDecorator(StepDecorator):
             See https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/
     gpu_vendor : str
         Not for AWS Batch.
-        KFP: "nvidia" or "amd". Defaults to "nvidia".
+        KFP: "nvidia" or "amd".
     memory : Union[int, str]
         AWS Batch: Memory size (in MB) required for this step. Defaults to 4000.
         KFP: Memory size required for this step. Default to 4000 MB. For int input, unit defaults to MB.
@@ -54,7 +54,7 @@ class ResourcesDecorator(StepDecorator):
     name = 'resources'
 
     # Actual defaults are set in .aws.batch.batch_decorator.BatchDecorator and
-    # .kfp.kfp.KubeflowPipelines._get_resource_requirements respectively.
+    # .kfp.kfp.KubeflowPipelines._get_pod_customization respectively.
     # The defaults here simply lists accepted attributes.
     defaults = {
         # AWS Batch and KFP supported attributes
