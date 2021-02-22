@@ -33,6 +33,20 @@ from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
 
+from ..aws.step_functions.schedule_decorator import ScheduleDecorator
+from ..retry_decorator import RetryDecorator
+from ..timeout_decorator import TimeoutDecorator
+from ..catch_decorator import CatchDecorator
+from ..aws.batch.batch_decorator import BatchDecorator
+
+UNSUPPORTED_DECORATORS = (
+    ScheduleDecorator,
+    RetryDecorator,
+    TimeoutDecorator,
+    CatchDecorator,
+    BatchDecorator,
+)
+
 
 class KfpComponent(object):
     def __init__(
@@ -291,6 +305,12 @@ class KubeflowPipelines(object):
 
             # TODO: @schedule, @environment, @timeout, @catch, etc.
             # TODO: @retry
+            for deco in node.decorators:
+                if isinstance(deco, UNSUPPORTED_DECORATORS):
+                    raise NotImplementedError(
+                        f"{type(deco)} in {node.name} step is not yet supported by kfp"
+                    )
+
             user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
 
             step_cli = self._step_cli(node, task_id, user_code_retries)
