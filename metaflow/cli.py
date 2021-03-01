@@ -92,7 +92,11 @@ def echo_always(line, **kwargs):
         click.secho(ERASE_TO_EOL, **kwargs)
 
 
-def logger(body='', system_msg=False, head='', bad=False, timestamp=True):
+def logger(body='',
+           system_msg=False,
+           head='',
+           bad=False,
+           timestamp=True):
     if timestamp:
         tstamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         click.secho(tstamp + ' ', fg=LOGGER_TIMESTAMP, nl=False)
@@ -427,7 +431,7 @@ def step(obj,
                         obj.datastore,
                         obj.metadata,
                         obj.environment,
-                        obj.logger,
+                        obj.echo,
                         obj.event_logger,
                         obj.monitor)
     if clone_only:
@@ -457,8 +461,13 @@ def step(obj,
               default=None,
               required=True,
               help='ID for this instance of the step.')
+@click.option('--tag',
+              'tags',
+              multiple=True,
+              default=None,
+              help="Tags for this instance of the step.")
 @click.pass_obj
-def init(obj, run_id=None, task_id=None, **kwargs):
+def init(obj, run_id=None, task_id=None, tags=None, **kwargs):
     # init is a separate command instead of an option in 'step'
     # since we need to capture user-specified parameters with
     # @add_custom_parameters. Adding custom parameters to 'step'
@@ -470,6 +479,8 @@ def init(obj, run_id=None, task_id=None, **kwargs):
     if obj.datastore.datastore_root is None:
         obj.datastore.datastore_root = \
             obj.datastore.get_datastore_root_from_config(obj.echo)
+
+    obj.metadata.add_sticky_tags(tags=tags)
 
     runtime = NativeRuntime(obj.flow,
                             obj.graph,
@@ -668,7 +679,10 @@ def before_run(obj, tags, decospecs):
     # Package working directory only once per run.
     # We explicitly avoid doing this in `start` since it is invoked for every
     # step in the run.
-    obj.package = MetaflowPackage(obj.flow, obj.environment, obj.logger, obj.package_suffixes)
+    obj.package = MetaflowPackage(obj.flow,
+                                  obj.environment,
+                                  obj.echo,
+                                  obj.package_suffixes)
 
 
 @cli.command(help='Print the Metaflow version')
@@ -817,7 +831,7 @@ def start(ctx,
     # initialize current and parameter context for deploy-time parameters
     current._set_env(flow_name=ctx.obj.flow.name, is_running=False)
     parameters.set_parameter_context(ctx.obj.flow.name,
-                                        ctx.obj.logger,
+                                        ctx.obj.echo,
                                         ctx.obj.datastore)
 
     if ctx.invoked_subcommand not in ('run', 'resume'):
