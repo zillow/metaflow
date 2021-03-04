@@ -278,18 +278,9 @@ class KubeflowPipelines(object):
                         container_attrs[attr_key] = to_k8s_resource_format(
                             attr_key, attr_value
                         )
-            elif isinstance(deco, PodLabelDecorator):
-                if "labels" not in container_attrs:
-                    container_attrs["labels"] = dict()
-                container_attrs["labels"][deco.attributes["key"]] = deco.attributes[
-                    "value"
-                ]
-            elif isinstance(deco, PodAnnotationDecorator):
-                if "annotations" not in container_attrs:
-                    container_attrs["annotations"] = dict()
-                container_attrs["annotations"][
-                    deco.attributes["key"]
-                ] = deco.attributes["value"]
+            elif isinstance(deco, KfpInternalDecorator):
+                container_attrs["labels"] = deco.attributes["labels"]
+                container_attrs["annotations"] = deco.attributes["annotations"]
 
         return container_attrs
 
