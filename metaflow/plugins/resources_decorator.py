@@ -51,17 +51,17 @@ class ResourcesDecorator(StepDecorator):
             More memory units are supported, including "E", "P", "T", "G", "M", "K". (i.e. "4000M")
              Defaults None - relying on Kubernetes defaults.
     """
-    name = 'resources'
+
+    name = "resources"
 
     # Actual defaults are set in .aws.batch.batch_decorator.BatchDecorator and
-    # .kfp.kfp.KubeflowPipelines._get_pod_customization respectively.
+    # .kfp.kfp.KubeflowPipelines._get_container_attr respectively.
     # The defaults here simply lists accepted attributes.
     defaults = {
         # AWS Batch and KFP supported attributes
         "cpu": None,
         "gpu": None,
         "memory": None,
-
         # Only KFP supported attributes
         "cpu_limit": None,
         "gpu_vendor": None,

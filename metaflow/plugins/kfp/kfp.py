@@ -32,7 +32,6 @@ from ...debug import debug
 from ...environment import MetaflowEnvironment
 from ...graph import DAGNode
 from ...plugins.resources_decorator import ResourcesDecorator
-from .kfp_pod_decorator import PodAnnotationDecorator, PodLabelDecorator
 
 
 class KfpComponent(object):
@@ -240,10 +239,10 @@ class KubeflowPipelines(object):
         return max_user_code_retries, max_user_code_retries + max_error_retries
 
     @staticmethod
-    def _get_pod_customization(node: DAGNode) -> Dict[str, str]:
+    def _get_container_attr(node: DAGNode) -> Dict[str, str]:
         """
         Get resource request or limit for a Metaflow step (node) set by @resources decorator.
-        Get pod labels and annotations from @pod_label and @pod_annotation decorators
+        Get pod labels and annotations from @kfp decorators
 
         For resources:
         Supported parameters: 'cpu', 'cpu_limit', 'gpu', 'gpu_vendor', 'memory', 'memory_limit'
@@ -254,9 +253,10 @@ class KubeflowPipelines(object):
         Default unit for memory is megabyte, aligning with existing resource decorator usage.
 
         Example usage handled by this function:
-            @pod_label(name="namespace", value="aip_kfp_example")
-            @pod_label(name="team", value="aip")
-            @pod_annotation(name="description", value="KFP pipeline from Metaflow")
+            @kfp(
+                labels={"namespace": "aip_kfp_example"},
+                annotations={"team": "aip", "contact": "aiplat@zillowgroup.com"}
+            )
             @resource(cpu=0.5, cpu_limit=2, gpu=1, memory=300)
             @step
             def my_kfp_step(): ...
@@ -311,7 +311,7 @@ class KubeflowPipelines(object):
                     [step_cli],
                 ),
                 total_retries=total_retries,
-                container_attrs=self._get_pod_customization(node),
+                container_attrs=self._get_container_attr(node),
                 kfp_decorator=next(
                     (
                         deco
