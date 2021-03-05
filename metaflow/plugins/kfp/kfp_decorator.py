@@ -59,9 +59,9 @@ class KfpInternalDecorator(StepDecorator):
         "preceding_component": None,
         "preceding_component_inputs": [],
         "preceding_component_outputs": [],
-        "image": None,
-        "annotations": None,
-        "labels": None,
+        "base_image": None,
+        "annotations": {},
+        "labels": {},
     }
 
     def __init__(self, attributes=None, statically_defined=False):
