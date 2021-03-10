@@ -790,30 +790,28 @@ class KubeflowPipelines(object):
         kfp_pipeline_from_flow.__name__ = self.name
         return kfp_pipeline_from_flow
 
-    def _create_exit_handler_op(self):
-        op: ContainerOp = exit_handler(
+    def _create_exit_handler_op(self) -> ContainerOp:
+        notify_variables: dict = {
+            key: from_conf(key)
+            for key in [
+                "METAFLOW_NOTIFY_EMAIL_FROM",
+                "METAFLOW_NOTIFY_EMAIL_SMTP_HOST",
+                "METAFLOW_NOTIFY_EMAIL_SMTP_PORT",
+                "METAFLOW_NOTIFY_EMAIL_BODY",
+            ]
+            if from_conf(key)
+        }
+
+        if self.notify_on_error:
+            notify_variables["METAFLOW_NOTIFY_ON_ERROR"] = self.notify_on_error
+
+        if self.notify_on_success:
+            notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
+
+        return exit_handler(
             flow_name=self.name,
             status="{{workflow.status}}",
             kfp_run_url_prefix=KFP_RUN_URL_PREFIX,
             kfp_run_id=dsl.RUN_ID_PLACEHOLDER,
+            notify_variables=notify_variables,
         )
-
-        for key in [
-            "METAFLOW_NOTIFY_EMAIL_FROM",
-            "METAFLOW_NOTIFY_EMAIL_SMTP_HOST",
-            "METAFLOW_NOTIFY_EMAIL_SMTP_PORT",
-        ]:
-            if from_conf(key, None):
-                op.container.add_env_variable(V1EnvVar(key, from_conf(key)))
-
-        if self.notify_on_error:
-            op.container.add_env_variable(
-                V1EnvVar("METAFLOW_NOTIFY_ON_ERROR", self.notify_on_error)
-            )
-
-        if self.notify_on_success:
-            op.container.add_env_variable(
-                V1EnvVar("METAFLOW_NOTIFY_ON_SUCCESS", self.notify_on_success)
-            )
-
-        return op

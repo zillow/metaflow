@@ -7,6 +7,7 @@ def exit_handler(
     status: str,
     kfp_run_url_prefix: str,
     kfp_run_id: str,
+    notify_variables: dict,
 ):
     """
     The environment variables that this depends on:
@@ -18,9 +19,12 @@ def exit_handler(
         K8S_CLUSTER_ENV
         POD_NAMESPACE
         ARGO_WORKFLOW_NAME
-        METAFLOW_EMAIL_BODY
+        METAFLOW_NOTIFY_EMAIL_BODY
     """
     import os
+
+    def get_env(name, default=None) -> str:
+        return notify_variables.get(name, os.environ.get(name, default=default))
 
     def email_notify(send_to):
         import smtplib
@@ -29,10 +33,10 @@ def exit_handler(
         from email.mime.multipart import MIMEMultipart
         from email.utils import formatdate
 
-        smtp_host = os.environ.get("METAFLOW_NOTIFY_EMAIL_SMTP_HOST")
-        smtp_port = int(os.environ.get("METAFLOW_NOTIFY_EMAIL_SMTP_PORT"))
-        email_from = os.environ.get("METAFLOW_NOTIFY_EMAIL_FROM")
-        cluster_env = os.environ.get("K8S_CLUSTER_ENV", "")
+        smtp_host = get_env("METAFLOW_NOTIFY_EMAIL_SMTP_HOST")
+        smtp_port = int(get_env("METAFLOW_NOTIFY_EMAIL_SMTP_PORT"))
+        email_from = get_env("METAFLOW_NOTIFY_EMAIL_FROM")
+        cluster_env = get_env("K8S_CLUSTER_ENV", "")
 
         msg = MIMEMultipart(mime_subtype="mixed")
         msg["Subject"] = f"Flow {flow_name} {status} on {cluster_env}"
@@ -46,14 +50,14 @@ def exit_handler(
             kfp_run_id,
         )
 
-        pod_namespace = os.environ.get("POD_NAMESPACE", "")
-        argo_worfklow_name = os.environ.get("ARGO_WORKFLOW_NAME", "")
-        email_body = os.environ.get("METAFLOW_EMAIL_BODY", "")
+        pod_namespace = get_env("POD_NAMESPACE", "")
+        argo_workflow_name = get_env("ARGO_WORKFLOW_NAME", "")
+        email_body = get_env("METAFLOW_NOTIFY_EMAIL_BODY", "")
         body = (
             f"status = {status} <br/>\n"
             f"{kfp_run_url} <br/>\n"
             f"Metaflow RunId = kfp-{kfp_run_id} <br/>\n"
-            f"argo -n {pod_namespace} get {argo_worfklow_name} <br/>"
+            f"argo -n {pod_namespace} get {argo_workflow_name} <br/>"
             "<br/>"
             f"{email_body}"
         )
@@ -65,8 +69,8 @@ def exit_handler(
         s.quit()
         print(msg)
 
-    notify_on_error = os.environ.get("METAFLOW_NOTIFY_ON_ERROR")
-    notify_on_success = os.environ.get("METAFLOW_NOTIFY_ON_SUCCESS")
+    notify_on_error = get_env("METAFLOW_NOTIFY_ON_ERROR")
+    notify_on_success = get_env("METAFLOW_NOTIFY_ON_SUCCESS")
 
     print(f"Flow completed with status={status}")
     if notify_on_error and status == "Failed":

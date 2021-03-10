@@ -167,19 +167,19 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 )
 @click.option(
     "--notify",
-    "-notify",
+    "-n",
     "notify",
     is_flag=True,
-    default=bool(strtobool(from_conf("METAFLOW_NOTIFY", default="False"))),
-    help="Whether to notify upon completion. METAFLOW_NOTIFY_ON_SUCCESS and "
-    "METAFLOW_NOTIFY_ON_ERROR env variables determine whether a notification is sent.",
+    default=bool(from_conf("METAFLOW_NOTIFY")),
+    help="Whether to notify upon completion.  Default is METAFLOW_NOTIFY env variable. "
+    "METAFLOW_NOTIFY_ON_SUCCESS and METAFLOW_NOTIFY_ON_ERROR env variables determine "
+    "whether a notification is sent.",
     show_default=True,
 )
 @click.option(
     "--notify-on-error",
     "-noe",
     "notify_on_error",
-    is_flag=True,
     default=from_conf("METAFLOW_NOTIFY_ON_ERROR", default=None),
     help="Email address to notify upon error. "
     "If not set, METAFLOW_NOTIFY_ON_ERROR is used from Metaflow config or environment variable",
