@@ -798,7 +798,7 @@ class KubeflowPipelines(object):
                 "METAFLOW_NOTIFY_EMAIL_SMTP_HOST",
                 "METAFLOW_NOTIFY_EMAIL_SMTP_PORT",
                 "METAFLOW_NOTIFY_EMAIL_BODY",
-                "KFP_RUN_URL_PREFIX"
+                "KFP_RUN_URL_PREFIX",
             ]
             if from_conf(key)
         }
