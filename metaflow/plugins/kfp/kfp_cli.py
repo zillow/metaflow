@@ -4,7 +4,6 @@ import shutil
 import subprocess
 
 import click
-import json
 
 from metaflow import current, decorators, parameters, JSONType
 from metaflow.datastore.datastore import TransformableObject
@@ -13,6 +12,7 @@ from metaflow.metaflow_config import (
     KFP_RUN_URL_PREFIX,
     KFP_SDK_API_NAMESPACE,
     KFP_SDK_NAMESPACE,
+    from_conf,
 )
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
@@ -89,6 +89,13 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 @click.option(
     "--namespace",
     "namespace",
+    default=None,
+    help="Metaflow read namespace.",
+    show_default=True,
+)
+@click.option(
+    "--kfp-namespace",
+    "kfp_namespace",
     default=KFP_SDK_NAMESPACE,
     help="Namespace of your run in KFP.",
     show_default=True,
@@ -164,13 +171,43 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     help="Use Argo CLI watch to wait for KFP run to complete.",
     show_default=True,
 )
+@click.option(
+    "--notify",
+    "-n",
+    "notify",
+    is_flag=True,
+    default=bool(from_conf("METAFLOW_NOTIFY")),
+    help="Whether to notify upon completion.  Default is METAFLOW_NOTIFY env variable. "
+    "METAFLOW_NOTIFY_ON_SUCCESS and METAFLOW_NOTIFY_ON_ERROR env variables determine "
+    "whether a notification is sent.",
+    show_default=True,
+)
+@click.option(
+    "--notify-on-error",
+    "-noe",
+    "notify_on_error",
+    default=from_conf("METAFLOW_NOTIFY_ON_ERROR", default=None),
+    help="Email address to notify upon error. "
+    "If not set, METAFLOW_NOTIFY_ON_ERROR is used from Metaflow config or environment variable",
+    show_default=True,
+)
+@click.option(
+    "--notify-on-success",
+    "-nos",
+    "notify_on_success",
+    default=from_conf("METAFLOW_NOTIFY_ON_SUCCESS", default=None),
+    help="Email address to notify upon success"
+    "If not set, METAFLOW_NOTIFY_ON_SUCCESS is used from Metaflow config or environment variable",
+    show_default=True,
+)
 @click.pass_obj
 def run(
     obj,
     experiment_name=None,
     run_name=None,
     tags=None,
-    namespace=KFP_SDK_NAMESPACE,
+    namespace=None,
+    kfp_namespace=KFP_SDK_NAMESPACE,
     api_namespace=KFP_SDK_API_NAMESPACE,
     yaml_only=False,
     pipeline_path=None,
@@ -180,6 +217,9 @@ def run(
     max_parallelism=None,
     workflow_timeout=None,
     wait_for_completion=False,
+    notify=False,
+    notify_on_error=None,
+    notify_on_success=None,
     argo_wait=False,
     **kwargs,
 ):
@@ -197,6 +237,13 @@ def run(
         if kwargs.get(param.name) is not None
     }
 
+    # Add additional tags
+    if kfp_namespace:
+        tags = tags + (kfp_namespace,)
+
+    if experiment_name:
+        tags = tags + (experiment_name,)
+
     obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
     check_metadata_service_version(obj)
     flow = make_flow(
@@ -204,11 +251,15 @@ def run(
         pipeline_name if pipeline_name else obj.flow.name,
         tags,
         namespace,
+        kfp_namespace,
         api_namespace,
         base_image,
         s3_code_package,
         max_parallelism,
         workflow_timeout,
+        notify,
+        notify_on_error,
+        notify_on_success,
     )
 
     if yaml_only:
@@ -251,12 +302,19 @@ def run(
             fg="cyan",
         )
 
+        run_info = flow._client.get_run(run_pipeline_result.run_id)
+        workflow_manifest = json.loads(run_info.pipeline_runtime.workflow_manifest)
+        argo_workflow_name = workflow_manifest["metadata"]["name"]
+
+        obj.echo(
+            f"*Argo workflow:* argo -n {kfp_namespace} watch {argo_workflow_name}\n",
+            fg="cyan",
+        )
+
         if argo_wait:
             argo_path: str = shutil.which("argo")
-            run_info = flow._client.get_run(run_pipeline_result.run_id)
-            workflow_manifest = json.loads(run_info.pipeline_runtime.workflow_manifest)
-            argo_workflow_name = workflow_manifest["metadata"]["name"]
-            argo_cmd = f"{argo_path} -n {namespace} "
+
+            argo_cmd = f"{argo_path} -n {kfp_namespace} "
             cmd = f"{argo_cmd} watch {argo_workflow_name}"
             subprocess.run(cmd, shell=True, universal_newlines=True)
 
@@ -288,11 +346,15 @@ def make_flow(
     name,
     tags,
     namespace,
+    kfp_namespace,
     api_namespace,
     base_image,
     s3_code_package,
     max_parallelism,
     workflow_timeout,
+    notify,
+    notify_on_error,
+    notify_on_success,
 ):
     """
     Analogous to step_functions_cli.py
@@ -349,8 +411,12 @@ def make_flow(
         s3_code_package=s3_code_package,
         tags=tags,
         namespace=namespace,
+        kfp_namespace=kfp_namespace,
         api_namespace=api_namespace,
         username=get_username(),
         max_parallelism=max_parallelism,
         workflow_timeout=workflow_timeout,
+        notify=notify,
+        notify_on_error=notify_on_error,
+        notify_on_success=notify_on_success,
     )

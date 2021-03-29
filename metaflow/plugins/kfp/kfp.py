@@ -6,16 +6,19 @@ from collections import namedtuple
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import yaml
-
 import kfp
+import yaml
 from kfp import dsl
 from kfp.dsl import ContainerOp, PipelineConf, VolumeOp
+from kubernetes.client import V1EnvVar
 
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
     KFP_TTL_SECONDS_AFTER_FINISHED,
     METADATA_SERVICE_URL,
+    KFP_RUN_URL_PREFIX,
+    METAFLOW_USER,
+    from_conf,
 )
 from metaflow.plugins import KfpInternalDecorator
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
@@ -25,6 +28,7 @@ from .kfp_constants import (
     STEP_ENVIRONMENT_VARIABLES,
     TASK_ID_ENV_NAME,
 )
+from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids
 from .pytorch_distributed_decorator import PyTorchDistributedDecorator
 from ... import R
@@ -105,10 +109,14 @@ class KubeflowPipelines(object):
         s3_code_package=True,
         tags=None,
         namespace=None,
+        kfp_namespace=None,
         api_namespace=None,
         username=None,
         max_parallelism=None,
         workflow_timeout=None,
+        notify=False,
+        notify_on_error=None,
+        notify_on_success=None,
         **kwargs,
     ):
         """
@@ -126,6 +134,7 @@ class KubeflowPipelines(object):
         self.monitor = monitor
         self.tags = tags
         self.namespace = namespace
+        self.kfp_namespace = kfp_namespace
         self.username = username
         self.base_image = base_image
         self.s3_code_package = s3_code_package
@@ -133,6 +142,9 @@ class KubeflowPipelines(object):
         self.workflow_timeout = (
             workflow_timeout if workflow_timeout else 0  # 0 is unlimited
         )
+        self.notify = notify
+        self.notify_on_error = notify_on_error
+        self.notify_on_success = notify_on_success
 
         self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
 
@@ -151,7 +163,7 @@ class KubeflowPipelines(object):
             },
             experiment_name=experiment_name,
             run_name=run_name,
-            namespace=self.namespace,
+            namespace=self.kfp_namespace,
         )
         return run_pipeline_result
 
@@ -208,8 +220,10 @@ class KubeflowPipelines(object):
         def copy_log_cmd(log_file):
             cp_command = environment.get_boto3_copy_command(
                 s3_path=(
-                    f"{{datastore_root}}/{self.flow.name}/{{run_id}}/{step_name}"
-                    f"/${TASK_ID_ENV_NAME}/{log_file}"
+                    os.path.join(
+                        "{datastore_root}",
+                        f"{self.flow.name}/{{run_id}}/{step_name}/${TASK_ID_ENV_NAME}/{log_file}",
+                    )
                 ),
                 local_path=log_file,
                 command="upload_file",
@@ -223,7 +237,9 @@ class KubeflowPipelines(object):
         #  where the ordinal is attempt/retry count
         cp_stderr = copy_log_cmd(log_file="0.stderr.log")
         cp_stdout = copy_log_cmd(log_file="0.stdout.log")
-        cp_logs_cmd = f"{cp_stderr} && {cp_stdout}"
+        cp_logs_cmd = (
+            "set -x" if debug.subcommand else "true" f" && {cp_stderr} && {cp_stdout}"
+        )
 
         # We capture the exit code at two places:
         # Once after the subshell/redirection commands, and once after the saving logs
@@ -395,6 +411,9 @@ class KubeflowPipelines(object):
                 "--run-id %s" % kfp_run_id,
                 "--task-id %s" % task_id_params,
             ]
+
+            if self.tags:
+                params.extend("--tag %s" % tag for tag in self.tags)
 
             # If the start step gets retried, we must be careful not to
             # regenerate multiple parameters tasks. Hence we check first if
@@ -649,6 +668,7 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
                     metaflow_service_url=METADATA_SERVICE_URL,
+                    metaflow_user=METAFLOW_USER,
                     flow_parameters_json=flow_parameters_json
                     if node.name == "start"
                     else None,
@@ -767,7 +787,11 @@ class KubeflowPipelines(object):
                                 volume_op=volume_op,
                             )
 
-            build_kfp_dag(self.graph["start"])
+            if self.notify:
+                with dsl.ExitHandler(self._create_exit_handler_op()):
+                    build_kfp_dag(self.graph["start"])
+            else:
+                build_kfp_dag(self.graph["start"])
 
             # Instruct KFP of the DAG order by iterating over the Metaflow
             # graph nodes.  Each Metaflow graph node has in_funcs (nodes that
@@ -792,3 +816,29 @@ class KubeflowPipelines(object):
 
         kfp_pipeline_from_flow.__name__ = self.name
         return kfp_pipeline_from_flow
+
+    def _create_exit_handler_op(self) -> ContainerOp:
+        notify_variables: dict = {
+            key: from_conf(key)
+            for key in [
+                "METAFLOW_NOTIFY_EMAIL_FROM",
+                "METAFLOW_NOTIFY_EMAIL_SMTP_HOST",
+                "METAFLOW_NOTIFY_EMAIL_SMTP_PORT",
+                "METAFLOW_NOTIFY_EMAIL_BODY",
+                "KFP_RUN_URL_PREFIX",
+            ]
+            if from_conf(key)
+        }
+
+        if self.notify_on_error:
+            notify_variables["METAFLOW_NOTIFY_ON_ERROR"] = self.notify_on_error
+
+        if self.notify_on_success:
+            notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
+
+        return exit_handler(
+            flow_name=self.name,
+            status="{{workflow.status}}",
+            kfp_run_id=dsl.RUN_ID_PLACEHOLDER,
+            notify_variables=notify_variables,
+        )
