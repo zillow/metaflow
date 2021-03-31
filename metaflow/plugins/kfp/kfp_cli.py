@@ -12,6 +12,7 @@ from metaflow.metaflow_config import (
     KFP_RUN_URL_PREFIX,
     KFP_SDK_API_NAMESPACE,
     KFP_SDK_NAMESPACE,
+    KFP_USER_DOMAIN,
     from_conf,
 )
 from metaflow.package import MetaflowPackage

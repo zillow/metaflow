@@ -17,6 +17,7 @@ from metaflow.metaflow_config import (
     KFP_TTL_SECONDS_AFTER_FINISHED,
     METADATA_SERVICE_URL,
     METAFLOW_USER,
+    KFP_USER_DOMAIN,
     from_conf,
 )
 from metaflow.plugins import KfpInternalDecorator
@@ -141,7 +142,12 @@ class KubeflowPipelines(object):
         self.notify_on_error = notify_on_error
         self.notify_on_success = notify_on_success
 
-        self._client = kfp.Client(namespace=api_namespace, userid=username, **kwargs)
+        print(f'kfp user domain: {KFP_USER_DOMAIN}')
+
+        kfp_client_user_email = username + KFP_USER_DOMAIN
+        print(kfp_client_user_email)
+
+        self._client = kfp.Client(namespace=api_namespace, userid=kfp_client_user_email, **kwargs)
 
     def create_run_on_kfp(
         self, experiment_name: str, run_name: str, flow_parameters: dict
