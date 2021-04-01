@@ -144,7 +144,7 @@ class KubeflowPipelines(object):
 
         print(f"kfp user domain:{KFP_USER_DOMAIN}foo")
 
-        kfp_client_user_email = username
+        kfp_client_user_email = username + ""
         print(kfp_client_user_email)
 
         self._client = kfp.Client(
