@@ -148,7 +148,7 @@ class KubeflowPipelines(object):
         print(kfp_client_user_email)
 
         self._client = kfp.Client(
-            namespace=api_namespace, userid=kfp_client_user_email, **kwargs
+            namespace=api_namespace, userid=username, **kwargs
         )
 
     def create_run_on_kfp(
