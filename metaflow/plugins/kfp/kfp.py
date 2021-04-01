@@ -144,11 +144,11 @@ class KubeflowPipelines(object):
 
         print(f"kfp user domain:{KFP_USER_DOMAIN}foo")
 
-        kfp_client_user_email = username
+        kfp_client_user_email = username + ""
         print(kfp_client_user_email)
 
         self._client = kfp.Client(
-            namespace=api_namespace, userid=username, **kwargs
+            namespace=api_namespace, userid=kfp_client_user_email, **kwargs
         )
 
     def create_run_on_kfp(
