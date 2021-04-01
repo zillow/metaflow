@@ -142,12 +142,14 @@ class KubeflowPipelines(object):
         self.notify_on_error = notify_on_error
         self.notify_on_success = notify_on_success
 
-        print(f'kfp user domain:{KFP_USER_DOMAIN}foo')
+        print(f"kfp user domain:{KFP_USER_DOMAIN}foo")
 
         kfp_client_user_email = username
         print(kfp_client_user_email)
 
-        self._client = kfp.Client(namespace=api_namespace, userid=kfp_client_user_email, **kwargs)
+        self._client = kfp.Client(
+            namespace=api_namespace, userid=kfp_client_user_email, **kwargs
+        )
 
     def create_run_on_kfp(
         self, experiment_name: str, run_name: str, flow_parameters: dict
