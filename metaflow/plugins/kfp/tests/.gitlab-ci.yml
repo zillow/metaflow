@@ -18,7 +18,7 @@ variables:
   _SHARED_ENV_FILE: 'shared.env'
   _IMAGE_TAG_FILE: 'image_tag_file.txt'
   DEPLOY_INTERNAL: "true"
-  DEPLOY_NONPROD: "false" # running on nonprod causes instability because a lot of customers are using it already
+  DEPLOY_NONPROD: "false" # don't run on nonprod until instability issues fixed
   DEPLOY_PROD: "false"
 
 .base:job-with-artifacts:
