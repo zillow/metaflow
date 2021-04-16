@@ -179,7 +179,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     "wait_for_completion_timeout",
     default=1800,
     type=int,
-    help="Timeout to wait for completion of run before process exits."
+    help="Timeout to wait for completion of run before process exits.",
 )
 @click.option(
     "--argo-wait",
