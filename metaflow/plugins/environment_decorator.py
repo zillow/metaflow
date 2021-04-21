@@ -23,7 +23,7 @@ class EnvironmentDecorator(StepDecorator):
     ----------
     vars : Dict
         Dictionary of environment variables to add/update prior to executing your step.
-    value_from: Dict
+    kubernetes_vars: Dict
         Only used in KFP plugin.
         see https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information
 
