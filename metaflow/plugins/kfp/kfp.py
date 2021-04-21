@@ -24,7 +24,6 @@ from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
 from .kfp_constants import (
     INPUT_PATHS_ENV_NAME,
-    SPLIT_INDEX_ENV_NAME,
     STEP_ENVIRONMENT_VARIABLES,
     TASK_ID_ENV_NAME,
 )
@@ -526,17 +525,10 @@ class KubeflowPipelines(object):
                 vendor=gpu_vendor if gpu_vendor else "nvidia",
             )
         if "local_storage" in resource_requirements:
-            print(
-                "set_ephemeral_storage_request", resource_requirements["local_storage"]
-            )
             container_op.container.set_ephemeral_storage_request(
                 resource_requirements["local_storage"]
             )
         if "local_storage_limit" in resource_requirements:
-            print(
-                "set_ephemeral_storage_limit",
-                resource_requirements["local_storage_limit"],
-            )
             container_op.container.set_ephemeral_storage_limit(
                 resource_requirements["local_storage_limit"]
             )
