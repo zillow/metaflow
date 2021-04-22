@@ -5,6 +5,7 @@ include:
     file: 'environments/devex.yml'
   - project: 'analytics/artificial-intelligence/ai-platform/aip-infrastructure/ci-templates/ci-cd-template'
     ref: '6a257a61866f39ee2c8d81e1eafcc19cf9b5d617'
+    file: 'blocks/docker.yml'
 
 variables:
   ARTIFACT_NAME: "metaflow_integration_testing"
