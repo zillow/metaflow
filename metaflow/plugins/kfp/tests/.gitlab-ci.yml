@@ -51,7 +51,7 @@ variables:
     - 'cat ${_SHARED_ENV_FILE}'
 
     # Build Artifact (i.e: Docker Image) in Gitlab current pipeline-job-container
-    - 'docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile -t ${_LOCAL_DOCKER_TAG} .'
+    - 'docker build --no-cache -f metaflow/plugins/kfp/dockerfiles/integration_testing_full_image/Dockerfile -t ${_LOCAL_DOCKER_TAG} .'
 
     # Function definitions for logging and uploading to docker repository
     - 'function log_upload_path {
