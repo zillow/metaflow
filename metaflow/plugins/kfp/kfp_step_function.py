@@ -48,6 +48,9 @@ def kfp_step_function(
         name: value for name, value in metaflow_configs.items() if value
     }
 
+    if not "METAFLOW_USER" in metaflow_configs_new:
+        metaflow_configs_new["METAFLOW_USER"] = "kfp-user"
+
     env = {
         **os.environ,
         **metaflow_configs_new,

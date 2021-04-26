@@ -133,6 +133,7 @@ class KubeflowPipelines(object):
         self.tags = tags
         self.namespace = namespace
         self.kfp_namespace = kfp_namespace
+        self.api_namespace = api_namespace
         self.username = username
         self.base_image = base_image
         self.s3_code_package = s3_code_package
@@ -144,30 +145,26 @@ class KubeflowPipelines(object):
         self.notify_on_error = notify_on_error
         self.notify_on_success = notify_on_success
 
-        # kfp userid needs to have the user domain
-        kfp_client_user_email = username
-        if KFP_USER_DOMAIN:
-            kfp_client_user_email += f"@{KFP_USER_DOMAIN}"
-
-        self._client = kfp.Client(
-            namespace=api_namespace, userid=kfp_client_user_email, **kwargs
-        )
-
     def create_run_on_kfp(self, experiment: str, run_name: str, flow_parameters: dict):
         """
         Creates a new run on KFP using the `kfp.Client()`.
         """
         # TODO: first create KFP Pipeline, then an experiment if provided else default experiment.
-        run_pipeline_result = self._client.create_run_from_pipeline_func(
+        # kfp userid needs to have the user domain
+        kfp_client_user_email = self.username
+        if KFP_USER_DOMAIN:
+            kfp_client_user_email += f"@{KFP_USER_DOMAIN}"
+
+        self._client = kfp.Client(
+            namespace=self.api_namespace, userid=kfp_client_user_email
+        )
+        return self._client.create_run_from_pipeline_func(
             pipeline_func=self.create_kfp_pipeline_from_flow_graph(),
-            arguments={
-                "flow_parameters_json": json.dumps(flow_parameters),
-            },
+            arguments={"flow_parameters_json": json.dumps(flow_parameters)},
             experiment_name=experiment,
             run_name=run_name,
             namespace=self.kfp_namespace,
         )
-        return run_pipeline_result
 
     def create_kfp_pipeline_yaml(self, pipeline_file_path) -> str:
         """
