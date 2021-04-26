@@ -373,6 +373,7 @@ def make_flow(
     s3_code_package,
     yaml_only,
     max_parallelism,
+    workflow_timeout,
     notify,
     notify_on_error,
     notify_on_success,
