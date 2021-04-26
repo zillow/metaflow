@@ -704,10 +704,10 @@ class KubeflowPipelines(object):
                 step_op_args = dict(
                     cmd_template=kfp_component.cmd_template,
                     kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
+                    metaflow_configs=metaflow_configs,
                     passed_in_split_indexes=passed_in_split_indexes,
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
-                    metaflow_configs=metaflow_configs,
                     flow_parameters_json=flow_parameters_json
                     if node.name == "start"
                     else None,

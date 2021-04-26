@@ -4,6 +4,7 @@ from typing import List, Dict
 def kfp_step_function(
     cmd_template: str,
     kfp_run_id: str,
+    metaflow_configs: Dict[str, str],
     passed_in_split_indexes: str = '""',  # only if is_inside_foreach
     preceding_component_inputs: List[
         str
@@ -11,7 +12,6 @@ def kfp_step_function(
     preceding_component_outputs: List[
         str
     ] = None,  # fields to be pushed into Flow state from KFP
-    metaflow_configs: Dict[str, str] = None,
     flow_parameters_json: str = None,  # json formatted string
     **kwargs,
 ) -> object:
