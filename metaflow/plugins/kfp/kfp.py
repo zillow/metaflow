@@ -160,7 +160,6 @@ class KubeflowPipelines(object):
         run_pipeline_result = self._client.create_run_from_pipeline_func(
             pipeline_func=self.create_kfp_pipeline_from_flow_graph(),
             arguments={
-                "datastore_root": DATASTORE_SYSROOT_S3,
                 "flow_parameters_json": json.dumps(flow_parameters),
             },
             experiment_name=experiment,
@@ -223,7 +222,7 @@ class KubeflowPipelines(object):
             cp_command = environment.get_boto3_copy_command(
                 s3_path=(
                     os.path.join(
-                        "{datastore_root}",
+                        "$METAFLOW_DATASTORE_SYSROOT_S3",
                         f"{self.flow.name}/{{run_id}}/{step_name}/${TASK_ID_ENV_NAME}/{log_file}",
                     )
                 ),
@@ -418,7 +417,7 @@ class KubeflowPipelines(object):
                 "--metadata=%s" % self.metadata.TYPE,
                 "--environment=%s" % self.environment.TYPE,
                 "--datastore=s3",
-                "--datastore-root={datastore_root}",
+                "--datastore-root=$METAFLOW_DATASTORE_SYSROOT_S3",
                 "--event-logger=%s" % self.event_logger.logger_type,
                 "--monitor=%s" % self.monitor.monitor_type,
                 "--no-pylint",
@@ -455,7 +454,7 @@ class KubeflowPipelines(object):
             "--metadata=%s" % self.metadata.TYPE,
             "--environment=%s" % self.environment.TYPE,
             "--datastore=s3",
-            "--datastore-root={datastore_root}",
+            "--datastore-root=$METAFLOW_DATASTORE_SYSROOT_S3",
             "--event-logger=%s" % self.event_logger.logger_type,
             "--monitor=%s" % self.monitor.monitor_type,
             "--no-pylint",
@@ -648,7 +647,6 @@ class KubeflowPipelines(object):
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
         def kfp_pipeline_from_flow(
-            datastore_root: str = DATASTORE_SYSROOT_S3,
             flow_parameters_json: str = None,
         ):
             visited: Dict[str, ContainerOp] = {}
@@ -683,15 +681,20 @@ class KubeflowPipelines(object):
                     )
 
                 kfp_component: KfpComponent = step_to_kfp_component_map[node.name]
+                # capture metaflow configs from client to be used at runtime
+                # client configs have the highest precedence
+                metaflow_configs = dict(
+                    METAFLOW_DATASTORE_SYSROOT_S3=DATASTORE_SYSROOT_S3,
+                    METAFLOW_SERVICE_URL=METADATA_SERVICE_URL,
+                    METAFLOW_USER=METAFLOW_USER,
+                )
                 step_op_args = dict(
-                    datastore_root=datastore_root,
                     cmd_template=kfp_component.cmd_template,
                     kfp_run_id=f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     passed_in_split_indexes=passed_in_split_indexes,
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
-                    metaflow_service_url=METADATA_SERVICE_URL,
-                    metaflow_user=METAFLOW_USER,
+                    metaflow_configs=metaflow_configs,
                     flow_parameters_json=flow_parameters_json
                     if node.name == "start"
                     else None,
