@@ -61,7 +61,7 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
     # `check_valid_logs_process` process.
 
     test_cmd = (
-        f"{_python()} {full_path} --datastore=s3 kfp run "
+        f"{_python()} {full_path} --datastore=s3 kfp run --no-s3-code-package "
         f"--wait-for-completion --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment mf_test --tag t1"
     )
