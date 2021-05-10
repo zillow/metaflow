@@ -56,15 +56,15 @@ annotations = {
     "metaflow.org/step": "MF_STEP",
     "metaflow.org/run_id": "MF_RUN_ID",
     "metaflow.org/experiment": "MF_EXPERIMENT",
-    "metaflow.org/tag_mf_test": "MF_TAG_MF_TEST",
-    "metaflow.org/tag_t1": "MF_TAG_T1",
+    "metaflow.org/tag_metaflow_test": "MF_TAG_METAFLOW_TEST",
+    "metaflow.org/tag_test_t1": "MF_TAG_TEST_T1",
 }
 for annotation, env_name in annotations.items():
     kubernetes_vars.append(
         V1EnvVar(
             name=env_name,
             value_from=V1EnvVarSource(
-                field_ref=V1ObjectFieldSelector(field_path=f"metadata.annotations['{annotation}']")
+                field_ref=V1ObjectFieldSelector(field_path=f"metadata.labels['{annotation}']")
             ),
         )
     )
@@ -102,8 +102,8 @@ class ResourcesFlow(FlowSpec):
         assert os.environ.get("MF_STEP") == current.step_name
         assert os.environ.get("MF_RUN_ID") == current.run_id
         assert os.environ.get("MF_EXPERIMENT") == "mf_test"
-        assert os.environ.get("MF_TAG_MF_TEST") == "true"
-        assert os.environ.get("MF_TAG_T1") == "true"
+        assert os.environ.get("MF_TAG_METAFLOW_TEST") == "true"
+        assert os.environ.get("MF_TAG_TEST_T1") == "true"
 
         self.next(self.end)
 

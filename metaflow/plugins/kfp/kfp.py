@@ -536,20 +536,20 @@ class KubeflowPipelines(object):
                 resource_requirements["local_storage_limit"]
             )
 
-    def _set_container_annotations(
+    def _set_container_labels(
         self, container_op: ContainerOp, node: DAGNode, metaflow_run_id: str
     ):
         prefix = "metaflow.org"
-        container_op.add_pod_annotation(f"{prefix}/flow_name", self.name)
-        container_op.add_pod_annotation(f"{prefix}/step", node.name)
-        container_op.add_pod_annotation(f"{prefix}/run_id", metaflow_run_id)
+        container_op.add_pod_label(f"{prefix}/flow_name", self.name)
+        container_op.add_pod_label(f"{prefix}/step", node.name)
+        container_op.add_pod_label(f"{prefix}/run_id", metaflow_run_id)
 
         if self.experiment:
-            container_op.add_pod_annotation(f"{prefix}/experiment", self.experiment)
+            container_op.add_pod_label(f"{prefix}/experiment", self.experiment)
         if self.tags and len(self.tags) > 0:
             for tag in self.tags:
                 annotation_name = f"{prefix}/tag_{tag}"
-                container_op.add_pod_annotation(annotation_name, "true")
+                container_op.add_pod_label(annotation_name, "true")
 
     def step_op(
         self,
@@ -788,7 +788,7 @@ class KubeflowPipelines(object):
                     }
 
                 KubeflowPipelines._set_container_resources(container_op, kfp_component)
-                self._set_container_annotations(container_op, node, metaflow_run_id)
+                self._set_container_labels(container_op, node, metaflow_run_id)
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works

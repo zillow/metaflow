@@ -390,7 +390,7 @@ def make_flow(
 
     datastore = (
         None
-        if (not s3_code_package and yaml_only)
+        if (not s3_code_package)
         else obj.datastore(
             obj.flow.name,
             mode="w",
