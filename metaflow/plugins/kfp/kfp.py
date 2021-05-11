@@ -548,8 +548,7 @@ class KubeflowPipelines(object):
             container_op.add_pod_label(f"{prefix}/experiment", self.experiment)
         if self.tags and len(self.tags) > 0:
             for tag in self.tags:
-                annotation_name = f"{prefix}/tag_{tag}"
-                container_op.add_pod_label(annotation_name, "true")
+                container_op.add_pod_label(f"{prefix}/tag_{tag}", "true")
 
     def step_op(
         self,
