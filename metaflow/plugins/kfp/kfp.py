@@ -9,8 +9,19 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 import kfp
 import yaml
 from kfp import dsl
-from kfp.dsl import ContainerOp, PipelineConf, VolumeOp
-from kubernetes.client import V1EnvVar, V1EnvVarSource, V1ObjectFieldSelector
+from kfp.components import func_to_container_op
+from kfp.dsl import ContainerOp, PipelineConf, VOLUME_MODE_RWM
+from kfp.dsl import PipelineVolume, ResourceOp
+from kubernetes.client import (
+    V1EnvVar,
+    V1EnvVarSource,
+    V1ObjectFieldSelector,
+    V1ResourceRequirements,
+    V1PersistentVolumeClaimSpec,
+    V1OwnerReference,
+    V1ObjectMeta,
+    V1PersistentVolumeClaim,
+)
 
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
@@ -32,6 +43,7 @@ from .kfp_constants import (
 )
 from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids
+from .kfp_get_workflow_uid import get_workflow_uid
 from .pytorch_distributed_decorator import PyTorchDistributedDecorator
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
@@ -297,10 +309,15 @@ class KubeflowPipelines(object):
             value = str(value)
 
             # Defaults memory unit to megabyte
-            if resource in ["memory", "memory_limit"] and value.isnumeric():
-                value = f"{value}M"
             if (
-                resource in ["local_storage", "local_storage_limit"]
+                resource
+                in [
+                    "memory",
+                    "memory_limit",
+                    "local_storage",
+                    "local_storage_limit",
+                    "volume",
+                ]
                 and value.isnumeric()
             ):
                 value = f"{value}M"
@@ -507,9 +524,9 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _set_container_resources(
-        container_op: ContainerOp, kfp_component: KfpComponent
+        container_op: ContainerOp, kfp_component: KfpComponent, workflow_uid: str
     ):
-        resource_requirements: Dict[str, str] = kfp_component.resource_requirements
+        resource_requirements: Dict[str, Any] = kfp_component.resource_requirements
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
         if "memory_limit" in resource_requirements:
@@ -535,6 +552,64 @@ class KubeflowPipelines(object):
             container_op.container.set_ephemeral_storage_limit(
                 resource_requirements["local_storage_limit"]
             )
+        if (
+            kfp_component.pytorch_distributed_decorator
+            or "volume" in resource_requirements
+        ):
+            if kfp_component.pytorch_distributed_decorator:
+                print("This is now deprecated!")
+                mode = [VOLUME_MODE_RWM]
+                volume_dir = "/opt/pytorch_shared/"
+            else:
+                mode = resource_requirements["volume_mode"]
+                volume_dir = resource_requirements["volume_dir"]
+
+            volume = KubeflowPipelines._create_volume(
+                step_name=kfp_component.name,
+                size=resource_requirements["volume"],
+                workflow_uid=workflow_uid,
+                mode=mode,
+            )
+            container_op.add_pvolumes({volume_dir: volume})
+
+    @staticmethod
+    def _create_volume(
+        step_name: str,
+        size: str,
+        workflow_uid: str,
+        mode: str,
+    ) -> PipelineVolume:
+        attribute_outputs = {"size": "{.status.capacity.storage}"}
+        requested_resources = V1ResourceRequirements(requests={"storage": size})
+        pvc_spec = V1PersistentVolumeClaimSpec(
+            access_modes=[mode], resources=requested_resources
+        )
+        owner_reference = V1OwnerReference(
+            api_version="argoproj.io/v1alpha1",
+            controller=True,
+            kind="Workflow",
+            name="{{workflow.name}}",
+            uid=workflow_uid,
+        )
+        owner_references = [owner_reference]
+        pvc_metadata = V1ObjectMeta(
+            name="{{workflow.name}}-%s" % f"{step_name}-pvc",
+            owner_references=owner_references,
+        )
+        k8s_resource = V1PersistentVolumeClaim(
+            api_version="v1",
+            kind="PersistentVolumeClaim",
+            metadata=pvc_metadata,
+            spec=pvc_spec,
+        )
+        resource = ResourceOp(
+            name=f"create-{step_name}-volume",
+            k8s_resource=k8s_resource,
+            action="create",
+            attribute_outputs=attribute_outputs,
+        )
+
+        return PipelineVolume(name=f"{step_name}-volume", pvc=resource.outputs["name"])
 
     def _set_container_labels(
         self, container_op: ContainerOp, node: DAGNode, metaflow_run_id: str
@@ -685,7 +760,7 @@ class KubeflowPipelines(object):
                 passed_in_split_indexes: str = '""',
                 preceding_kfp_component_op: ContainerOp = None,
                 preceding_component_outputs_dict: Dict[str, dsl.PipelineParam] = None,
-                volume_op: Optional[VolumeOp] = None,
+                workflow_uid: str = None,
             ):
                 if node.name in visited:
                     return
@@ -737,15 +812,6 @@ class KubeflowPipelines(object):
 
                 visited[node.name] = container_op
 
-                if kfp_component.pytorch_distributed_decorator:
-                    container_op.add_pvolumes(
-                        {
-                            kfp_component.pytorch_distributed_decorator.attributes[
-                                "shared_volume_dir"
-                            ]: volume_op.volume
-                        }
-                    )
-
                 if kfp_component.environment_decorator:
                     envs = kfp_component.environment_decorator.attributes[
                         "kubernetes_vars"
@@ -786,32 +852,14 @@ class KubeflowPipelines(object):
                         for name in next_kfp_decorator_component.preceding_component_outputs
                     }
 
-                KubeflowPipelines._set_container_resources(container_op, kfp_component)
+                KubeflowPipelines._set_container_resources(
+                    container_op, kfp_component, workflow_uid
+                )
                 self._set_container_labels(container_op, node, metaflow_run_id)
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works
                     next_step_name = node.out_funcs[0]
-                    next_kfp_component: KfpComponent = step_to_kfp_component_map[
-                        next_step_name
-                    ]
-
-                    if (
-                        next_kfp_component.pytorch_distributed_decorator
-                        and volume_op is None
-                    ):
-                        # Create VolumeOp for shared file system
-                        # TODO: AIP-1652 We don't delete it because it hangs on delete
-                        #  The long term solution would likely be to move to PyTorch RPC
-                        volume_op = VolumeOp(
-                            name=f"create-shared-volume",
-                            resource_name="shared-volume",
-                            modes=dsl.VOLUME_MODE_RWO,
-                            size=next_kfp_component.pytorch_distributed_decorator.attributes[
-                                "shared_volume_size"
-                            ],
-                        )
-
                     with kfp.dsl.ParallelFor(
                         container_op.outputs["foreach_splits"]
                     ) as split_index:
@@ -824,7 +872,7 @@ class KubeflowPipelines(object):
                             split_index,
                             preceding_kfp_component_op=next_kfp_component_op,
                             preceding_component_outputs_dict=next_preceding_component_outputs_dict,
-                            volume_op=volume_op,
+                            workflow_uid=workflow_uid,
                         )
 
                     # Handle the ParallelFor join step, and pass in
@@ -834,7 +882,7 @@ class KubeflowPipelines(object):
                         passed_in_split_indexes,
                         preceding_kfp_component_op=next_kfp_component_op,
                         preceding_component_outputs_dict=next_preceding_component_outputs_dict,
-                        volume_op=volume_op,
+                        workflow_uid=workflow_uid,
                     )
                 else:
                     for step in node.out_funcs:
@@ -854,14 +902,34 @@ class KubeflowPipelines(object):
                                 passed_in_split_indexes,
                                 preceding_kfp_component_op=next_kfp_component_op,
                                 preceding_component_outputs_dict=next_preceding_component_outputs_dict,
-                                volume_op=volume_op,
+                                workflow_uid=workflow_uid,
                             )
+
+            workflow_uid_op = None
+            if any(
+                "volume" in s.resource_requirements
+                for s in step_to_kfp_component_map.values()
+            ):
+                workflow_uid_op = func_to_container_op(
+                    get_workflow_uid,
+                    base_image="gcr.io/cloud-builders/kubectl",
+                )(work_flow_name="{{workflow.name}}")
 
             if self.notify:
                 with dsl.ExitHandler(self._create_exit_handler_op()):
-                    build_kfp_dag(self.graph["start"])
+                    build_kfp_dag(
+                        self.graph["start"],
+                        preceding_component_outputs_dict=workflow_uid_op,
+                        workflow_uid=workflow_uid_op.output
+                        if workflow_uid_op
+                        else None,
+                    )
             else:
-                build_kfp_dag(self.graph["start"])
+                build_kfp_dag(
+                    self.graph["start"],
+                    preceding_kfp_component_op=workflow_uid_op,
+                    workflow_uid=workflow_uid_op.output if workflow_uid_op else None,
+                )
 
             # Instruct KFP of the DAG order by iterating over the Metaflow
             # graph nodes.  Each Metaflow graph node has in_funcs (nodes that
