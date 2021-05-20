@@ -550,6 +550,13 @@ class KubeflowPipelines(object):
             for tag in self.tags:
                 container_op.add_pod_label(f"{prefix}/tag_{tag}", "true")
 
+    def _set_container_annotations(
+        self, container_op: ContainerOp, node: DAGNode, metaflow_run_id: str
+    ):
+        datadog_ad = "ad.datadoghq.com/tags"
+        prefix = "metaflow.org"
+        container_op.add_pod_annotation(datadog_ad, json.dumps({f"{prefix}/flow_name", "%%env_ARGO_WORKFLOW_NAME%%"}))
+
     def step_op(
         self,
         step_name: str,
@@ -788,6 +795,7 @@ class KubeflowPipelines(object):
 
                 KubeflowPipelines._set_container_resources(container_op, kfp_component)
                 self._set_container_labels(container_op, node, metaflow_run_id)
+                self._set_container_annotations(container_op, node, metaflow_run_id)
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works
