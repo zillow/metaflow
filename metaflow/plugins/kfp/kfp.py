@@ -915,21 +915,17 @@ class KubeflowPipelines(object):
                     base_image="gcr.io/cloud-builders/kubectl",
                 )(work_flow_name="{{workflow.name}}")
 
-            if self.notify:
-                with dsl.ExitHandler(self._create_exit_handler_op()):
-                    build_kfp_dag(
-                        self.graph["start"],
-                        preceding_component_outputs_dict=workflow_uid_op,
-                        workflow_uid=workflow_uid_op.output
-                        if workflow_uid_op
-                        else None,
-                    )
-            else:
+            def call_build_kfp_dag():
                 build_kfp_dag(
                     self.graph["start"],
-                    preceding_kfp_component_op=workflow_uid_op,
                     workflow_uid=workflow_uid_op.output if workflow_uid_op else None,
                 )
+
+            if self.notify:
+                with dsl.ExitHandler(self._create_exit_handler_op()):
+                    call_build_kfp_dag()
+            else:
+                call_build_kfp_dag()
 
             # Instruct KFP of the DAG order by iterating over the Metaflow
             # graph nodes.  Each Metaflow graph node has in_funcs (nodes that
