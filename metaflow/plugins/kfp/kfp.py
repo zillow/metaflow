@@ -555,7 +555,7 @@ class KubeflowPipelines(object):
     ):
         datadog_ad = "ad.datadoghq.com/tags"
         prefix = "metaflow.org"
-        container_op.add_pod_annotation(datadog_ad, json.dumps({f"{prefix}/flow_name", "%%env_ARGO_WORKFLOW_NAME%%"}))
+        container_op.add_pod_annotation(datadog_ad, json.dumps({f"{prefix}/flow_name": "%%env_ARGO_WORKFLOW_NAME%%"}))
 
     def step_op(
         self,
