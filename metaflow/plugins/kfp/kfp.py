@@ -593,7 +593,7 @@ class KubeflowPipelines(object):
         )
         owner_references = [owner_reference]
         pvc_metadata = V1ObjectMeta(
-            name="{{workflow.name}}-%s" % f"{step_name}-pvc",
+            name="{{workflow.name}}-%s" % "{{pod.name}}-pvc",
             owner_references=owner_references,
         )
         k8s_resource = V1PersistentVolumeClaim(
@@ -609,7 +609,7 @@ class KubeflowPipelines(object):
             attribute_outputs=attribute_outputs,
         )
 
-        return PipelineVolume(name=f"{step_name}-volume", pvc=resource.outputs["name"])
+        return PipelineVolume(name="{{pod.name}}-volume", pvc=resource.outputs["name"])
 
     def _set_container_labels(
         self, container_op: ContainerOp, node: DAGNode, metaflow_run_id: str
@@ -913,7 +913,9 @@ class KubeflowPipelines(object):
                 workflow_uid_op = func_to_container_op(
                     get_workflow_uid,
                     base_image="gcr.io/cloud-builders/kubectl",
-                )(work_flow_name="{{workflow.name}}")
+                )(work_flow_name="{{workflow.name}}").set_display_name(
+                    "get_workflow_uid"
+                )
 
             def call_build_kfp_dag():
                 build_kfp_dag(

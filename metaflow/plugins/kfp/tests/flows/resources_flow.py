@@ -81,7 +81,6 @@ class ResourcesFlow(FlowSpec):
         cpu_limit="0.6",
         memory="500",
         memory_limit="1G",
-        volume="11G",
     )
     @environment(
         vars={"MY_ENV": "value"}, kubernetes_vars=kubernetes_vars
@@ -110,21 +109,30 @@ class ResourcesFlow(FlowSpec):
         assert os.environ.get("MF_TAG_METAFLOW_TEST") == "true"
         assert os.environ.get("MF_TAG_TEST_T1") == "true"
 
+        self.items = [1, 2]
+        self.next(self.split_step, foreach="items")
+
+    @resources(volume="11G")
+    @step
+    def split_step(self):
         output = subprocess.check_output(
             "df -h | grep /opt/metaflow_volume", shell=True
         )
         assert "11G" in str(output)
-
-        self.next(self.end)
+        self.next(self.join_step)
 
     @resources(volume="12G")
     @step
-    def end(self):
+    def join_step(self, inputs):
         output = subprocess.check_output(
             "df -h | grep /opt/metaflow_volume", shell=True
         )
         assert "12G" in str(output)
 
+        self.next(self.end)
+
+    @step
+    def end(self):
         print("All done.")
 
 
