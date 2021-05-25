@@ -201,6 +201,7 @@ class KubeflowPipelines(object):
         environment: MetaflowEnvironment,
         step_name: str,
         step_cli: List[str],
+        resource_requirements: Dict[str, str],
     ) -> str:
         """
         Analogous to batch.py
@@ -257,13 +258,19 @@ class KubeflowPipelines(object):
             f'print("{RETRY_COUNT}=" + str(res))'
         )
 
+        if "volume" in resource_requirements:
+            volume_dir = resource_requirements["volume_dir"]
+            clean_volume = f"rm -rf {os.path.join(volume_dir, '*')}"
+        else:
+            clean_volume = "true"
+
         # We capture the exit code at two places:
         # Once after the subshell/redirection commands, and once after the saving logs
         # command. If either of these exit codes are not 0, we exit with the nonzero
         # exit code manually because combining bash commands with ';' always results
         # in an exit code of 0, whether or not certain commands failed.
         return (
-            f"{set_debug_command}; eval `python -c '{retry_count_python}'`; "
+            f"{set_debug_command}; {clean_volume}; eval `python -c '{retry_count_python}'`; "
             f"({subshell_commands}) {redirection_commands}; export exit_code_1=$?; "
             f"{cp_logs_cmd}; export exit_code_2=$?; "
             f'if [ "$exit_code_1" -ne 0 ]; then exit $exit_code_1; else exit $exit_code_2; fi'
@@ -355,6 +362,7 @@ class KubeflowPipelines(object):
             user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
 
             step_cli = self._step_cli(node, task_id, user_code_retries)
+            resource_requirements = self._get_resource_requirements(node)
 
             return KfpComponent(
                 name=node.name,
@@ -363,9 +371,10 @@ class KubeflowPipelines(object):
                     self.environment,
                     node.name,
                     [step_cli],
+                    resource_requirements,
                 ),
                 total_retries=total_retries,
-                resource_requirements=self._get_resource_requirements(node),
+                resource_requirements=resource_requirements,
                 kfp_decorator=next(
                     (
                         deco
