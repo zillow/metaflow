@@ -70,6 +70,7 @@ STEP_DECORATORS = _merge_lists([CatchDecorator,
                                 StepFunctionsInternalDecorator,
                                 CondaStepDecorator,
                                 PyTorchDistributedDecorator,
+                                AcceleratorDecorator,
                                 KfpInternalDecorator], ext_plugins.STEP_DECORATORS, 'name')
 
 # Add Conda environment
