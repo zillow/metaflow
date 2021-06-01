@@ -21,6 +21,12 @@ from kubernetes.client import (
     V1OwnerReference,
     V1ObjectMeta,
     V1PersistentVolumeClaim,
+    V1Affinity,
+    V1NodeAffinity,
+    V1NodeSelector,
+    V1NodeSelectorTerm,
+    V1NodeSelectorRequirement,
+    V1Toleration
 )
 
 from metaflow.metaflow_config import (
@@ -45,6 +51,7 @@ from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids
 from .kfp_get_workflow_uid import get_workflow_uid
 from .pytorch_distributed_decorator import PyTorchDistributedDecorator
+from .accelerator_decorator import AcceleratorDecorator
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from ... import R
@@ -69,6 +76,7 @@ class KfpComponent(object):
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         pytorch_distributed_decorator: PyTorchDistributedDecorator,
+        accelerator_decorator: AcceleratorDecorator,
         environment_decorator: EnvironmentDecorator,
     ):
         self.name = name
@@ -82,6 +90,7 @@ class KfpComponent(object):
             else None
         )
         self.pytorch_distributed_decorator = pytorch_distributed_decorator
+        self.accelerator_decorator = accelerator_decorator
         self.environment_decorator = environment_decorator
 
         def bindings(binding_name: str) -> List[str]:
@@ -391,6 +400,14 @@ class KubeflowPipelines(object):
                     ),
                     None,  # default
                 ),
+                accelerator_decorator=next(
+                    (
+                        deco
+                        for deco in node.decorators
+                        if isinstance(deco, AcceleratorDecorator)
+                    ),
+                    None,  # default
+                ),
                 environment_decorator=next(
                     (
                         deco
@@ -580,6 +597,43 @@ class KubeflowPipelines(object):
                 mode=mode,
             )
             container_op.add_pvolumes({volume_dir: volume})
+        if (
+            kfp_component.accelerator_decorator
+        ):
+            accelerator_type: str = kfp_component.accelerator_decorator.attributes["accelerator_type"]
+            accelerator_required: bool = kfp_component.accelerator_decorator.attributes["accelerator_required"]
+            
+            node_selector = \
+                V1NodeSelector(
+                    node_selector_terms = [
+                        V1NodeSelectorTerm(
+                            match_expressions = [
+                                V1NodeSelectorRequirement(
+                                    key="k8s.amazonaws.com/accelerator",
+                                    operator="In",
+                                    values=[accelerator_type]
+                                )
+                            ]
+                        )
+                    ]
+                )
+            
+            if accelerator_required:
+                node_affinity = V1Affinity(required_during_scheduling_ignored_during_execution=node_selector)
+            else:
+                node_affinity = V1Affinity(preferred_during_scheduling_ignored_during_execution=node_selector)
+            
+            pod_toleration = \
+                V1Toleration(
+                    # the `effect` parameter must be specified at the top!
+                    # otherwise, there is undefined behavior
+                    effect="NoSchedule",
+                    key="k8s.amazonaws.com/accelerator",
+                    operator="Equal",
+                    value=accelerator_type
+                )
+            container_op.add_affinity(node_affinity)
+            container_op.add_toleration(pod_toleration)
 
     @staticmethod
     def _create_volume(
