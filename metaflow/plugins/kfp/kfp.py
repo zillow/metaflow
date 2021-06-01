@@ -619,11 +619,12 @@ class KubeflowPipelines(object):
                 )
             
             if accelerator_required:
-                node_affinity = V1Affinity(required_during_scheduling_ignored_during_execution=node_selector)
+                node_affinity = V1NodeAffinity(required_during_scheduling_ignored_during_execution=node_selector)
             else:
-                node_affinity = V1Affinity(preferred_during_scheduling_ignored_during_execution=node_selector)
+                node_affinity = V1NodeAffinity(preferred_during_scheduling_ignored_during_execution=node_selector)
+            affinity = V1Affinity(node_affinity=node_affinity)
             
-            pod_toleration = \
+            toleration = \
                 V1Toleration(
                     # the `effect` parameter must be specified at the top!
                     # otherwise, there is undefined behavior
@@ -632,8 +633,8 @@ class KubeflowPipelines(object):
                     operator="Equal",
                     value=accelerator_type
                 )
-            container_op.add_affinity(node_affinity)
-            container_op.add_toleration(pod_toleration)
+            container_op.add_affinity(affinity)
+            container_op.add_toleration(toleration)
 
     @staticmethod
     def _create_volume(
