@@ -26,7 +26,7 @@ from kubernetes.client import (
     V1NodeSelector,
     V1NodeSelectorTerm,
     V1NodeSelectorRequirement,
-    V1Toleration
+    V1Toleration,
 )
 
 from metaflow.metaflow_config import (
@@ -598,39 +598,37 @@ class KubeflowPipelines(object):
             )
             container_op.add_pvolumes({volume_dir: volume})
         if kfp_component.accelerator_decorator:
-            accelerator_type: str = kfp_component.accelerator_decorator.attributes["accelerator_type"]
-            # ensures we only select a node with the correct accelerator type (based on selector)     
-            node_selector = \
-                V1NodeSelector(
-                    node_selector_terms = [
-                        V1NodeSelectorTerm(
-                            match_expressions = [
-                                V1NodeSelectorRequirement(
-                                    key="k8s.amazonaws.com/accelerator",
-                                    operator="In",
-                                    values=[accelerator_type]
-                                )
-                            ]
-                        )
-                    ]
-                )       
+            accelerator_type: str = kfp_component.accelerator_decorator.attributes[
+                "accelerator_type"
+            ]
+            # ensures we only select a node with the correct accelerator type (based on selector)
+            node_selector = V1NodeSelector(
+                node_selector_terms=[
+                    V1NodeSelectorTerm(
+                        match_expressions=[
+                            V1NodeSelectorRequirement(
+                                key="k8s.amazonaws.com/accelerator",
+                                operator="In",
+                                values=[accelerator_type],
+                            )
+                        ]
+                    )
+                ]
+            )
             node_affinity = V1NodeAffinity(
                 required_during_scheduling_ignored_during_execution=node_selector
             )
-            affinity = V1Affinity(
-                node_affinity=node_affinity
-            )
+            affinity = V1Affinity(node_affinity=node_affinity)
             # ensures the pod created has the correct toleration corresponding to the taint
             # on the accelerator node for it to be scheduled on that node
-            toleration = \
-                V1Toleration(
-                    # the `effect` parameter must be specified at the top!
-                    # otherwise, there is undefined behavior
-                    effect="NoSchedule",
-                    key="k8s.amazonaws.com/accelerator",
-                    operator="Equal",
-                    value=accelerator_type
-                )
+            toleration = V1Toleration(
+                # the `effect` parameter must be specified at the top!
+                # otherwise, there is undefined behavior
+                effect="NoSchedule",
+                key="k8s.amazonaws.com/accelerator",
+                operator="Equal",
+                value=accelerator_type,
+            )
             container_op.add_affinity(affinity)
             container_op.add_toleration(toleration)
 

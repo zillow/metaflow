@@ -7,7 +7,7 @@ class AcceleratorDecorator(StepDecorator):
 
     Step decorator to specify type of hardware accelerator used in a step.
 
-    To use, follow the example below. 
+    To use, follow the example below.
     ```
     @step
     def start(self):
