@@ -1,5 +1,4 @@
 from metaflow.decorators import StepDecorator
-from metaflow.exception import MetaflowException
 
 
 class AcceleratorDecorator(StepDecorator):
@@ -16,12 +15,11 @@ class AcceleratorDecorator(StepDecorator):
         print(f"ranks: {self.ranks}")
         self.next(self.train, foreach="ranks")
 
-    @pytorch_distributed
     @accelerator
     @step
     def train(self):
         self.rank = self.input
-        # pytorch code
+        # code requiring accelerator for performance
         ...
     ```
 
