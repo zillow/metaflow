@@ -597,12 +597,9 @@ class KubeflowPipelines(object):
                 mode=mode,
             )
             container_op.add_pvolumes({volume_dir: volume})
-        if (
-            kfp_component.accelerator_decorator
-        ):
+        if kfp_component.accelerator_decorator:
             accelerator_type: str = kfp_component.accelerator_decorator.attributes["accelerator_type"]
-            accelerator_required: bool = kfp_component.accelerator_decorator.attributes["accelerator_required"]
-            
+            # ensures we only select a node with the correct accelerator type            
             node_selector = \
                 V1NodeSelector(
                     node_selector_terms = [
@@ -616,14 +613,11 @@ class KubeflowPipelines(object):
                             ]
                         )
                     ]
-                )
-            
-            if accelerator_required:
-                node_affinity = V1NodeAffinity(required_during_scheduling_ignored_during_execution=node_selector)
-            else:
-                node_affinity = V1NodeAffinity(preferred_during_scheduling_ignored_during_execution=node_selector)
+                )       
+            node_affinity = V1NodeAffinity(required_during_scheduling_ignored_during_execution=node_selector)
             affinity = V1Affinity(node_affinity=node_affinity)
-            
+            # ensures the pod created has the correct toleration corresponding to the taint
+            # on the accelerator node for it to be scheduled on that node
             toleration = \
                 V1Toleration(
                     # the `effect` parameter must be specified at the top!
