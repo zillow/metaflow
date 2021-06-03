@@ -75,7 +75,6 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
         universal_newlines=True,
         stdout=PIPE,
         shell=True,
-        # check=True, # ensures the kfp run command returns with exit code 0
     )
     # ensures the subprocess.run command returns with exit code 0
     assert run_and_wait_process.returncode == 0
