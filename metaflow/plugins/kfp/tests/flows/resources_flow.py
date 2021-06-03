@@ -8,9 +8,14 @@ from kubernetes.client import (
     V1EnvVarSource,
     V1ObjectFieldSelector,
     V1ResourceFieldSelector,
+    V1NodeSelectorTerm,
+    V1Toleration,
 )
 
-from metaflow import FlowSpec, step, environment, resources, current
+from kubernetes import client, config
+
+from metaflow import FlowSpec, step, environment, resources, current, accelerator
+from metaflow.exception import MetaflowException
 
 
 def get_env_vars(env_resources: Dict[str, str]) -> List[V1EnvVar]:
@@ -74,20 +79,21 @@ for annotation, env_name in annotations.items():
 
 
 class ResourcesFlow(FlowSpec):
+    @accelerator
     @resources(
         local_storage="100",
         local_storage_limit="242",
         cpu="0.1",
         cpu_limit="0.6",
-        memory="500",
-        memory_limit="1G",
+        memory="1G",
+        memory_limit="2G",
     )
     @environment(  # pylint: disable=E1102
         vars={"MY_ENV": "value"}, kubernetes_vars=kubernetes_vars
     )
     @step
     def start(self):
-        pprint.pprint(dict(os.environ))
+        # pprint.pprint(dict(os.environ))
         print("=====")
 
         # test simple environment var
@@ -99,8 +105,8 @@ class ResourcesFlow(FlowSpec):
         assert os.environ.get("CPU_LIMIT") == "600"
         assert os.environ.get("LOCAL_STORAGE") == "100000000"
         assert os.environ.get("LOCAL_STORAGE_LIMIT") == "242000000"
-        assert os.environ.get("MEMORY") == "500000000"
-        assert os.environ.get("MEMORY_LIMIT") == "1000000000"
+        assert os.environ.get("MEMORY") == "1000000000"
+        assert os.environ.get("MEMORY_LIMIT") == "2000000000"
 
         assert os.environ.get("MF_NAME") == current.flow_name
         assert os.environ.get("MF_STEP") == current.step_name
@@ -108,6 +114,62 @@ class ResourcesFlow(FlowSpec):
         assert os.environ.get("MF_EXPERIMENT") == "metaflow_test"
         assert os.environ.get("MF_TAG_METAFLOW_TEST") == "true"
         assert os.environ.get("MF_TAG_TEST_T1") == "true"
+
+        # test accelerator usage
+        # specifically, ensure correct node selectors and tolerations are applied
+        config.load_incluster_config()
+        core_api_instance = client.CoreV1Api()
+
+        skip_container_names = {"wait", "istio-proxy", "istio-init", "queue-proxy"}
+        current_pod_name = os.environ.get("HOSTNAME", None)
+        current_pod_namespace = os.environ.get("POD_NAMESPACE", None)
+
+        def validate_node_selector_term(node_selector_term: V1NodeSelectorTerm) -> bool:
+            for affinity_match_expression in node_selector_term.match_expressions:
+                if (
+                    affinity_match_expression.key == "k8s.amazonaws.com/accelerator"
+                    and affinity_match_expression.operator == "In"
+                    and "nvidia-tesla-v100" in affinity_match_expression.values
+                ):
+                    return True
+            return False
+
+        def validate_toleration(toleration: V1Toleration) -> bool:
+            if (
+                toleration.effect == "NoSchedule"
+                and toleration.key == "k8s.amazonaws.com/accelerator"
+                and toleration.operator == "Equal"
+                and toleration.value == "nvidia-tesla-v100"
+            ):
+                return True
+            return False
+
+        if current_pod_name and current_pod_namespace:
+            pod_detail = core_api_instance.read_namespaced_pod(
+                namespace=current_pod_namespace, name=current_pod_name
+            )
+
+            for (
+                node_selector_term
+            ) in (
+                pod_detail.spec.affinity.node_affinity.required_during_scheduling_ignored_during_execution.node_selector_terms
+            ):
+                if validate_node_selector_term(node_selector_term):
+                    break
+            else:
+                raise MetaflowException(
+                    "Correct node affinity for P3 instance type not found."
+                )
+
+            for toleration in pod_detail.spec.tolerations:
+                if validate_toleration(toleration):
+                    break
+            else:
+                raise MetaflowException(
+                    "Correct pod toleration for P3 instance type not found."
+                )
+        else:
+            raise MetaflowException("Could not verify accelerator usage.")
 
         self.items = [1, 2]
         self.next(self.split_step, foreach="items")
