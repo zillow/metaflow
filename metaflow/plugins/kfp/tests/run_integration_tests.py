@@ -76,7 +76,6 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
         stdout=PIPE,
         shell=True,
     )
-    # ensures the subprocess.run command returns with exit code 0
     assert run_and_wait_process.returncode == 0
 
     return
