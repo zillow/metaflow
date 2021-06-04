@@ -67,7 +67,8 @@ def test_raise_failure_flow(pytestconfig) -> None:
         stdout=PIPE,
         shell=True,
     )
-    # this ensures the testing framework correctly detects that this test has failed
+    # this ensures the integration testing framework correctly catches a failing flow
+    # and reports the error
     assert run_and_wait_process.returncode == 1
 
     return
