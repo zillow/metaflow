@@ -6,7 +6,7 @@ from typing import List
 from .... import R
 
 import kfp
-from metaflow import Flow, Metaflow
+from metaflow import Flow
 import pytest
 import logging
 
@@ -78,9 +78,7 @@ def test_raise_failure_flow(pytestconfig) -> None:
         return text
 
     # prior_runs = list(Flow('RaiseErrorFlow'))
-    all_flows = list(Metaflow())
-    print("all_flows: ", all_flows)
-    raise_error_flow_runs = all_flows['RaiseErrorFlow']
+    raise_error_flow_runs = list(Flow('RaiseErrorFlow'))
     print("prior runs: ", raise_error_flow_runs)
     # get the most recent run
     # the metadata service should grab the previous run in time because we wait for completion
