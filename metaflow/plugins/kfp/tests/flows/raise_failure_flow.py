@@ -16,6 +16,11 @@ class RaiseErrorFlow(FlowSpec):
     @step
     def error_step(self):
         raise Exception("This exception is intended to test the integration test!")
+        self.next(self.end)
+
+    @step
+    def end(self):
+        print("This step should not be reachable!")
 
 
 if __name__ == "__main__":
