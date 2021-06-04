@@ -78,15 +78,15 @@ def test_raise_failure_flow(pytestconfig) -> None:
         return text
 
     prior_runs = list(Flow('RaiseErrorFlow'))
-    logging.info("prior runs: ", prior_runs)
+    print("prior runs: ", prior_runs)
     # get the most recent run
     # the metadata service should grab the previous run in time because we wait for completion
     latest_run = prior_runs[0]
-    logging.info("latest_run: ", latest_run)
+    print("latest_run: ", latest_run)
     pathspec = latest_run.pathspec
-    logging.info("pathspec: ", pathspec)
+    print("pathspec: ", pathspec)
     run_id = remove_prefix(pathspec, 'RaiseErrorFlow/')
-    logging.info("run_id: ", run_id)
+    print("run_id: ", run_id)
 
     pulling_logs_cmd = (
         f"{_python()} flows/raise_failure_flow.py --datastore=s3 logs "
@@ -94,7 +94,7 @@ def test_raise_failure_flow(pytestconfig) -> None:
         f"--experiment metaflow_test --tag test_t1 "
     )
 
-    logging.info("Pulling log command: ", pulling_logs_cmd)
+    print("Pulling log command: ", pulling_logs_cmd)
 
     pulling_logs_process = run(
         pulling_logs_cmd,
