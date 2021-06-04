@@ -52,7 +52,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 # this test ensures the integration tests fail correctly
 def test_raise_failure_flow(pytestconfig) -> None:
     test_cmd = (
-        f"{_python()} flows/raise_failure_flow --datastore=s3 kfp run "
+        f"{_python()} flows/raise_failure_flow.py --datastore=s3 kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
     )
