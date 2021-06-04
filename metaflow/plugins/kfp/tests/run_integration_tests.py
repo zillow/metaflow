@@ -8,6 +8,7 @@ from .... import R
 import kfp
 from metaflow import Flow
 import pytest
+import logging
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -77,23 +78,23 @@ def test_raise_failure_flow(pytestconfig) -> None:
         return text
 
     prior_runs = list(Flow('RaiseErrorFlow'))
-    print("prior runs: ", prior_runs)
+    logging.info("prior runs: ", prior_runs)
     # get the most recent run
     # the metadata service should grab the previous run in time because we wait for completion
     latest_run = prior_runs[0]
-    print("run: ", run)
+    logging.info("latest_run: ", latest_run)
     pathspec = latest_run.pathspec
-    print("pathspec: ", pathspec)
+    logging.info("pathspec: ", pathspec)
     run_id = remove_prefix(pathspec, 'RaiseErrorFlow/')
-    print("run_id: ", run_id)
+    logging.info("run_id: ", run_id)
 
     pulling_logs_cmd = (
         f"{_python()} flows/raise_failure_flow.py --datastore=s3 logs "
-        f"{run_id}/error_ste "
+        f"{run_id}/error_step "
         f"--experiment metaflow_test --tag test_t1 "
     )
 
-    print("Pulling log command: ", pulling_logs_cmd)
+    logging.info("Pulling log command: ", pulling_logs_cmd)
 
     pulling_logs_process = run(
         pulling_logs_cmd,
