@@ -50,7 +50,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 
 # this test ensures the integration tests fail correctly
-def test_raise_failure_flow(pytestconfig, flow_file_path: str) -> None:
+def test_raise_failure_flow(pytestconfig) -> None:
     test_cmd = (
         f"{_python()} flows/raise_failure_flow --datastore=s3 kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
@@ -67,6 +67,7 @@ def test_raise_failure_flow(pytestconfig, flow_file_path: str) -> None:
         stdout=PIPE,
         shell=True,
     )
+    # this ensures the testing framework correctly detects that this test has failed
     assert run_and_wait_process.returncode == 1
 
     return
