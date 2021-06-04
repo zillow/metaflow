@@ -89,7 +89,7 @@ def test_raise_failure_flow(pytestconfig) -> None:
 
     pulling_logs_cmd = (
         f"{_python()} flows/raise_failure_flow.py --datastore=s3 logs "
-        f"{run_id}/error_step "
+        f"{run_id}/error_ste "
         f"--experiment metaflow_test --tag test_t1 "
     )
 
