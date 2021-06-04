@@ -6,7 +6,7 @@ from typing import List
 from .... import R
 
 import kfp
-
+from metaflow import Flow
 import pytest
 
 """
@@ -70,6 +70,39 @@ def test_raise_failure_flow(pytestconfig) -> None:
     # this ensures the integration testing framework correctly catches a failing flow
     # and reports the error
     assert run_and_wait_process.returncode == 1
+
+    def remove_prefix(text, prefix):
+        if text.startswith(prefix):
+            return text[len(prefix):]
+        return text
+
+    prior_runs = list(Flow('RaiseErrorFlow'))
+    print("prior runs: ", prior_runs)
+    # get the most recent run
+    # the metadata service should grab the previous run in time because we wait for completion
+    latest_run = prior_runs[0]
+    print("run: ", run)
+    pathspec = latest_run.pathspec
+    print("pathspec: ", pathspec)
+    run_id = remove_prefix(pathspec, 'RaiseErrorFlow/')
+    print("run_id: ", run_id)
+
+    pulling_logs_cmd = (
+        f"{_python()} flows/raise_failure_flow.py --datastore=s3 logs "
+        f"{run_id}/error_step "
+        f"--experiment metaflow_test --tag test_t1 "
+    )
+
+    print("Pulling log command: ", pulling_logs_cmd)
+
+    pulling_logs_process = run(
+        pulling_logs_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+    # ensure we can pull logs of steps in failure
+    assert pulling_logs_process.returncode == 0
 
     return
 
