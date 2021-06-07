@@ -44,7 +44,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     file_paths = [
         file_name
         for file_name in listdir(flow_dir_path)
-        if isfile(join(flow_dir_path, file_name)) and not file_name.startswith(".") and not "raise_failure_flow" in file_name
+        if isfile(join(flow_dir_path, file_name)) and not file_name.startswith(".") and not "raise_error_flow" in file_name
     ]
     return file_paths
 
