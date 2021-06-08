@@ -103,7 +103,7 @@ def validate_toleration(toleration: Dict) -> bool:
 
 def test_compile_only_accelerator_test() -> None:
     compile_to_yaml_cmd = (
-        f"{_python()} flows/accelerator_flow.py kfp run "
+        f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
         f" --no-s3-code-package --yaml-only --pipeline-path accelerator_flow.yaml"
     )
 
