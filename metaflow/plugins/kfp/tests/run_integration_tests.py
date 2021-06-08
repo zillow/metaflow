@@ -113,9 +113,7 @@ def test_compile_only_accelerator_test() -> None:
         stdout=PIPE,
         shell=True,
     )
-    # this ensures the integration testing framework correctly catches a failing flow
-    # and reports the error
-    assert compile_to_yaml_process.returncode == 1
+    assert compile_to_yaml_process.returncode == 0
 
     with open("accelerator_flow.yaml", "r") as stream:
         try:
