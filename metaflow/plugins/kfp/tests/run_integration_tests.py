@@ -103,8 +103,8 @@ def validate_toleration(toleration: Dict) -> bool:
 
 def test_compile_only_accelerator_test() -> None:
     compile_to_yaml_cmd = (
-        f"{_python()} flows/accelerator_flow.py --no-s3-code-package kfp run "
-        f"--yaml-only --pipeline-path accelerator_flow.yaml"
+        f"{_python()} flows/accelerator_flow.py kfp run "
+        f" --no-s3-code-package --yaml-only --pipeline-path accelerator_flow.yaml"
     )
 
     compile_to_yaml_process = run(
