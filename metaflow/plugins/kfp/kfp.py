@@ -599,8 +599,10 @@ class KubeflowPipelines(object):
             container_op.add_pvolumes({volume_dir: volume})
         if kfp_component.accelerator_decorator:
             accelerator_type: str = kfp_component.accelerator_decorator.attributes[
-                "accelerator_type"
+                "type"
             ]
+            if not accelerator_type:
+                raise Exception("You must specify the type of accelerator.")
             # ensures we only select a node with the correct accelerator type (based on selector)
             node_selector = V1NodeSelector(
                 node_selector_terms=[

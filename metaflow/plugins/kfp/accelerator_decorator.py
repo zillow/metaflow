@@ -26,14 +26,15 @@ class AcceleratorDecorator(StepDecorator):
     Parameters
     ----------
     accelerator_type: str
-        Defaults to nvidia-tesla-v100.
+        Defaults to None.
+        Available value: nvidia-tesla-v100
         More GPUs will be added based on customer needs.
     """
 
     name = "accelerator"
 
     defaults = {
-        "accelerator_type": "nvidia-tesla-v100",
+        "type": None,
     }
 
     def step_init(self, flow, graph, step, decos, environment, datastore, logger):
