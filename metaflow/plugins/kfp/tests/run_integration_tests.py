@@ -1,13 +1,15 @@
 from os import listdir
 from os.path import isfile, join
 from subprocess import run, PIPE
-from typing import List
+from typing import List, Dict
 
 from .... import R
 
 import kfp
 
 import pytest
+
+import yaml
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -44,7 +46,10 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     file_paths = [
         file_name
         for file_name in listdir(flow_dir_path)
-        if isfile(join(flow_dir_path, file_name)) and not file_name.startswith(".") and not "raise_error_flow" in file_name
+        if isfile(join(flow_dir_path, file_name))
+        and not file_name.startswith(".")
+        and not "raise_error_flow" in file_name
+        and not "accelerator_flow" in file_name
     ]
     return file_paths
 
@@ -72,6 +77,72 @@ def test_raise_failure_flow(pytestconfig) -> None:
     assert run_and_wait_process.returncode == 1
 
     return
+
+
+def validate_node_selector_term(node_selector_term: Dict) -> bool:
+    for affinity_match_expression in node_selector_term["matchExpressions"]:
+        if (
+            affinity_match_expression["key"] == "k8s.amazonaws.com/accelerator"
+            and affinity_match_expression["operator"] == "In"
+            and "nvidia-tesla-v100" in affinity_match_expression["values"]
+        ):
+            return True
+    return False
+
+
+def validate_toleration(toleration: Dict) -> bool:
+    if (
+        toleration["effect"] == "NoSchedule"
+        and toleration["key"] == "k8s.amazonaws.com/accelerator"
+        and toleration["operator"] == "Equal"
+        and toleration["value"] == "nvidia-tesla-v100"
+    ):
+        return True
+    return False
+
+
+def test_compile_only_accelerator_test() -> None:
+    compile_to_yaml_cmd = (
+        f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
+        f"--yaml-only --pipeline-path accelerator_flow.yaml"
+    )
+
+    compile_to_yaml_process = run(
+        compile_to_yaml_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+    # this ensures the integration testing framework correctly catches a failing flow
+    # and reports the error
+    assert compile_to_yaml_process.returncode == 1
+
+    with open("accelerator_flow.yaml", "r") as stream:
+        try:
+            flow_yaml = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+
+    for step in flow_yaml["spec"]["templates"]:
+        if step["name"] == "start":
+            start_step = step
+            break
+    else:
+        raise Exception("Start step could not be found.")
+
+    for node_selector_term in start_step["affinity"]["nodeAffinity"][
+        "requiredDuringSchedulingIgnoredDuringExecution"
+    ]["nodeSelectorTerms"]:
+        if validate_node_selector_term(node_selector_term):
+            break
+    else:
+        raise Exception("Correct node affinity for P3 instance type not found.")
+
+    for toleration in start_step["tolerations"]:
+        if validate_toleration(toleration):
+            break
+    else:
+        raise Exception("Correct pod toleration for P3 instance type not found.")
 
 
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))

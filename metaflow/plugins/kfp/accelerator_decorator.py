@@ -27,7 +27,7 @@ class AcceleratorDecorator(StepDecorator):
     ----------
     accelerator_type: str
         Defaults to None.
-        Available values: nvidia-tesla-k80, nvidia-tesla-v100
+        Available value: nvidia-tesla-v100
         More GPUs will be added based on customer needs.
     """
 

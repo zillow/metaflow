@@ -601,6 +601,8 @@ class KubeflowPipelines(object):
             accelerator_type: str = kfp_component.accelerator_decorator.attributes[
                 "type"
             ]
+            if not accelerator_type:
+                raise Exception("You must specify the type of accelerator.")
             # ensures we only select a node with the correct accelerator type (based on selector)
             node_selector = V1NodeSelector(
                 node_selector_terms=[
