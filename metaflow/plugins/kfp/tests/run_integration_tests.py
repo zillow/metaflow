@@ -95,7 +95,7 @@ def validate_toleration(toleration: Dict) -> bool:
         toleration["effect"] == "NoSchedule"
         and toleration["key"] == "k8s.amazonaws.com/accelerator"
         and toleration["operator"] == "Equal"
-        and toleration["value"] == "nvidia-tesla-v100"
+        and toleration["value"] == "nvidia-tesla-v10"
     ):
         return True
     return False
