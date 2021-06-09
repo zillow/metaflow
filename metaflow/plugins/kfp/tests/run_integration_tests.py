@@ -56,28 +56,28 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 
 # this test ensures the integration tests fail correctly
-# def test_raise_failure_flow(pytestconfig) -> None:
-#     test_cmd = (
-#         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
+def test_raise_failure_flow(pytestconfig) -> None:
+    test_cmd = (
+        f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
 
-#     run_and_wait_process = run(
-#         test_cmd,
-#         universal_newlines=True,
-#         stdout=PIPE,
-#         shell=True,
-#     )
-#     # this ensures the integration testing framework correctly catches a failing flow
-#     # and reports the error
-#     assert run_and_wait_process.returncode == 1
+    run_and_wait_process = run(
+        test_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+    # this ensures the integration testing framework correctly catches a failing flow
+    # and reports the error
+    assert run_and_wait_process.returncode == 1
 
-#     return
+    return
 
 
 def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
@@ -146,33 +146,33 @@ def test_compile_only_accelerator_test() -> None:
             break
     assert toleration_found
 
-# @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
-# def test_flows(pytestconfig, flow_file_path: str) -> None:
-#     full_path = join("flows", flow_file_path)
-#     # In the process below, stdout=PIPE because we only want to capture stdout.
-#     # The reason is that the click echo function prints to stderr, and contains
-#     # the main logs (run link, graph validation, package uploading, etc). We
-#     # want to ensure these logs are visible to users and not captured.
-#     # We use the print function in kfp_cli.py to print a magic token containing the
-#     # run id and capture this to correctly test logging. See the
-#     # `check_valid_logs_process` process.
+@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+def test_flows(pytestconfig, flow_file_path: str) -> None:
+    full_path = join("flows", flow_file_path)
+    # In the process below, stdout=PIPE because we only want to capture stdout.
+    # The reason is that the click echo function prints to stderr, and contains
+    # the main logs (run link, graph validation, package uploading, etc). We
+    # want to ensure these logs are visible to users and not captured.
+    # We use the print function in kfp_cli.py to print a magic token containing the
+    # run id and capture this to correctly test logging. See the
+    # `check_valid_logs_process` process.
 
-#     test_cmd = (
-#         f"{_python()} {full_path} --datastore=s3 kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
+    test_cmd = (
+        f"{_python()} {full_path} --datastore=s3 kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
 
-#     run_and_wait_process = run(
-#         test_cmd,
-#         universal_newlines=True,
-#         stdout=PIPE,
-#         shell=True,
-#     )
-#     assert run_and_wait_process.returncode == 0
+    run_and_wait_process = run(
+        test_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+    assert run_and_wait_process.returncode == 0
 
-#     return
+    return
