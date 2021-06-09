@@ -1,4 +1,5 @@
 from metaflow.decorators import StepDecorator
+from metaflow.exception import MetaflowException
 
 
 class AcceleratorDecorator(StepDecorator):
@@ -27,7 +28,7 @@ class AcceleratorDecorator(StepDecorator):
     ----------
     accelerator_type: str
         Defaults to None.
-        Available value: nvidia-tesla-v100
+        Available values: nvidia-tesla-v100
         More GPUs will be added based on customer needs.
     """
 
@@ -38,4 +39,5 @@ class AcceleratorDecorator(StepDecorator):
     }
 
     def step_init(self, flow, graph, step, decos, environment, datastore, logger):
-        pass
+        if not self.attributes["type"]:
+            raise MetaflowException("You must specify the type of accelerator.")

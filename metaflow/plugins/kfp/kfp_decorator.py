@@ -14,8 +14,6 @@ from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
 from metaflow.plugins.kfp.kfp_constants import preceding_component_inputs_PATH
 from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
 
-from .accelerator_decorator import AcceleratorDecorator
-
 
 class KfpException(MetaflowException):
     headline = "KFP plugin error"
@@ -69,12 +67,6 @@ class KfpInternalDecorator(StepDecorator):
     def step_init(self, flow, graph, step, decos, environment, datastore, logger):
         if datastore.TYPE != "s3":
             raise KfpException("The *@kfp* decorator requires --datastore=s3.")
-
-        for deco in decos:
-            if isinstance(deco, AcceleratorDecorator):
-                accelerator_type: str = deco.attributes["type"]
-                if not accelerator_type:
-                    raise Exception("You must specify the type of accelerator.")
 
         if self.attributes["preceding_component"] is not None:
             node = graph[step]
