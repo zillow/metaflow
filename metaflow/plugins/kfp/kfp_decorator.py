@@ -16,6 +16,7 @@ from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
 
 from .accelerator_decorator import AcceleratorDecorator
 
+
 class KfpException(MetaflowException):
     headline = "KFP plugin error"
 
@@ -71,9 +72,7 @@ class KfpInternalDecorator(StepDecorator):
 
         for deco in decos:
             if isinstance(deco, AcceleratorDecorator):
-                accelerator_type: str = deco.attributes[
-                    "type"
-                ]
+                accelerator_type: str = deco.attributes["type"]
                 if not accelerator_type:
                     raise Exception("You must specify the type of accelerator.")
 
