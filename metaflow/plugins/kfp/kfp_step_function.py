@@ -50,7 +50,7 @@ def kfp_step_function(
 
     if (
         not "METAFLOW_USER" in metaflow_configs_new
-        and metaflow_configs_new["METAFLOW_USER"] is None
+        or metaflow_configs_new["METAFLOW_USER"] is None
     ):
         metaflow_configs_new["METAFLOW_USER"] = "kfp-user"
 
