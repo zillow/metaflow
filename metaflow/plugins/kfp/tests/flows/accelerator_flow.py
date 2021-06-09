@@ -3,7 +3,7 @@ import os
 from metaflow import FlowSpec, step, resources, accelerator
 
 class AcceleratorFlow(FlowSpec):
-    @accelerator(type="nvidia-tesla-v100")
+    @accelerator(type="nvidia-tesla-v10")
     @resources(
         local_storage="100",
         local_storage_limit="242",
