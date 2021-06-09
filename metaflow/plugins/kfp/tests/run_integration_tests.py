@@ -10,6 +10,7 @@ import kfp
 import pytest
 
 import yaml
+import tempfile
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -102,9 +103,12 @@ def is_nvidia_accelerator_noschedule(toleration: Dict) -> bool:
 
 
 def test_compile_only_accelerator_test() -> None:
+    yaml_tmp_dir = tempfile.TemporaryDirectory()
+    yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
+
     compile_to_yaml_cmd = (
         f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
-        f" --no-s3-code-package --yaml-only --pipeline-path accelerator_flow.yaml"
+        f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
     )
 
     compile_to_yaml_process = run(
@@ -115,7 +119,7 @@ def test_compile_only_accelerator_test() -> None:
     )
     assert compile_to_yaml_process.returncode == 0
 
-    with open("accelerator_flow.yaml", "r") as stream:
+    with open(f"{yaml_file_path}", "r") as stream:
         try:
             flow_yaml = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
