@@ -10,6 +10,7 @@ import kfp
 import pytest
 
 import yaml
+import tempfile
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -79,7 +80,7 @@ def test_raise_failure_flow(pytestconfig) -> None:
     return
 
 
-def validate_node_selector_term(node_selector_term: Dict) -> bool:
+def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
     for affinity_match_expression in node_selector_term["matchExpressions"]:
         if (
             affinity_match_expression["key"] == "k8s.amazonaws.com/accelerator"
@@ -90,7 +91,7 @@ def validate_node_selector_term(node_selector_term: Dict) -> bool:
     return False
 
 
-def validate_toleration(toleration: Dict) -> bool:
+def is_nvidia_accelerator_noschedule(toleration: Dict) -> bool:
     if (
         toleration["effect"] == "NoSchedule"
         and toleration["key"] == "k8s.amazonaws.com/accelerator"
@@ -102,46 +103,48 @@ def validate_toleration(toleration: Dict) -> bool:
 
 
 def test_compile_only_accelerator_test() -> None:
-    compile_to_yaml_cmd = (
-        f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
-        f" --no-s3-code-package --yaml-only --pipeline-path accelerator_flow.yaml"
-    )
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
 
-    compile_to_yaml_process = run(
-        compile_to_yaml_cmd,
-        universal_newlines=True,
-        stdout=PIPE,
-        shell=True,
-    )
-    assert compile_to_yaml_process.returncode == 0
+        compile_to_yaml_cmd = (
+            f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
+            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
+        )
 
-    with open("accelerator_flow.yaml", "r") as stream:
-        try:
-            flow_yaml = yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
+        compile_to_yaml_process = run(
+            compile_to_yaml_cmd,
+            universal_newlines=True,
+            stdout=PIPE,
+            shell=True,
+        )
+        assert compile_to_yaml_process.returncode == 0
 
-    for step in flow_yaml["spec"]["templates"]:
-        if step["name"] == "start":
-            start_step = step
-            break
-    else:
-        raise Exception("Start step could not be found.")
+        with open(f"{yaml_file_path}", "r") as stream:
+            try:
+                flow_yaml = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
 
+        for step in flow_yaml["spec"]["templates"]:
+            if step["name"] == "start":
+                start_step = step
+                break
+
+    affinity_found = False
     for node_selector_term in start_step["affinity"]["nodeAffinity"][
         "requiredDuringSchedulingIgnoredDuringExecution"
     ]["nodeSelectorTerms"]:
-        if validate_node_selector_term(node_selector_term):
+        if exists_nvidia_accelerator(node_selector_term):
+            affinity_found = True
             break
-    else:
-        raise Exception("Correct node affinity for P3 instance type not found.")
+    assert affinity_found
 
+    toleration_found = False
     for toleration in start_step["tolerations"]:
-        if validate_toleration(toleration):
+        if is_nvidia_accelerator_noschedule(toleration):
+            toleration_found = True
             break
-    else:
-        raise Exception("Correct pod toleration for P3 instance type not found.")
-
+    assert toleration_found
 
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
 def test_flows(pytestconfig, flow_file_path: str) -> None:
