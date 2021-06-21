@@ -1,5 +1,5 @@
+
 ![Metaflow_Logo_Horizontal_FullColor_Ribbon_Dark_RGB](https://user-images.githubusercontent.com/763451/89453116-96a57e00-d713-11ea-9fa6-82b29d4d6eff.png)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/talebzeghmi/metaflow/tz/workshop?urlpath=lab/tree/workshop)
 
 
 # Metaflow
@@ -7,6 +7,21 @@
 Metaflow is a human-friendly Python/R library that helps scientists and engineers build and manage real-life data science projects. Metaflow was originally developed at Netflix to boost productivity of data scientists who work on a wide variety of projects from classical statistics to state-of-the-art deep learning.
 
 For more information, see [Metaflow's website](https://metaflow.org) and [documentation](https://docs.metaflow.org).
+
+## Trying out Metaflow in Binder
+Launch Binder:[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/talebzeghmi/metaflow/tz/workshop?urlpath=lab/tree/workshop)
+
+### What to expect
+Once you launch a notebook environment in Binder, you wil see the following:
+* 0-jupyter.ipynb: Basics of Jupyter Notebook
+* 1-basiscs.ipynb: Composing and running a sample flow.
+* 2-titanic.ipynb: Running feature engineering, training and scoring on classic titanic dataset using Metaflow.
+* ui.ipynb: A showcase of how UI for metaflow looks like.
+
+
+### Support from Zillow AI Platform
+AI Platform Doc: http://analytics.pages.zgtools.net/artificial-intelligence/ai-platform/aip-docs/kubeflow/index.html
+Slack channel: #ai-platform-user-community
 
 ## Getting Started
 
