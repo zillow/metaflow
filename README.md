@@ -14,10 +14,10 @@ Launch Sample Noteboook in Binder: [![Binder](https://mybinder.org/badge_logo.sv
 ### What to expect
 Once you launch a notebook environment in Binder, you wil see the following:
 
-* 0-jupyter.ipynb: Basics of Jupyter Notebook
-* 1-basiscs.ipynb: Composing and running a sample flow.
-* 2-titanic.ipynb: Running feature engineering, training and scoring on classic titanic dataset using Metaflow.
-* ui.ipynb: A showcase of how UI for metaflow looks like.
+* `0-jupyter.ipynb`: Basics of Jupyter Notebook
+* `1-basiscs.ipynb`: Composing and running a sample flow.
+* `2-titanic.ipynb`: Running feature engineering, training and scoring on classic titanic dataset using Metaflow.
+* `ui.ipynb`: A showcase of how UI for metaflow looks like. Inspect metadata, logs and more about your flows here.
 
 Feel free to execute, modify and try out examples. Have fun!
 
