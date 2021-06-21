@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -ex
+
+pip install -e .
+python workshop/hello_flow.py run
+
+# Setup a workspace
+jupyter lab workspaces import binder/workshop.jupyterlab-workspace

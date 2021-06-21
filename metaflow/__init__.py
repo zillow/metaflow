@@ -74,7 +74,8 @@ from .client import namespace,\
                     Run,\
                     Step,\
                     Task,\
-                    DataArtifact
+                    DataArtifact, \
+                    display_ui
 
 # Utilities
 from .multicore_utils import parallel_imap_unordered,\
