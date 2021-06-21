@@ -672,7 +672,9 @@ class KubeflowPipelines(object):
         container_op.add_pod_label(f"{prefix}/run_id", metaflow_run_id)
 
         if self.experiment:
-            container_op.add_pod_label("tags.ledger.zgtools.net/ai-experiment-name", self.experiment)
+            container_op.add_pod_label(
+                "tags.ledger.zgtools.net/ai-experiment-name", self.experiment
+            )
             container_op.add_pod_label(f"{prefix}/experiment", self.experiment)
         if self.tags and len(self.tags) > 0:
             for tag in self.tags:
