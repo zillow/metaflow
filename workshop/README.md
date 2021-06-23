@@ -8,6 +8,3 @@ Once you launch a notebook environment in Binder, you wil see the following:
 
 Feel free to execute, modify example, and try out examples. Have fun!
 
-### Support from Zillow AI Platform
-* AI Platform Doc: http://analytics.pages.zgtools.net/artificial-intelligence/ai-platform/aip-docs/kubeflow/index.html
-* Slack Channel: #ai-platform-user-community
