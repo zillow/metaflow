@@ -9,7 +9,7 @@ Metaflow is a human-friendly Python/R library that helps scientists and engineer
 For more information, see [Metaflow's website](https://metaflow.org) and [documentation](https://docs.metaflow.org).
 
 ## Trying out Metaflow in Binder
-Launch Sample Noteboook in Binder: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/talebzeghmi/metaflow/tz/workshop?urlpath=lab/tree/workshop)
+Launch Sample Noteboook in Binder: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/zillow/metaflow/tz/workshop?urlpath=lab/tree/workshop)
 
 ### What to expect
 Once you launch a notebook environment in Binder, you wil see the following:
