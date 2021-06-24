@@ -43,6 +43,14 @@ kubernetes_vars = get_env_vars(
         "MEMORY_LIMIT": "limits.memory",
     }
 )
+kubernetes_vars.append(
+    V1EnvVar(
+        name="MY_POD_NAME",
+        value_from=V1EnvVarSource(
+            field_ref=V1ObjectFieldSelector(field_path="metadata.name")
+        ),
+    )
+)
 
 annotations = {
     "metaflow.org/flow_name": "MF_NAME",
@@ -102,7 +110,7 @@ class ResourcesFlow(FlowSpec):
         assert os.environ.get("MY_ENV") == "value"
 
         # test kubernetes_vars
-        assert "resourcesflow" in os.environ.get("POD_NAME")
+        assert "resourcesflow" in os.environ.get("MY_POD_NAME")
         assert os.environ.get("CPU") == "100"
         assert os.environ.get("CPU_LIMIT") == "600"
         assert os.environ.get("LOCAL_STORAGE") == "100000000"
