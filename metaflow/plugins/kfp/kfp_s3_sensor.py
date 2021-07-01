@@ -1,10 +1,10 @@
-import boto3
-import botocore
-import time
-
-s3 = boto3.resource('s3')
-
 def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int) -> None:
+    import boto3
+    import botocore
+    import time
+
+    s3 = boto3.resource('s3')
+    
     start_time = time.time()
     while True:
         if bucket:
@@ -28,11 +28,11 @@ def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int) -> None:
                 print("Path found. Step complete.")
                 break
             else:
-                print("Patt not found. Waiting...")
+                print("Path not found. Waiting...")
 
         current_time = time.time()
         elapsed_time = current_time - start_time
         if timeout is not -1 and elapsed_time > timeout:
             raise Exception("Timed out while waiting for S3 key.")
 
-        time.sleep(60)
+        time.sleep(1)
