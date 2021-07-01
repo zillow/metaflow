@@ -979,6 +979,11 @@ class KubeflowPipelines(object):
                     "get_workflow_uid"
                 )
 
+            s3_sensor_op = None
+            if self.flow._flow_decorators.get('s3_sensor'):
+                print("We have found an S3 Sensor!")
+            
+
             def call_build_kfp_dag():
                 build_kfp_dag(
                     self.graph["start"],

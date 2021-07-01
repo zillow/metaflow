@@ -10,4 +10,4 @@ class S3SensorDecorator(FlowDecorator):
 
     def flow_init(self, flow, graph,  environment, datastore, logger, echo, options):
         self.path = self.attributes["path"]
-        self.timeout = self.timeout["timeout"]
+        self.timeout = self.attributes["timeout"]
