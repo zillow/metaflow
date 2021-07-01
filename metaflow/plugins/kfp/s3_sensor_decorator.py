@@ -16,8 +16,8 @@ class S3SensorDecorator(FlowDecorator):
         self.prefix = self.attributes["prefix"]
         self.timeout = self.attributes["timeout"]
 
-        if not self.path:
-            raise MetaflowException("You must specify a S3 path within @s3_sensor.")
+        if not self.bucket:
+            raise MetaflowException("You must specify a S3 bucket within @s3_sensor.")
 
         if not self.key and not self.prefix:
             raise MetaflowException("You must specify either key or prefix.")
