@@ -4,14 +4,14 @@ from metaflow.exception import MetaflowException
 class S3SensorDecorator(FlowDecorator):
     name = 's3_sensor'
     defaults = {
-        "path": None,
+        "bucket": None,
         "key": "",
         "prefix": "",
         "timeout": -1 # no timeout
     }
 
     def flow_init(self, flow, graph,  environment, datastore, logger, echo, options):
-        self.path = self.attributes["path"]
+        self.bucket = self.attributes["bucket"]
         self.key = self.attributes["key"]
         self.prefix = self.attributes["prefix"]
         self.timeout = self.attributes["timeout"]
