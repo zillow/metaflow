@@ -992,7 +992,7 @@ class KubeflowPipelines(object):
                 print("timeout: ", timeout)
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
-                    base_image="gcr.io/cloud-builders/kubectl",
+                    base_image="analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu:3.2.64d2bf12.hs-aip-4502",
                 )(bucket=bucket, key=key, prefix=prefix, timeout=timeout).set_display_name(
                     "s3_sensor"
                 )
