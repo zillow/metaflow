@@ -10,7 +10,7 @@ def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int) -> None:
 
     start_time = time.time()
     while True:
-        if bucket:
+        if key:
             try:
                 s3.Object(bucket, key).load()
             except botocore.exceptions.ClientError as e:
