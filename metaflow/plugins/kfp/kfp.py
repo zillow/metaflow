@@ -990,7 +990,7 @@ class KubeflowPipelines(object):
                     get_workflow_uid,
                     base_image="gcr.io/cloud-builders/kubectl",
                 )(work_flow_name="{{workflow.name}}").set_display_name(
-                    "get_workflow_uid"
+                    "s3_sensor"
                 )
 
             def call_build_kfp_dag():
@@ -1016,6 +1016,10 @@ class KubeflowPipelines(object):
                 node = self.graph[step]
                 for parent_step in node.in_funcs:
                     visited[node.name].after(visited[parent_step])
+            
+            # ensure start only begins after the s3_sensor completes
+            if s3_sensor_op:
+                self.graph["start"].after(s3_sensor_op)
 
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
