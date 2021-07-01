@@ -5,6 +5,9 @@ def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int) -> None:
 
     s3 = boto3.resource('s3')
     
+    print("key: ", key)
+    print("prefix: ", prefix)
+
     start_time = time.time()
     while True:
         if bucket:

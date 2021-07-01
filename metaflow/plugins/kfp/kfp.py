@@ -989,6 +989,8 @@ class KubeflowPipelines(object):
                 prefix = s3_sensor_deco.key
                 timeout = s3_sensor_deco.timeout
                 print("bucket: ", bucket)
+                print("key: ", key)
+                print("prefix: ", prefix)
                 print("timeout: ", timeout)
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
