@@ -1019,7 +1019,7 @@ class KubeflowPipelines(object):
             
             # ensure start only begins after the s3_sensor completes
             if s3_sensor_op:
-                self.graph["start"].after(s3_sensor_op)
+                visited["start"].after(s3_sensor_op)
 
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
