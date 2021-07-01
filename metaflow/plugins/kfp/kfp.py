@@ -176,6 +176,7 @@ class KubeflowPipelines(object):
         if KFP_USER_DOMAIN:
             kfp_client_user_email += f"@{KFP_USER_DOMAIN}"
 
+        self.flow_parameters = flow_parameters
         self._client = kfp.Client(
             namespace=self.api_namespace, userid=kfp_client_user_email
         )
@@ -993,8 +994,7 @@ class KubeflowPipelines(object):
                 print("prefix: ", prefix)
                 print("timeout: ", timeout)
 
-                print(flow_parameters_json)
-                print(json.loads(flow_parameters_json))
+                print(self.flow_parameters)
 
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
