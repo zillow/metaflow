@@ -824,6 +824,7 @@ class KubeflowPipelines(object):
                 preceding_kfp_component_op: ContainerOp = None,
                 preceding_component_outputs_dict: Dict[str, dsl.PipelineParam] = None,
                 workflow_uid: str = None,
+                s3_sensor_uid: str = None,
             ):
                 if node.name in visited:
                     return
@@ -935,6 +936,7 @@ class KubeflowPipelines(object):
                             preceding_kfp_component_op=next_kfp_component_op,
                             preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                             workflow_uid=workflow_uid,
+                            s3_sensor_uid=s3_sensor_uid,
                         )
 
                     # Handle the ParallelFor join step, and pass in
@@ -945,6 +947,7 @@ class KubeflowPipelines(object):
                         preceding_kfp_component_op=next_kfp_component_op,
                         preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                         workflow_uid=workflow_uid,
+                        s3_sensor_uid=s3_sensor_uid,
                     )
                 else:
                     for step in node.out_funcs:
@@ -965,6 +968,7 @@ class KubeflowPipelines(object):
                                 preceding_kfp_component_op=next_kfp_component_op,
                                 preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                                 workflow_uid=workflow_uid,
+                                s3_sensor_uid=s3_sensor_uid,
                             )
 
             workflow_uid_op = None
@@ -982,12 +986,18 @@ class KubeflowPipelines(object):
             s3_sensor_op = None
             if self.flow._flow_decorators.get('s3_sensor'):
                 print("We have found an S3 Sensor!")
-            
+                s3_sensor_op = func_to_container_op(
+                    get_workflow_uid,
+                    base_image="gcr.io/cloud-builders/kubectl",
+                )(work_flow_name="{{workflow.name}}").set_display_name(
+                    "get_workflow_uid"
+                )
 
             def call_build_kfp_dag():
                 build_kfp_dag(
                     self.graph["start"],
                     workflow_uid=workflow_uid_op.output if workflow_uid_op else None,
+                    s3_sensor_uid=s3_sensor_op.output if s3_sensor_op else None,
                 )
 
             if self.notify:
