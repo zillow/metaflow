@@ -981,10 +981,13 @@ class KubeflowPipelines(object):
                 )
 
             s3_sensor_op = None
-            if self.flow._flow_decorators.get('s3_sensor'):
+            s3_sensor_deco = self.flow._flow_decorators.get('s3_sensor')
+            if s3_sensor_deco:
                 print("We have found an S3 Sensor!")
-                path = self.flow._flow_decorators.get('s3_sensor').attributes["path"]
-                timeout = self.flow._flow_decorators.get('s3_sensor').attributes["timeout"]
+                path = s3_sensor_deco.path
+                timeout = s3_sensor_deco.timeout
+                print("path: ", path)
+                print("timeout: ", timeout)
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
                     base_image="gcr.io/cloud-builders/kubectl",
