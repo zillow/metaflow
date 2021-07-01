@@ -824,7 +824,6 @@ class KubeflowPipelines(object):
                 preceding_kfp_component_op: ContainerOp = None,
                 preceding_component_outputs_dict: Dict[str, dsl.PipelineParam] = None,
                 workflow_uid: str = None,
-                s3_sensor_uid: str = None,
             ):
                 if node.name in visited:
                     return
@@ -936,7 +935,6 @@ class KubeflowPipelines(object):
                             preceding_kfp_component_op=next_kfp_component_op,
                             preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                             workflow_uid=workflow_uid,
-                            s3_sensor_uid=s3_sensor_uid,
                         )
 
                     # Handle the ParallelFor join step, and pass in
@@ -947,7 +945,6 @@ class KubeflowPipelines(object):
                         preceding_kfp_component_op=next_kfp_component_op,
                         preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                         workflow_uid=workflow_uid,
-                        s3_sensor_uid=s3_sensor_uid,
                     )
                 else:
                     for step in node.out_funcs:
@@ -968,7 +965,6 @@ class KubeflowPipelines(object):
                                 preceding_kfp_component_op=next_kfp_component_op,
                                 preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                                 workflow_uid=workflow_uid,
-                                s3_sensor_uid=s3_sensor_uid,
                             )
 
             workflow_uid_op = None
@@ -997,7 +993,6 @@ class KubeflowPipelines(object):
                 build_kfp_dag(
                     self.graph["start"],
                     workflow_uid=workflow_uid_op.output if workflow_uid_op else None,
-                    s3_sensor_uid=s3_sensor_op.output if s3_sensor_op else None,
                 )
 
             if self.notify:
