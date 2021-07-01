@@ -992,6 +992,10 @@ class KubeflowPipelines(object):
                 print("key: ", key)
                 print("prefix: ", prefix)
                 print("timeout: ", timeout)
+
+                print(flow_parameters_json)
+                print(json.loads(flow_parameters_json))
+
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
                     base_image="analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu:3.2.64d2bf12.hs-aip-4502",
