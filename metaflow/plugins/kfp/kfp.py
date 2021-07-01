@@ -49,6 +49,7 @@ from .kfp_constants import (
 from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids
 from .kfp_get_workflow_uid import get_workflow_uid
+from .kfp_s3_sensor import wait_for_s3_path
 from .accelerator_decorator import AcceleratorDecorator
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
@@ -982,10 +983,12 @@ class KubeflowPipelines(object):
             s3_sensor_op = None
             if self.flow._flow_decorators.get('s3_sensor'):
                 print("We have found an S3 Sensor!")
+                path = self.flow._flow_decorators.get('s3_sensor').attributes["path"]
+                timeout = self.flow._flow_decorators.get('s3_sensor').attributes["timeout"]
                 s3_sensor_op = func_to_container_op(
-                    get_workflow_uid,
+                    wait_for_s3_path,
                     base_image="gcr.io/cloud-builders/kubectl",
-                )(work_flow_name="{{workflow.name}}").set_display_name(
+                )(path=path, timeout=timeout).set_display_name(
                     "s3_sensor"
                 )
 
@@ -1012,7 +1015,7 @@ class KubeflowPipelines(object):
                 for parent_step in node.in_funcs:
                     visited[node.name].after(visited[parent_step])
             
-            # ensure start only begins after the s3_sensor completes
+            # ensure the start steps only begins after the s3_sensor step completes
             if s3_sensor_op:
                 visited["start"].after(s3_sensor_op)
 
