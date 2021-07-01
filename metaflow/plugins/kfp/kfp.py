@@ -986,7 +986,7 @@ class KubeflowPipelines(object):
                 print("We have found an S3 Sensor!")
                 bucket = s3_sensor_deco.bucket
                 key = s3_sensor_deco.key
-                prefix = s3_sensor_deco.key
+                prefix = s3_sensor_deco.prefix
                 timeout = s3_sensor_deco.timeout
                 print("bucket: ", bucket)
                 print("key: ", key)
