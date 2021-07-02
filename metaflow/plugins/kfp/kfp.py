@@ -994,6 +994,8 @@ class KubeflowPipelines(object):
                 print("prefix: ", prefix)
                 print("timeout: ", timeout)
 
+                print(flow_parameters_json)
+                print(type(flow_parameters_json))
                 print(self.flow_parameters)
 
                 s3_sensor_op = func_to_container_op(
