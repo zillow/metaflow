@@ -1,4 +1,4 @@
-def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int) -> None:
+def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int, workflow_parameters_json: str) -> None:
     import boto3
     import botocore
     import time
@@ -7,6 +7,7 @@ def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int) -> None:
     
     print("key: ", key)
     print("prefix: ", prefix)
+    print("workflow_parameters_json: ", workflow_parameters_json)
 
     start_time = time.time()
     while True:
@@ -36,6 +37,6 @@ def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int) -> None:
         current_time = time.time()
         elapsed_time = current_time - start_time
         if timeout is not -1 and elapsed_time > timeout:
-            raise Exception("Timed out while waiting for S3 key.")
+            raise Exception("Timed out while waiting for S3 key or prefixed path..")
 
         time.sleep(1)
