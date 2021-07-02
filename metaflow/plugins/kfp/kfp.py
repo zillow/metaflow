@@ -176,7 +176,6 @@ class KubeflowPipelines(object):
         if KFP_USER_DOMAIN:
             kfp_client_user_email += f"@{KFP_USER_DOMAIN}"
 
-        self.flow_parameters = flow_parameters
         self._client = kfp.Client(
             namespace=self.api_namespace, userid=kfp_client_user_email
         )
@@ -987,21 +986,18 @@ class KubeflowPipelines(object):
                 print("We have found an S3 Sensor!")
                 bucket = s3_sensor_deco.bucket
                 key = s3_sensor_deco.key
-                prefix = s3_sensor_deco.prefix
                 timeout = s3_sensor_deco.timeout
                 print("bucket: ", bucket)
                 print("key: ", key)
-                print("prefix: ", prefix)
                 print("timeout: ", timeout)
 
                 print(flow_parameters_json)
                 print(type(flow_parameters_json))
-                print(self.flow_parameters)
 
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
                     base_image="analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu:3.2.64d2bf12.hs-aip-4502",
-                )(bucket=bucket, key=key, prefix=prefix, timeout=timeout, flow_parameters_json=flow_parameters_json).set_display_name(
+                )(bucket=bucket, key=key, timeout=timeout, flow_parameters_json=flow_parameters_json).set_display_name(
                     "s3_sensor"
                 )
 
@@ -1031,6 +1027,9 @@ class KubeflowPipelines(object):
             # ensure the start steps only begins after the s3_sensor step completes
             if s3_sensor_op:
                 visited["start"].after(s3_sensor_op)
+                # ensure volume creation also happens after the s3_sensor step completes
+                if workflow_uid_op:
+                    workflow_uid_op.after(s3_sensor_op)
 
             dsl.get_pipeline_conf().add_op_transformer(pipeline_transform)
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
