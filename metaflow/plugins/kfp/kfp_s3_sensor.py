@@ -8,6 +8,7 @@ def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int, flow_para
     print("key: ", key)
     print("prefix: ", prefix)
     print("flow_parameters_json: ", flow_parameters_json)
+    print("type(flow_parameters_json): ", type(flow_parameters_json))
 
     start_time = time.time()
     while True:
