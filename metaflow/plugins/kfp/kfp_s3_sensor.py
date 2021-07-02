@@ -1,4 +1,4 @@
-def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int, workflow_parameters_json: str) -> None:
+def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int, flow_parameters_json: str) -> None:
     import boto3
     import botocore
     import time
@@ -7,7 +7,7 @@ def wait_for_s3_path(bucket: str, key: str, prefix: str, timeout: int, workflow_
     
     print("key: ", key)
     print("prefix: ", prefix)
-    print("workflow_parameters_json: ", workflow_parameters_json)
+    print("flow_parameters_json: ", flow_parameters_json)
 
     start_time = time.time()
     while True:

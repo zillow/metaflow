@@ -1001,7 +1001,7 @@ class KubeflowPipelines(object):
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
                     base_image="analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu:3.2.64d2bf12.hs-aip-4502",
-                )(bucket=bucket, key=key, prefix=prefix, timeout=timeout, workflow_parameters_json="{{workflow_parameters_json}}").set_display_name(
+                )(bucket=bucket, key=key, prefix=prefix, timeout=timeout, flow_parameters_json="{{flow_parameters_json}}").set_display_name(
                     "s3_sensor"
                 )
 
