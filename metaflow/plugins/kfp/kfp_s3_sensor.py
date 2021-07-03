@@ -1,3 +1,5 @@
+import base64
+import pickle
 import json
 from typing import Callable
 
@@ -5,7 +7,7 @@ def wait_for_s3_path(
     bucket: str,
     key: str,
     timeout: int,
-    formatter: Callable,
+    formatter_encoded: str,
     flow_parameters_json: str
 ) -> None:
     import boto3
@@ -15,11 +17,13 @@ def wait_for_s3_path(
     s3 = boto3.resource('s3')
     
     flow_parameters_json = json.loads(flow_parameters_json)
+    formatter = pickle.loads(base64.b64decode(formatter_encoded))
     key = formatter(key, flow_parameters_json)
 
     print("key: ", key)
     print("flow_parameters_json: ", flow_parameters_json)
     print("type(flow_parameters_json): ", type(flow_parameters_json))
+    print("type(formatter): ", formatter)
 
     start_time = time.time()
     while True:

@@ -3,13 +3,16 @@ from metaflow.exception import MetaflowException
 
 from types import FunctionType
 
+def identity_formatter(key: str, flow_parameters_json: dict) -> str:
+    return key
+
 class S3SensorDecorator(FlowDecorator):
     name = 's3_sensor'
     defaults = {
         "bucket": None,
         "key": "",
         "timeout": -1, # no timeout
-        "formatter": lambda key, flow_parameters_json: key
+        "formatter": identity_formatter
     }
 
     def flow_init(self, flow, graph,  environment, datastore, logger, echo, options):
