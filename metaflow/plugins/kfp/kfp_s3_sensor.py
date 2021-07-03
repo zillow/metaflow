@@ -1,6 +1,3 @@
-import base64
-import pickle
-import json
 from typing import Callable
 
 def wait_for_s3_path(
@@ -12,6 +9,9 @@ def wait_for_s3_path(
 ) -> None:
     import boto3
     import botocore
+    import base64
+    import pickle
+    import json
     import time
 
     s3 = boto3.resource('s3')
