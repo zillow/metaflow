@@ -10,6 +10,7 @@ def wait_for_s3_path(
     import boto3
     import botocore
     import base64
+    import marshal
     import pickle
     import json
     import time
@@ -18,12 +19,17 @@ def wait_for_s3_path(
     
     flow_parameters_json = json.loads(flow_parameters_json)
     #formatter = pickle.loads(base64.b64decode(formatter_encoded))
+    formatter_code = marshal.loads(base64.b64decode(formatter_encoded))
+    def formatter(key: str, flow_parameters_json: dict) -> str:
+        pass
+    formatter.__code__ = formatter_code
+
     #key = formatter(key, flow_parameters_json)
 
     print("key: ", key)
     print("flow_parameters_json: ", flow_parameters_json)
     print("type(flow_parameters_json): ", type(flow_parameters_json))
-    #print("type(formatter): ", formatter)
+    print("type(formatter): ", formatter)
 
     start_time = time.time()
     while True:

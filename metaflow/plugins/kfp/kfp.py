@@ -6,6 +6,7 @@ from collections import namedtuple
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+import marshal
 import pickle
 import base64
 
@@ -996,7 +997,8 @@ class KubeflowPipelines(object):
                 print("timeout: ", timeout)
 
                 # see https://github.com/kubeflow/pipelines/pull/1946/files
-                formatter_encoded = base64.b64encode(pickle.dumps(formatter)).decode('ascii')
+                # formatter_encoded = base64.b64encode(pickle.dumps(formatter)).decode('ascii')
+                formatter_encoded = base64.b64encode(marshal.dumps(formatter.__code__)).decode('ascii')
 
                 print(flow_parameters_json)
                 print(type(flow_parameters_json))
