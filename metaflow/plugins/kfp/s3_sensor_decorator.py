@@ -4,7 +4,7 @@ from metaflow.exception import MetaflowException
 from types import FunctionType
 
 def identity_formatter(key: str, flow_parameters_json: dict) -> str:
-    return key
+    return key + "at_the_end!"
 
 class S3SensorDecorator(FlowDecorator):
     name = 's3_sensor'

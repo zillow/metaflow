@@ -24,7 +24,7 @@ def wait_for_s3_path(
         pass
     formatter.__code__ = formatter_code
 
-    #key = formatter(key, flow_parameters_json)
+    key = formatter(key, flow_parameters_json)
 
     print("key: ", key)
     print("flow_parameters_json: ", flow_parameters_json)
