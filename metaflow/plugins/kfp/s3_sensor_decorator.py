@@ -16,8 +16,7 @@ class S3SensorDecorator(FlowDecorator):
     }
 
     def flow_init(self, flow, graph,  environment, datastore, logger, echo, options):
-        self.bucket = self.attributes["bucket"]
-        self.key = self.attributes["key"]
+        self.path = self.attributes["path"]
         self.timeout = self.attributes["timeout"]
         self.polling_interval = self.attributes["polling_interval"]
         self.formatter = self.attributes["formatter"]

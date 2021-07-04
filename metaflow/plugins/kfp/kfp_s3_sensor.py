@@ -46,6 +46,6 @@ def wait_for_s3_path(
         current_time = time.time()
         elapsed_time = current_time - start_time
         if timeout is not -1 and elapsed_time > timeout:
-            raise Exception("Timed out while waiting for S3 key or prefixed path..")
+            raise Exception("Timed out while waiting for S3 key..")
 
         time.sleep(polling_interval)
