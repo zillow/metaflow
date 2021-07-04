@@ -9,8 +9,7 @@ def identity_formatter(key: str, flow_parameters_json: dict) -> str:
 class S3SensorDecorator(FlowDecorator):
     name = 's3_sensor'
     defaults = {
-        "bucket": None,
-        "key": "",
+        "path": "",
         "timeout": 3600, # no timeout
         "polling_interval": 300,
         "formatter": identity_formatter
