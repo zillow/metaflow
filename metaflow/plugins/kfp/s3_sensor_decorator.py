@@ -16,7 +16,7 @@ class S3SensorDecorator(FlowDecorator):
     name = 's3_sensor'
     defaults = {
         "path": "",
-        "timeout": 3600, # no timeout
+        "timeout": 3600,
         "polling_interval": 300,
         "formatter": identity_formatter
     }
