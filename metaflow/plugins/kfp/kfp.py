@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import marshal
-import pickle
 import base64
 
 import kfp
@@ -1039,7 +1038,7 @@ class KubeflowPipelines(object):
                 for parent_step in node.in_funcs:
                     visited[node.name].after(visited[parent_step])
             
-            # ensure the start steps only begins after the s3_sensor step completes
+            # ensure the start step only begins after the s3_sensor step completes
             if s3_sensor_op:
                 visited["start"].after(s3_sensor_op)
                 # ensure volume creation also happens after the s3_sensor step completes
