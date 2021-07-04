@@ -2,9 +2,15 @@ from metaflow.decorators import FlowDecorator
 from metaflow.exception import MetaflowException
 
 from types import FunctionType
+from typing import Tuple
 
 def identity_formatter(key: str, flow_parameters_json: dict) -> str:
     return key
+
+def split_s3_path(path: str) -> Tuple[str, str]:
+    path = path.replace("s3://", "")
+    bucket, key = path.split("/", 1)
+    return bucket, key
 
 class S3SensorDecorator(FlowDecorator):
     name = 's3_sensor'
@@ -21,11 +27,16 @@ class S3SensorDecorator(FlowDecorator):
         self.polling_interval = self.attributes["polling_interval"]
         self.formatter = self.attributes["formatter"]
 
-        if not self.bucket:
-            raise MetaflowException("You must specify a S3 bucket within @s3_sensor.")
+        if not self.path:
+            raise MetaflowException("You must specify a S3 path within @s3_sensor.")
 
-        if not self.key:
-            raise MetaflowException("You must specify either key or prefix.")
+        try:
+            self.bucket, self.key = split_s3_path(self.path)
+        except:
+            raise MetaflowException(
+                "Please specify a valid S3 path. Your path must be "
+                "prefixed with s3:// and contain a non-empty key."
+            )
 
         if not isinstance(self.formatter, FunctionType):
             raise MetaflowException("formatter must be a function.")

@@ -987,7 +987,8 @@ class KubeflowPipelines(object):
             s3_sensor_op = None
             s3_sensor_deco = self.flow._flow_decorators.get('s3_sensor')
             if s3_sensor_deco:
-                path = s3_sensor_deco.path
+                bucket = s3_sensor_deco.bucket
+                key = s3_sensor_deco.key
                 timeout = s3_sensor_deco.timeout
                 polling_interval = s3_sensor_deco.polling_interval
                 formatter = s3_sensor_deco.formatter
@@ -1006,7 +1007,8 @@ class KubeflowPipelines(object):
                     wait_for_s3_path,
                     base_image="analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu:3.2.64d2bf12.hs-aip-4502",
                 )(
-                    path=path,
+                    bucket=bucket,
+                    key=key,
                     timeout=timeout,
                     polling_interval=polling_interval,
                     formatter_code_encoded=formatter_code_encoded,

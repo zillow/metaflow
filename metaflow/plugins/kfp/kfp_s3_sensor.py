@@ -1,5 +1,6 @@
 def wait_for_s3_path(
-    path: str,
+    bucket: str,
+    key: str,
     timeout: int,
     polling_interval: int,
     formatter_code_encoded: str,
@@ -12,20 +13,8 @@ def wait_for_s3_path(
     import json
     import time
 
-    from typing import Tuple
-
     s3 = boto3.resource('s3')
 
-    def split_s3_path(path: str) -> Tuple[str, str]:
-        path = path.replace("s3://", "")
-        bucket, key = path.split("/", 1)
-        return bucket, key
-    
-    try:
-        bucket, key = split_s3_path(path)
-    except:
-        raise Exception("Please specify a valid S3 path.")
-    
     flow_parameters_json = json.loads(flow_parameters_json)
     formatter_code = marshal.loads(base64.b64decode(formatter_code_encoded))
     def formatter(key: str, flow_parameters_json: dict) -> str:
