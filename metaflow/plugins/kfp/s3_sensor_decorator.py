@@ -4,7 +4,7 @@ from metaflow.exception import MetaflowException
 from types import FunctionType
 from typing import Tuple
 
-def identity_formatter(key: str, flow_parameters_json: dict) -> str:
+def identity_formatter(path: str, flow_parameters_json: dict) -> str:
     return key
 
 def split_s3_path(path: str) -> Tuple[str, str]:
