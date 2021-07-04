@@ -4,7 +4,8 @@ def wait_for_s3_path(
     bucket: str,
     key: str,
     timeout: int,
-    formatter_encoded: str,
+    polling_interval: int,
+    formatter_code_encoded: str,
     flow_parameters_json: str
 ) -> None:
     import boto3
@@ -18,18 +19,11 @@ def wait_for_s3_path(
     s3 = boto3.resource('s3')
     
     flow_parameters_json = json.loads(flow_parameters_json)
-    #formatter = pickle.loads(base64.b64decode(formatter_encoded))
-    formatter_code = marshal.loads(base64.b64decode(formatter_encoded))
+    formatter_code = marshal.loads(base64.b64decode(formatter_code_encoded))
     def formatter(key: str, flow_parameters_json: dict) -> str:
         pass
     formatter.__code__ = formatter_code
-
     key = formatter(key, flow_parameters_json)
-
-    print("key: ", key)
-    print("flow_parameters_json: ", flow_parameters_json)
-    print("type(flow_parameters_json): ", type(flow_parameters_json))
-    print("type(formatter): ", formatter)
 
     start_time = time.time()
     while True:
@@ -46,4 +40,4 @@ def wait_for_s3_path(
         if timeout is not -1 and elapsed_time > timeout:
             raise Exception("Timed out while waiting for S3 key or prefixed path..")
 
-        time.sleep(1)
+        time.sleep(polling_interval)

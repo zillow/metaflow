@@ -4,14 +4,15 @@ from metaflow.exception import MetaflowException
 from types import FunctionType
 
 def identity_formatter(key: str, flow_parameters_json: dict) -> str:
-    return key + "at_the_end!"
+    return key
 
 class S3SensorDecorator(FlowDecorator):
     name = 's3_sensor'
     defaults = {
         "bucket": None,
         "key": "",
-        "timeout": -1, # no timeout
+        "timeout": 3600, # no timeout
+        "polling_interval": 300,
         "formatter": identity_formatter
     }
 
@@ -19,6 +20,7 @@ class S3SensorDecorator(FlowDecorator):
         self.bucket = self.attributes["bucket"]
         self.key = self.attributes["key"]
         self.timeout = self.attributes["timeout"]
+        self.polling_interval = self.attributes["polling_interval"]
         self.formatter = self.attributes["formatter"]
 
         if not self.bucket:

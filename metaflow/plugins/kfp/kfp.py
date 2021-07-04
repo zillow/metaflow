@@ -987,26 +987,33 @@ class KubeflowPipelines(object):
             s3_sensor_op = None
             s3_sensor_deco = self.flow._flow_decorators.get('s3_sensor')
             if s3_sensor_deco:
-                print("We have found an S3 Sensor!")
                 bucket = s3_sensor_deco.bucket
                 key = s3_sensor_deco.key
                 timeout = s3_sensor_deco.timeout
+                polling_interval = s3_sensor_deco.polling_interval
                 formatter = s3_sensor_deco.formatter
-                print("bucket: ", bucket)
-                print("key: ", key)
-                print("timeout: ", timeout)
 
-                # see https://github.com/kubeflow/pipelines/pull/1946/files
                 # formatter_encoded = base64.b64encode(pickle.dumps(formatter)).decode('ascii')
-                formatter_encoded = base64.b64encode(marshal.dumps(formatter.__code__)).decode('ascii')
-
-                print(flow_parameters_json)
-                print(type(flow_parameters_json))
+                # see https://github.com/kubeflow/pipelines/pull/1946/files
+                # KFP does not support the serialization of Python functions directly. The KFP team took
+                # the approach of using base64 encoding + pickle. Pickle didn't quite work out
+                # in this case because pickling a function directly stores references to the functions path,
+                # which couldn't be resolved when the formatter function was unpickled within the running
+                # container. Instead, we took the approach of mashalling just the code of the formatter
+                # function, and reconstructing the function within the s3_sensor code.
+                formatter_code_encoded = base64.b64encode(marshal.dumps(formatter.__code__)).decode('ascii')
 
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
                     base_image="analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py36-cpu:3.2.64d2bf12.hs-aip-4502",
-                )(bucket=bucket, key=key, timeout=timeout, formatter_encoded=formatter_encoded, flow_parameters_json=flow_parameters_json).set_display_name(
+                )(
+                    bucket=bucket,
+                    key=key,
+                    timeout=timeout,
+                    polling_interval=polling_interval,
+                    formatter_code_encoded=formatter_code_encoded,
+                    flow_parameters_json=flow_parameters_json
+                ).set_display_name(
                     "s3_sensor"
                 )
 
