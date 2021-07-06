@@ -4,6 +4,44 @@ from metaflow.exception import MetaflowException
 from types import FunctionType
 from typing import Tuple
 
+"""
+Within identity_formatter, which is passed in as the func parameter,
+customers have access to all variables in flow_parameters_json (which 
+include all parameters passed in through the flow at compile and run time by
+KFP) as well as a number of environment variables, including:
+
+MF_POD_NAME
+MF_POD_NAMESPACE
+MF_ARGO_NODE_NAME
+MF_ARGO_WORKFLOW_NAME
+ZODIAC_SERVICE
+ZODIAC_TEAM
+POD_NAMESPACE
+KFP_SDK_NAMESPACE
+POD_NAME
+POD_IP
+ARGO_WORKFLOW_NAME
+K8S_CLUSTER_NAME
+K8S_CLUSTER_ENV
+METAFLOW_NOTIFY_EMAIL_SMTP_HOST
+METAFLOW_NOTIFY_EMAIL_SMTP_PORT
+METAFLOW_NOTIFY_EMAIL_FROM
+METAFLOW_NOTIFY_EMAIL_BODY
+METAFLOW_NOTIFY_ON_ERROR
+KFP_RUN_URL_PREFIX
+METAFLOW_DEFAULT_DATASTORE
+METAFLOW_DEFAULT_METADATA
+METAFLOW_SERVICE_URL
+METAFLOW_DATASTORE_SYSROOT_S3
+WAGGLE_DANCE_DEFAULT_ENVIRONMENT
+WAGGLE_DANCE_DEV_ENDPOINT
+WAGGLE_DANCE_STAGE_ENDPOINT
+WAGGLE_DANCE_PROD_READ_ONLY_ENDPOINT
+WAGGLE_DANCE_PROD_ENDPOINT
+AWS_ROLE_ARN
+AWS_WEB_IDENTITY_TOKEN_FILE
+"""
+
 
 def identity_formatter(path: str, flow_parameters_json: dict) -> str:
     return path

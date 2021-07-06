@@ -2,11 +2,14 @@ from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
 
 def formatter(path: str, flow_parameters_json: dict) -> str:
-    return path.replace("CODE_PACKAGE_ID", flow_parameters_json["code_package_id"])
+    import os
+
+    path = path.replace("CODE_PACKAGE_ID", flow_parameters_json["code_package_id"])
+    path = path.replace("POD_NAMESPACE", os.environ["POD_NAMESPACE"])
 
 
 @s3_sensor(
-    path="s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing/HelloFlow/data/6f/CODE_PACKAGE_ID",
+    path="s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/POD_NAMESPACE/HelloFlow/data/6f/CODE_PACKAGE_ID",
     timeout_seconds=45,
     polling_interval_seconds=1,
     formatter=formatter,
