@@ -987,8 +987,8 @@ class KubeflowPipelines(object):
             s3_sensor_deco = self.flow._flow_decorators.get('s3_sensor')
             if s3_sensor_deco:
                 path = s3_sensor_deco.path
-                timeout = s3_sensor_deco.timeout
-                polling_interval = s3_sensor_deco.polling_interval
+                timeout_seconds = s3_sensor_deco.timeout_seconds
+                polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
                 formatter = s3_sensor_deco.formatter
 
                 # see https://github.com/kubeflow/pipelines/pull/1946/files
@@ -1005,8 +1005,8 @@ class KubeflowPipelines(object):
                     base_image="hsezhiyan/s3_sensor:1.0",
                 )(
                     path=path,
-                    timeout=timeout,
-                    polling_interval=polling_interval,
+                    timeout_seconds=timeout_seconds,
+                    polling_interval_seconds=polling_interval_seconds,
                     formatter_code_encoded=formatter_code_encoded,
                     flow_parameters_json=flow_parameters_json
                 ).set_display_name(

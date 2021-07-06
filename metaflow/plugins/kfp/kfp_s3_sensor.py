@@ -1,7 +1,13 @@
+"""
+This function is called within the s3_sensor_op running container.
+(1) It decodes the formatter function's code and runs it to obtain a final S3 path
+(2) It splits the formatted path into an S3 bucket and key 
+(3) It polls for an object with the specified bucket and key until timeout
+"""
 def wait_for_s3_path(
     path: str,
-    timeout: int,
-    polling_interval: int,
+    timeout_seconds: int,
+    polling_interval_seconds: int,
     formatter_code_encoded: str,
     flow_parameters_json: str
 ) -> None:
@@ -11,6 +17,7 @@ def wait_for_s3_path(
     import marshal
     import json
     import time
+    from datetime import date
     from typing import Tuple
 
     def split_s3_path(path: str) -> Tuple[str, str]:
@@ -41,7 +48,7 @@ def wait_for_s3_path(
 
         current_time = time.time()
         elapsed_time = current_time - start_time
-        if timeout is not -1 and elapsed_time > timeout:
+        if timeout_seconds is not -1 and elapsed_time > timeout_seconds:
             raise Exception("Timed out while waiting for S3 key..")
 
-        time.sleep(polling_interval)
+        time.sleep(polling_interval_seconds)
