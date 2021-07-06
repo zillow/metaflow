@@ -10,7 +10,7 @@ def wait_for_s3_path(
     path: str,
     timeout_seconds: int,
     polling_interval_seconds: int,
-    formatter_code_encoded: str,
+    func_code_encoded: str,
     flow_parameters_json: str,
 ) -> None:
     import boto3
@@ -29,21 +29,21 @@ def wait_for_s3_path(
 
     flow_parameters_json = json.loads(flow_parameters_json)
 
-    formatter_code = marshal.loads(base64.b64decode(formatter_code_encoded))
+    func_code = marshal.loads(base64.b64decode(func_code_encoded))
 
     def formatter(key: str, flow_parameters_json: dict) -> str:
         pass
 
-    formatter.__code__ = formatter_code
+    formatter.__code__ = func_code
     path = formatter(path, flow_parameters_json)
 
     bucket, key = split_s3_path(path)
 
-    s3 = boto3.resource("s3")
+    s3 = boto3.client("s3")
     start_time = time.time()
     while True:
         try:
-            s3.Object(bucket, key).load()
+            s3.head_object(Bucket=bucket, Key=key)
         except botocore.exceptions.ClientError as e:
             print("Object not found. Waiting...")
         else:

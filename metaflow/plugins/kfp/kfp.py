@@ -989,7 +989,7 @@ class KubeflowPipelines(object):
                 path = s3_sensor_deco.path
                 timeout_seconds = s3_sensor_deco.timeout_seconds
                 polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
-                formatter = s3_sensor_deco.formatter
+                func = s3_sensor_deco.func
 
                 # see https://github.com/kubeflow/pipelines/pull/1946/files
                 # KFP does not support the serialization of Python functions directly. The KFP team took
@@ -998,8 +998,8 @@ class KubeflowPipelines(object):
                 # which couldn't be resolved when the formatter function was unpickled within the running
                 # container. Instead, we took the approach of marshalling just the code of the formatter
                 # function, and reconstructing the function within the kf_s3_sensor.py code.
-                formatter_code_encoded = base64.b64encode(
-                    marshal.dumps(formatter.__code__)
+                func_code_encoded = base64.b64encode(
+                    marshal.dumps(func.__code__)
                 ).decode("ascii")
 
                 s3_sensor_op = func_to_container_op(
@@ -1009,11 +1009,16 @@ class KubeflowPipelines(object):
                     path=path,
                     timeout_seconds=timeout_seconds,
                     polling_interval_seconds=polling_interval_seconds,
-                    formatter_code_encoded=formatter_code_encoded,
+                    func_code_encoded=func_code_encoded,
                     flow_parameters_json=flow_parameters_json,
                 ).set_display_name(
                     "s3_sensor"
                 )
+                # tighten the resources so customers don't bear large costs
+                s3_sensor_op.container.set_cpu_request("0.1")
+                s3_sensor_op.container.set_cpu_limit("0.5")
+                s3_sensor_op.container.set_memory_request("10M")
+                s3_sensor_op.container.set_memory_limit("200M")
 
             def call_build_kfp_dag():
                 build_kfp_dag(
