@@ -986,10 +986,9 @@ class KubeflowPipelines(object):
             s3_sensor_op = None
             s3_sensor_deco = self.flow._flow_decorators.get('s3_sensor')
             if s3_sensor_deco:
-                bucket = s3_sensor_deco.bucket
-                key = s3_sensor_deco.key
-                timeout = s3_sensor_deco.timeout
-                polling_interval = s3_sensor_deco.polling_interval
+                path = s3_sensor_deco.path
+                timeout_seconds = s3_sensor_deco.timeout_seconds
+                polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
                 formatter = s3_sensor_deco.formatter
 
                 # see https://github.com/kubeflow/pipelines/pull/1946/files
@@ -997,7 +996,7 @@ class KubeflowPipelines(object):
                 # the approach of using base64 encoding + pickle. Pickle didn't quite work out
                 # in this case because pickling a function directly stores references to the function's path,
                 # which couldn't be resolved when the formatter function was unpickled within the running
-                # container. Instead, we took the approach of mashalling just the code of the formatter
+                # container. Instead, we took the approach of marshalling just the code of the formatter
                 # function, and reconstructing the function within the kf_s3_sensor.py code.
                 formatter_code_encoded = base64.b64encode(marshal.dumps(formatter.__code__)).decode('ascii')
 
@@ -1005,10 +1004,9 @@ class KubeflowPipelines(object):
                     wait_for_s3_path,
                     base_image="hsezhiyan/s3_sensor:1.0",
                 )(
-                    bucket=bucket,
-                    key=key,
-                    timeout=timeout,
-                    polling_interval=polling_interval,
+                    path=path,
+                    timeout_seconds=timeout_seconds,
+                    polling_interval_seconds=polling_interval_seconds,
                     formatter_code_encoded=formatter_code_encoded,
                     flow_parameters_json=flow_parameters_json
                 ).set_display_name(
