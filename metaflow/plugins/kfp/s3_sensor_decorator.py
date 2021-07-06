@@ -4,6 +4,7 @@ from metaflow.exception import MetaflowException
 from types import FunctionType
 from typing import Tuple
 
+
 def identity_formatter(path: str, flow_parameters_json: dict) -> str:
     return path
 
@@ -37,16 +38,18 @@ Example usage:
         def end(self):
             print("S3SensorFlow is all done.")
 """
+
+
 class S3SensorDecorator(FlowDecorator):
-    name = 's3_sensor'
+    name = "s3_sensor"
     defaults = {
         "path": "",
         "timeout_seconds": 3600,
         "polling_interval_seconds": 300,
-        "formatter": identity_formatter
+        "formatter": identity_formatter,
     }
 
-    def flow_init(self, flow, graph,  environment, datastore, logger, echo, options):
+    def flow_init(self, flow, graph, environment, datastore, logger, echo, options):
         self.path = self.attributes["path"]
         self.timeout_seconds = self.attributes["timeout_seconds"]
         self.polling_interval_seconds = self.attributes["polling_interval_seconds"]
@@ -57,11 +60,12 @@ class S3SensorDecorator(FlowDecorator):
 
         if not self.path.startswith("s3://"):
             raise MetaflowException("Your path must be prefixed with s3://")
-        
+
         prefix_removed_path = self.path.replace("s3://", "", 1)
         if len(prefix_removed_path.split("/", 1)) == 1:
-            raise MetaflowException("Your path must contain both a bucket and key, separated by a slash.")
+            raise MetaflowException(
+                "Your path must contain both a bucket and key, separated by a slash."
+            )
 
         if not isinstance(self.formatter, FunctionType):
             raise MetaflowException("formatter must be a function.")
-        

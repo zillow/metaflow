@@ -984,7 +984,7 @@ class KubeflowPipelines(object):
                 )
 
             s3_sensor_op = None
-            s3_sensor_deco = self.flow._flow_decorators.get('s3_sensor')
+            s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
             if s3_sensor_deco:
                 path = s3_sensor_deco.path
                 timeout_seconds = s3_sensor_deco.timeout_seconds
@@ -998,7 +998,9 @@ class KubeflowPipelines(object):
                 # which couldn't be resolved when the formatter function was unpickled within the running
                 # container. Instead, we took the approach of marshalling just the code of the formatter
                 # function, and reconstructing the function within the kf_s3_sensor.py code.
-                formatter_code_encoded = base64.b64encode(marshal.dumps(formatter.__code__)).decode('ascii')
+                formatter_code_encoded = base64.b64encode(
+                    marshal.dumps(formatter.__code__)
+                ).decode("ascii")
 
                 s3_sensor_op = func_to_container_op(
                     wait_for_s3_path,
@@ -1008,7 +1010,7 @@ class KubeflowPipelines(object):
                     timeout_seconds=timeout_seconds,
                     polling_interval_seconds=polling_interval_seconds,
                     formatter_code_encoded=formatter_code_encoded,
-                    flow_parameters_json=flow_parameters_json
+                    flow_parameters_json=flow_parameters_json,
                 ).set_display_name(
                     "s3_sensor"
                 )
@@ -1035,7 +1037,7 @@ class KubeflowPipelines(object):
                 node = self.graph[step]
                 for parent_step in node.in_funcs:
                     visited[node.name].after(visited[parent_step])
-            
+
             # ensure the start step only begins after the s3_sensor step completes
             if s3_sensor_op:
                 visited["start"].after(s3_sensor_op)

@@ -4,12 +4,14 @@ This function is called within the s3_sensor_op running container.
 (2) It splits the formatted path into an S3 bucket and key 
 (3) It polls for an object with the specified bucket and key until timeout
 """
+
+
 def wait_for_s3_path(
     path: str,
     timeout_seconds: int,
     polling_interval_seconds: int,
     formatter_code_encoded: str,
-    flow_parameters_json: str
+    flow_parameters_json: str,
 ) -> None:
     import boto3
     import botocore
@@ -28,14 +30,16 @@ def wait_for_s3_path(
     flow_parameters_json = json.loads(flow_parameters_json)
 
     formatter_code = marshal.loads(base64.b64decode(formatter_code_encoded))
+
     def formatter(key: str, flow_parameters_json: dict) -> str:
         pass
+
     formatter.__code__ = formatter_code
     path = formatter(path, flow_parameters_json)
 
     bucket, key = split_s3_path(path)
 
-    s3 = boto3.resource('s3')
+    s3 = boto3.resource("s3")
     start_time = time.time()
     while True:
         try:
