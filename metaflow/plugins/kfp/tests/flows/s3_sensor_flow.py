@@ -22,11 +22,12 @@ of that file.
 )
 class S3SensorFlow(FlowSpec):
 
-    s3_file = Parameter(
+    file_name = Parameter(
         "file_name",
-        default="file_name"
     )
-
+    env = Parameter(
+        "env"
+    )
     @step
     def start(self):
         print("S3SensorFlow is starting.")
