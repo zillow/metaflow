@@ -70,7 +70,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     file_name = f"{random_string}.txt"
 
     upload_to_s3_flow_cmd = f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
-    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion"
+    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
 
     main_config_cmds = (
         f"--workflow-timeout 1800 "
