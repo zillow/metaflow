@@ -70,7 +70,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     file_name = f"{random_string}.txt"
 
     upload_to_s3_flow_cmd = f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
-    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run "
+    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion"
 
     main_config_cmds = (
         f"--workflow-timeout 1800 "
@@ -87,23 +87,20 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         upload_to_s3_flow_cmd += image_cmds
         s3_sensor_flow_cmd += image_cmds
 
-    s3_sensor_run_and_wait_process = run(
-        s3_sensor_flow_cmd,
-        universal_newlines=True,
-        stdout=PIPE,
-        shell=True,
-    )
-    # force s3_sensor to wait for file to arrive to do a real test
-    time.sleep(30)
     upload_file_run_and_wait_process = run(
         upload_to_s3_flow_cmd,
         universal_newlines=True,
         stdout=PIPE,
         shell=True,
     )
+    s3_sensor_run_and_wait_process = run(
+        s3_sensor_flow_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
 
     assert s3_sensor_run_and_wait_process.returncode == 0
-    assert upload_file_run_and_wait_process.returncode == 0
 
     return
 

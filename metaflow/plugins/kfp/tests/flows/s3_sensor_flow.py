@@ -16,7 +16,7 @@ of that file.
 """
 @s3_sensor(
     path="s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/{env}/aip-integration-testing/{file_name}",
-    timeout_seconds=300,
+    timeout_seconds=600,
     polling_interval_seconds=5,
     path_formatter=formatter,
 )

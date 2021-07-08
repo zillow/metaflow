@@ -1,6 +1,7 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
 import boto3
+import time
 from subprocess import run, PIPE
 
 class UploadToS3Flow(FlowSpec):
@@ -13,8 +14,9 @@ class UploadToS3Flow(FlowSpec):
     )
     @step
     def start(self):
+        print("Waiting to upload file...")
+        time.sleep(100)
         print(f"Uploading {self.file_name} to S3...")
-        self.next(self.end)
 
         run(
             f"touch {self.file_name}",
