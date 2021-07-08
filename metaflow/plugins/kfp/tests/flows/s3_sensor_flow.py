@@ -1,37 +1,32 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
 
-def formatter(path: str, flow_parameters_json: dict) -> str:
-    import os
-
-    path = path.replace("CODE_PACKAGE_ID", flow_parameters_json["code_package_id"])
-    path = path.replace("POD_NAMESPACE", os.environ["POD_NAMESPACE"])
+def formatter(path: str, flow_parameters: dict) -> str:
+    return path.format(file_name=flow_parameters["file_name"])
 
 
+"""
+This test flow ensures that @s3_sensor properly waits for path to be written
+to in S3. In run_integration_tests.py, we have a special test just for this flow.
+The test creates a random file and uploads it to S3, and this flow waits on the creation
+of that file.
+"""
 @s3_sensor(
-    path="s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/POD_NAMESPACE/HelloFlow/data/6f/CODE_PACKAGE_ID",
-    timeout_seconds=45,
-    polling_interval_seconds=1,
-    formatter=formatter,
+    path="s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing/{file_name}",
+    timeout_seconds=300,
+    polling_interval_seconds=5,
+    path_formatter=formatter,
 )
 class S3SensorFlow(FlowSpec):
 
-    # This parameter is just for testing @s3_sensor. In an actual flow,
-    # it doesn't make sense to pass the code package's metadata
-    # as a parameter, as that is transparently done behind the scenes.
-    code_package_id = Parameter(
-        "code_package_id",
-        default="6ff80f2870922f04ed6960dba2f23c7223e699a7",
+    s3_file = Parameter(
+        "file_name",
+        default="file_name"
     )
 
     @step
     def start(self):
         print("S3SensorFlow is starting.")
-        self.next(self.hello)
-
-    @step
-    def hello(self):
-        print("Hi!")
         self.next(self.end)
 
     @step

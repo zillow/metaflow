@@ -1,47 +1,45 @@
 """
 This function is called within the s3_sensor_op running container.
-(1) It decodes the formatter function's code and runs it to obtain a final S3 path
+(1) It decodes the path_formatter function's code and runs it to obtain a final S3 path
 (2) It splits the formatted path into an S3 bucket and key 
 (3) It polls for an object with the specified bucket and key until timeout
 """
-
+import boto3
 
 def wait_for_s3_path(
     path: str,
     timeout_seconds: int,
     polling_interval_seconds: int,
-    func_code_encoded: str,
+    path_formatter_code_encoded: str,
     flow_parameters_json: str,
 ) -> None:
     import boto3
     import botocore
     import base64
-    import marshal
     import json
+    import marshal
     import time
-    from datetime import date
     from typing import Tuple
+    from urllib.parse import urlparse
 
-    def split_s3_path(path: str) -> Tuple[str, str]:
-        path = path.replace("s3://", "")
-        bucket, key = path.split("/", 1)
-        return bucket, key
-
-    flow_parameters_json = json.loads(flow_parameters_json)
-
-    func_code = marshal.loads(base64.b64decode(func_code_encoded))
-
-    def formatter(key: str, flow_parameters_json: dict) -> str:
+    flow_parameters = json.loads(flow_parameters_json)
+    path_formatter_code = marshal.loads(base64.b64decode(path_formatter_code_encoded))
+    def path_formatter(key: str, flow_parameters: dict) -> str:
         pass
-
-    formatter.__code__ = func_code
-    path = formatter(path, flow_parameters_json)
-
-    bucket, key = split_s3_path(path)
+    path_formatter.__code__ = path_formatter_code
+    path = path_formatter(path, flow_parameters)
+    print("path: ", path)
+    # default variable substitution
+    path = path.format(**flow_parameters)
+    print("path: ", path)
+    parsed_path = urlparse(path)
+    bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
+    print(bucket, key)
 
     s3 = boto3.client("s3")
     start_time = time.time()
     while True:
+        print("Entered here!")
         try:
             s3.head_object(Bucket=bucket, Key=key)
         except botocore.exceptions.ClientError as e:
@@ -53,6 +51,6 @@ def wait_for_s3_path(
         current_time = time.time()
         elapsed_time = current_time - start_time
         if timeout_seconds is not -1 and elapsed_time > timeout_seconds:
-            raise Exception("Timed out while waiting for S3 key..")
+            raise TimeoutError("Timed out while waiting for S3 key..")
 
         time.sleep(polling_interval_seconds)

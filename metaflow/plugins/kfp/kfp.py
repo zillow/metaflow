@@ -39,6 +39,7 @@ from metaflow.metaflow_config import (
     KFP_USER_DOMAIN,
     from_conf,
 )
+from metaflow.decorators import FlowDecorator
 from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
@@ -624,6 +625,16 @@ class KubeflowPipelines(object):
             )
             container_op.add_affinity(affinity)
             container_op.add_toleration(toleration)
+    
+    # used by the workflow_uid_op and the s3_sensor_op to tighten resources
+    # to ensure customers don't bear unnecesarily large costs
+    def _set_hardcoded_container_resources(
+        self, container_op: ContainerOp 
+    ):
+        container_op.container.set_cpu_request("0.1")
+        container_op.container.set_cpu_limit("0.5")
+        container_op.container.set_memory_request("10M")
+        container_op.container.set_memory_limit("200M")
 
     @staticmethod
     def _create_volume(
@@ -782,6 +793,42 @@ class KubeflowPipelines(object):
         )
         func.__signature__ = new_sig
         return func
+
+    def _create_s3_sensor_op(
+        self,
+        s3_sensor_deco: FlowDecorator,
+        flow_parameters_json: str
+    ) -> ContainerOp:
+        path = s3_sensor_deco.path
+        timeout_seconds = s3_sensor_deco.timeout_seconds
+        polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
+        path_formatter = s3_sensor_deco.path_formatter
+
+        # see https://github.com/kubeflow/pipelines/pull/1946/files
+        # KFP does not support the serialization of Python functions directly. The KFP team took
+        # the approach of using base64 encoding + pickle. Pickle didn't quite work out
+        # in this case because pickling a function directly stores references to the function's path,
+        # which couldn't be resolved when the path_formatter function was unpickled within the running
+        # container. Instead, we took the approach of marshalling just the code of the path_formatter
+        # function, and reconstructing the function within the kf_s3_sensor.py code.
+        path_formatter_code_encoded = base64.b64encode(
+            marshal.dumps(path_formatter.__code__)
+        ).decode("ascii")
+
+        s3_sensor_op = func_to_container_op(
+            wait_for_s3_path,
+            base_image="hsezhiyan/s3_sensor:1.0",
+        )(
+            path=path,
+            timeout_seconds=timeout_seconds,
+            polling_interval_seconds=polling_interval_seconds,
+            path_formatter_code_encoded=path_formatter_code_encoded,
+            flow_parameters_json=flow_parameters_json,
+        ).set_display_name(
+            "s3_sensor"
+        )
+        self._set_hardcoded_container_resources(s3_sensor_op)
+        return s3_sensor_op
 
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
         """
@@ -982,43 +1029,15 @@ class KubeflowPipelines(object):
                 )(work_flow_name="{{workflow.name}}").set_display_name(
                     "get_workflow_uid"
                 )
+                self._set_hardcoded_container_resources(workflow_uid_op)
 
             s3_sensor_op = None
             s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
             if s3_sensor_deco:
-                path = s3_sensor_deco.path
-                timeout_seconds = s3_sensor_deco.timeout_seconds
-                polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
-                func = s3_sensor_deco.func
-
-                # see https://github.com/kubeflow/pipelines/pull/1946/files
-                # KFP does not support the serialization of Python functions directly. The KFP team took
-                # the approach of using base64 encoding + pickle. Pickle didn't quite work out
-                # in this case because pickling a function directly stores references to the function's path,
-                # which couldn't be resolved when the formatter function was unpickled within the running
-                # container. Instead, we took the approach of marshalling just the code of the formatter
-                # function, and reconstructing the function within the kf_s3_sensor.py code.
-                func_code_encoded = base64.b64encode(
-                    marshal.dumps(func.__code__)
-                ).decode("ascii")
-
-                s3_sensor_op = func_to_container_op(
-                    wait_for_s3_path,
-                    base_image="hsezhiyan/s3_sensor:1.0",
-                )(
-                    path=path,
-                    timeout_seconds=timeout_seconds,
-                    polling_interval_seconds=polling_interval_seconds,
-                    func_code_encoded=func_code_encoded,
-                    flow_parameters_json=flow_parameters_json,
-                ).set_display_name(
-                    "s3_sensor"
+                s3_sensor_op = self._create_s3_sensor_op(
+                    s3_sensor_deco=s3_sensor_deco,
+                    flow_parameters_json=flow_parameters_json
                 )
-                # tighten the resources so customers don't bear large costs
-                s3_sensor_op.container.set_cpu_request("0.1")
-                s3_sensor_op.container.set_cpu_limit("0.5")
-                s3_sensor_op.container.set_memory_request("10M")
-                s3_sensor_op.container.set_memory_limit("200M")
 
             def call_build_kfp_dag():
                 build_kfp_dag(
