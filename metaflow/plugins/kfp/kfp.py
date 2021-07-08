@@ -625,12 +625,10 @@ class KubeflowPipelines(object):
             )
             container_op.add_affinity(affinity)
             container_op.add_toleration(toleration)
-    
+
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
-    def _set_hardcoded_container_resources(
-        self, container_op: ContainerOp 
-    ):
+    def _set_hardcoded_container_resources(self, container_op: ContainerOp):
         container_op.container.set_cpu_request("0.1")
         container_op.container.set_cpu_limit("0.5")
         container_op.container.set_memory_request("10M")
@@ -795,9 +793,7 @@ class KubeflowPipelines(object):
         return func
 
     def _create_s3_sensor_op(
-        self,
-        s3_sensor_deco: FlowDecorator,
-        flow_parameters_json: str
+        self, s3_sensor_deco: FlowDecorator, flow_parameters_json: str
     ) -> ContainerOp:
         path = s3_sensor_deco.path
         timeout_seconds = s3_sensor_deco.timeout_seconds
@@ -1036,7 +1032,7 @@ class KubeflowPipelines(object):
             if s3_sensor_deco:
                 s3_sensor_op = self._create_s3_sensor_op(
                     s3_sensor_deco=s3_sensor_deco,
-                    flow_parameters_json=flow_parameters_json
+                    flow_parameters_json=flow_parameters_json,
                 )
 
             def call_build_kfp_dag():

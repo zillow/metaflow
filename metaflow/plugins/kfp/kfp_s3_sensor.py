@@ -6,6 +6,7 @@ This function is called within the s3_sensor_op running container.
 """
 import boto3
 
+
 def wait_for_s3_path(
     path: str,
     timeout_seconds: int,
@@ -24,8 +25,10 @@ def wait_for_s3_path(
 
     flow_parameters = json.loads(flow_parameters_json)
     path_formatter_code = marshal.loads(base64.b64decode(path_formatter_code_encoded))
+
     def path_formatter(key: str, flow_parameters: dict) -> str:
         pass
+
     path_formatter.__code__ = path_formatter_code
     path = path_formatter(path, flow_parameters)
     # default variable substitution
