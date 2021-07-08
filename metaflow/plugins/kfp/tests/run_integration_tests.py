@@ -75,7 +75,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     main_config_cmds = (
         f"--wait-for-completion --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-        f"--file_name {file_name} --env {pytestconfig.getoption('env')}"
+        f"--file_name {file_name} --env {pytestconfig.getoption('env')} "
     )
     upload_to_s3_flow_cmd += main_config_cmds
     s3_sensor_flow_cmd += main_config_cmds
@@ -86,9 +86,6 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         )
         upload_to_s3_flow_cmd += image_cmds
         s3_sensor_flow_cmd += image_cmds
-
-    print("upload_to_s3_flow_cmd: ", upload_to_s3_flow_cmd)
-    print("s3_sensor_flow_cmd: ", s3_sensor_flow_cmd)
 
     run_and_wait_process = run(
         s3_sensor_flow_cmd,
