@@ -65,7 +65,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 
 def test_s3_sensor_flow(pytestconfig) -> None:
-    # ensure the s3_sensor needs to wait for some time before the key exists
+    # ensure the s3_sensor waits for some time before the key exists
     random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
     file_name = f"{random_string}.txt"
 
