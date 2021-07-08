@@ -59,45 +59,44 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
         and not "raise_error_flow" in file_name
         and not "accelerator_flow" in file_name
         and not "s3_sensor_flow" in file_name
+        and not "upload_to_s3_flow" in file_name
     ]
     return file_paths
 
 
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor needs to wait for some time before the key exists
-    time.sleep(30)
     random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
     file_name = f"{random_string}.txt"
-    # create a local file
-    run(
-        f"touch {file_name}",
-        universal_newlines=True,
-        stdout=PIPE,
-        shell=True
-    )
 
-    print("File name: ", file_name)
+    upload_to_s3_flow_cmd = f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run "
 
-    s3 = boto3.resource('s3')
-    s3.meta.client.upload_file(
-        f"./{file_name}", 
-        "serve-datalake-zillowgroup",
-        f"zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing/{file_name}"
-    )
-
-    test_cmd = (
-        f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run "
+    main_config_cmds = (
         f"--wait-for-completion --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+        f"--file_name {file_name} --env {pytestconfig.getoption('env')}"
     )
+    upload_to_s3_flow_cmd += main_config_cmds
+    s3_sensor_flow_cmd += main_config_cmds
+
     if pytestconfig.getoption("image"):
-        test_cmd += (
+        image_cmds = (
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
-            f"--file_name {file_name}"
         )
+        upload_to_s3_flow_cmd += image_cmds
+        s3_sensor_flow_cmd += image_cmds
 
     run_and_wait_process = run(
-        test_cmd,
+        s3_sensor_flow_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+    # force s3_sensor to wait for file to arrive to do a real test
+    time.sleep(30)
+    run_and_wait_process = run(
+        upload_to_s3_flow_cmd,
         universal_newlines=True,
         stdout=PIPE,
         shell=True,
