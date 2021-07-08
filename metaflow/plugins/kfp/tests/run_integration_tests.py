@@ -87,6 +87,9 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         upload_to_s3_flow_cmd += image_cmds
         s3_sensor_flow_cmd += image_cmds
 
+    print("upload_to_s3_flow_cmd: ", upload_to_s3_flow_cmd)
+    print("s3_sensor_flow_cmd: ", s3_sensor_flow_cmd)
+
     run_and_wait_process = run(
         s3_sensor_flow_cmd,
         universal_newlines=True,

@@ -31,7 +31,7 @@ class UploadToS3Flow(FlowSpec):
             "serve-datalake-zillowgroup",
             f"zillow/workflow_sdk/metaflow_28d/{self.env}/aip-integration-testing/{self.file_name}"
         )
-
+        self.next(self.end)
     @step
     def end(self):
         print("S3SensorFlow is all done.")
