@@ -65,17 +65,17 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 
 def test_s3_sensor_flow(pytestconfig) -> None:
-    # ensure the s3_sensor needs to wait for some time before the key exists
+    # ensure the s3_sensor waits for some time before the key exists
     random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
     file_name = f"{random_string}.txt"
 
     upload_to_s3_flow_cmd = f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
-    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run "
+    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
 
     main_config_cmds = (
-        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-        f"--file_name {file_name} --env {pytestconfig.getoption('env')}"
+        f"--file_name {file_name} --env {pytestconfig.getoption('env')} "
     )
     upload_to_s3_flow_cmd += main_config_cmds
     s3_sensor_flow_cmd += main_config_cmds
@@ -87,45 +87,47 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         upload_to_s3_flow_cmd += image_cmds
         s3_sensor_flow_cmd += image_cmds
 
-    run_and_wait_process = run(
-        s3_sensor_flow_cmd,
-        universal_newlines=True,
-        stdout=PIPE,
-        shell=True,
-    )
-    # force s3_sensor to wait for file to arrive to do a real test
-    time.sleep(30)
-    run_and_wait_process = run(
+    upload_file_run_and_wait_process = run(
         upload_to_s3_flow_cmd,
         universal_newlines=True,
         stdout=PIPE,
         shell=True,
     )
+    s3_sensor_run_and_wait_process = run(
+        s3_sensor_flow_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+
+    assert s3_sensor_run_and_wait_process.returncode == 0
+
+    return
 
 
 # this test ensures the integration tests fail correctly
-# def test_raise_failure_flow(pytestconfig) -> None:
-#     test_cmd = (
-#         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
+def test_raise_failure_flow(pytestconfig) -> None:
+    test_cmd = (
+        f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
 
-#     run_and_wait_process = run(
-#         test_cmd,
-#         universal_newlines=True,
-#         stdout=PIPE,
-#         shell=True,
-#     )
-#     # this ensures the integration testing framework correctly catches a failing flow
-#     # and reports the error
-#     assert run_and_wait_process.returncode == 1
+    run_and_wait_process = run(
+        test_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+    # this ensures the integration testing framework correctly catches a failing flow
+    # and reports the error
+    assert run_and_wait_process.returncode == 1
 
-#     return
+    return
 
 
 def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
@@ -150,78 +152,78 @@ def is_nvidia_accelerator_noschedule(toleration: Dict) -> bool:
     return False
 
 
-# def test_compile_only_accelerator_test() -> None:
-#     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
-#         yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
+def test_compile_only_accelerator_test() -> None:
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
 
-#         compile_to_yaml_cmd = (
-#             f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
-#             f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
-#         )
+        compile_to_yaml_cmd = (
+            f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
+            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
+        )
 
-#         compile_to_yaml_process = run(
-#             compile_to_yaml_cmd,
-#             universal_newlines=True,
-#             stdout=PIPE,
-#             shell=True,
-#         )
-#         assert compile_to_yaml_process.returncode == 0
+        compile_to_yaml_process = run(
+            compile_to_yaml_cmd,
+            universal_newlines=True,
+            stdout=PIPE,
+            shell=True,
+        )
+        assert compile_to_yaml_process.returncode == 0
 
-#         with open(f"{yaml_file_path}", "r") as stream:
-#             try:
-#                 flow_yaml = yaml.safe_load(stream)
-#             except yaml.YAMLError as exc:
-#                 print(exc)
+        with open(f"{yaml_file_path}", "r") as stream:
+            try:
+                flow_yaml = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
 
-#         for step in flow_yaml["spec"]["templates"]:
-#             if step["name"] == "start":
-#                 start_step = step
-#                 break
+        for step in flow_yaml["spec"]["templates"]:
+            if step["name"] == "start":
+                start_step = step
+                break
 
-#     affinity_found = False
-#     for node_selector_term in start_step["affinity"]["nodeAffinity"][
-#         "requiredDuringSchedulingIgnoredDuringExecution"
-#     ]["nodeSelectorTerms"]:
-#         if exists_nvidia_accelerator(node_selector_term):
-#             affinity_found = True
-#             break
-#     assert affinity_found
+    affinity_found = False
+    for node_selector_term in start_step["affinity"]["nodeAffinity"][
+        "requiredDuringSchedulingIgnoredDuringExecution"
+    ]["nodeSelectorTerms"]:
+        if exists_nvidia_accelerator(node_selector_term):
+            affinity_found = True
+            break
+    assert affinity_found
 
-#     toleration_found = False
-#     for toleration in start_step["tolerations"]:
-#         if is_nvidia_accelerator_noschedule(toleration):
-#             toleration_found = True
-#             break
-#     assert toleration_found
+    toleration_found = False
+    for toleration in start_step["tolerations"]:
+        if is_nvidia_accelerator_noschedule(toleration):
+            toleration_found = True
+            break
+    assert toleration_found
 
 
-# @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
-# def test_flows(pytestconfig, flow_file_path: str) -> None:
-#     full_path = join("flows", flow_file_path)
-#     # In the process below, stdout=PIPE because we only want to capture stdout.
-#     # The reason is that the click echo function prints to stderr, and contains
-#     # the main logs (run link, graph validation, package uploading, etc). We
-#     # want to ensure these logs are visible to users and not captured.
-#     # We use the print function in kfp_cli.py to print a magic token containing the
-#     # run id and capture this to correctly test logging. See the
-#     # `check_valid_logs_process` process.
+@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+def test_flows(pytestconfig, flow_file_path: str) -> None:
+    full_path = join("flows", flow_file_path)
+    # In the process below, stdout=PIPE because we only want to capture stdout.
+    # The reason is that the click echo function prints to stderr, and contains
+    # the main logs (run link, graph validation, package uploading, etc). We
+    # want to ensure these logs are visible to users and not captured.
+    # We use the print function in kfp_cli.py to print a magic token containing the
+    # run id and capture this to correctly test logging. See the
+    # `check_valid_logs_process` process.
 
-#     test_cmd = (
-#         f"{_python()} {full_path} --datastore=s3 kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
+    test_cmd = (
+        f"{_python()} {full_path} --datastore=s3 kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
 
-#     run_and_wait_process = run(
-#         test_cmd,
-#         universal_newlines=True,
-#         stdout=PIPE,
-#         shell=True,
-#     )
-#     assert run_and_wait_process.returncode == 0
+    run_and_wait_process = run(
+        test_cmd,
+        universal_newlines=True,
+        stdout=PIPE,
+        shell=True,
+    )
+    assert run_and_wait_process.returncode == 0
 
-#     return
+    return

@@ -28,18 +28,14 @@ def wait_for_s3_path(
         pass
     path_formatter.__code__ = path_formatter_code
     path = path_formatter(path, flow_parameters)
-    print("path: ", path)
     # default variable substitution
     path = path.format(**flow_parameters)
-    print("path: ", path)
     parsed_path = urlparse(path)
     bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
-    print(bucket, key)
 
     s3 = boto3.client("s3")
     start_time = time.time()
     while True:
-        print("Entered here!")
         try:
             s3.head_object(Bucket=bucket, Key=key)
         except botocore.exceptions.ClientError as e:
