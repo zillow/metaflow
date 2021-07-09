@@ -18,6 +18,12 @@ class AcceleratorFlow(FlowSpec):
         print("This step simulates usage of a nvidia-tesla-v100 GPU.")
         self.next(self.end)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def end(self):
         print("All done.")

@@ -2,11 +2,17 @@ import os
 import signal
 import time
 
-from metaflow import FlowSpec, step, retry, catch, timeout, current
+from metaflow import FlowSpec, step, retry, catch, timeout, current, resources
 from metaflow.exception import MetaflowExceptionWrapper
 
 
 class FailureFlow(FlowSpec):
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @retry
     @step
     def start(self):
@@ -17,6 +23,12 @@ class FailureFlow(FlowSpec):
             print("let's succeed")
         self.next(self.no_retry)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @retry(times=0)
     @step
     def no_retry(self):
@@ -25,6 +37,12 @@ class FailureFlow(FlowSpec):
         assert self.retry_count == 1
         self.next(self.compute)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @catch(var="compute_failed")
     @retry(times=0)
     @step
@@ -32,6 +50,12 @@ class FailureFlow(FlowSpec):
         self.x = 1 / 0
         self.next(self.platform_exception)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @catch(var="platform_exception_failed")
     @retry(times=1)
     @step
@@ -42,7 +66,13 @@ class FailureFlow(FlowSpec):
         # kill this process with the KILL signal
         os.kill(os.getpid(), signal.SIGKILL)
         self.next(self.timeout)
-
+    
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @catch(print_exception=False, var="timeout_exception")
     @timeout(seconds=3)
     @step
@@ -66,6 +96,12 @@ class FailureFlow(FlowSpec):
             time.sleep(1)
         self.next(self.end)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def end(self):
         assert (
