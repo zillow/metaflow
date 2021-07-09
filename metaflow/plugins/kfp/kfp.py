@@ -591,7 +591,7 @@ class KubeflowPipelines(object):
                 mode=mode,
             )
             container_op.add_pvolumes({volume_dir: volume})
-            
+
         if kfp_component.accelerator_decorator:
             accelerator_type: str = kfp_component.accelerator_decorator.attributes[
                 "type"

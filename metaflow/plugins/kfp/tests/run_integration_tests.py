@@ -49,7 +49,12 @@ def _python():
         return "python"
 
 
-non_standard_test_flows = ["raise_error_flow.py", "accelerator_flow.py", "s3_sensor_flow.py", "upload_to_s3_flow.py"]
+non_standard_test_flows = [
+    "raise_error_flow.py",
+    "accelerator_flow.py",
+    "s3_sensor_flow.py",
+    "upload_to_s3_flow.py",
+]
 
 
 def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
@@ -67,7 +72,9 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
     file_name = f"{uuid.uuid1()}.txt"
 
-    upload_to_s3_flow_cmd = f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+    upload_to_s3_flow_cmd = (
+        f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+    )
     s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
 
     main_config_cmds = (

@@ -28,13 +28,12 @@ Example usage:
 
     If FLOW_ID is a parameter you've passed to your flow, the substitution
     of FLOW_ID in the `path` variable is automatically done for you if you
-    # specify the variable in braces ({}) (e.g. {FLOW_ID})
+    specify the variable in braces ({}) (e.g. {FLOW_ID}).
 
     @s3_sensor(
         path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{FLOW_ID}",
         timeout_seconds=3600, # 1 hour
         polling_interval_seconds=90,
-        path_formatter=formatter
     )
     class S3SensorFlow(FlowSpec):    
         ...
