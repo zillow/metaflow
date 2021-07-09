@@ -141,7 +141,7 @@ class ResourcesFlow(FlowSpec):
         cpu_limit="0.5",
         memory="10M",
         memory_limit="500M",
-        volume="1G"
+        volume="11G"
     )
     @step
     def split_step(self):
@@ -156,14 +156,14 @@ class ResourcesFlow(FlowSpec):
         cpu_limit="0.5",
         memory="10M",
         memory_limit="500M",
-        volume="2G"
+        volume="12G"
     )
     @step
     def join_step(self, inputs):
         output = subprocess.check_output(
             "df -h | grep /opt/metaflow_volume", shell=True
         )
-        assert "2G" in str(output)
+        assert "12G" in str(output)
 
         self.next(self.end)
 
