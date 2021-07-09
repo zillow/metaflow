@@ -26,28 +26,33 @@ a workflow only begins after a key in S3 has been written to.
 
 Example usage:
 
-    def formatter(path: str, flow_parameters: dict) -> str:
-        return path.replace("FLOW_ID", flow_parameters["FLOW_ID"])
+    If FLOW_ID is a parameter you've passed to your flow, the substitution
+    of FLOW_ID in the `path` variable is automatically done for you if you
+    # specify the variable in braces ({}) (e.g. {FLOW_ID})
 
     @s3_sensor(
-        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/$date/61/FLOW_ID",
+        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{FLOW_ID}",
         timeout_seconds=3600, # 1 hour
         polling_interval_seconds=90,
         path_formatter=formatter
     )
     class S3SensorFlow(FlowSpec):    
-        @step
-        def start(self):
-            print("S3SensorFlow is starting.")
-            self.next(self.hello)
+        ...
 
-        @step
-        def hello(self):
-            self.next(self.end)
+    If you want to format FLOW_ID (or any other variable in flow_parameters), you
+    can do so with a separate `path_formatter` function:
 
-        @step
-        def end(self):
-            print("S3SensorFlow is all done.")
+    def formatter(path: str, flow_parameters: dict) -> str:
+        return path.format(FLOW_ID, my_parse_func(flow_parameters["FLOW_ID"]))
+
+    @s3_sensor(
+        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{FLOW_ID}",
+        timeout_seconds=3600, # 1 hour
+        polling_interval_seconds=90,
+        path_formatter=formatter
+    )
+    class S3SensorFlow(FlowSpec):    
+        ...
 """
 
 
@@ -71,7 +76,11 @@ class S3SensorDecorator(FlowDecorator):
 
         parsed_path = urlparse(self.path)
         if not parsed_path.scheme:
-            raise MetaflowException("Please provide a valid S3 path.")
+            raise MetaflowException("Your S3 path must be prefixed by s3://")
+
+        bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
+        if not bucket or not key:
+            raise MetaflowException("Your S3 path must have a nonempty bucket and key.")
 
         if not isinstance(self.path_formatter, FunctionType):
             raise MetaflowException("path_formatter must be a function.")

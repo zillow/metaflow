@@ -16,8 +16,7 @@ import tempfile
 
 import time
 
-import random
-import string
+import uuid
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -50,24 +49,23 @@ def _python():
         return "python"
 
 
+non_standard_test_flows = ["raise_error_flow.py", "accelerator_flow.py", "s3_sensor_flow.py", "upload_to_s3_flow.py"]
+
+
 def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     file_paths = [
         file_name
         for file_name in listdir(flow_dir_path)
         if isfile(join(flow_dir_path, file_name))
         and not file_name.startswith(".")
-        and not "raise_error_flow" in file_name
-        and not "accelerator_flow" in file_name
-        and not "s3_sensor_flow" in file_name
-        and not "upload_to_s3_flow" in file_name
+        and not file_name in non_standard_test_flows
     ]
     return file_paths
 
 
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
-    random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
-    file_name = f"{random_string}.txt"
+    file_name = f"{uuid.uuid1()}.txt"
 
     upload_to_s3_flow_cmd = f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
     s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
