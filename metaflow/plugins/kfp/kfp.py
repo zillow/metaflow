@@ -591,6 +591,7 @@ class KubeflowPipelines(object):
                 mode=mode,
             )
             container_op.add_pvolumes({volume_dir: volume})
+            
         if kfp_component.accelerator_decorator:
             accelerator_type: str = kfp_component.accelerator_decorator.attributes[
                 "type"
@@ -628,7 +629,8 @@ class KubeflowPipelines(object):
 
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
-    def _set_hardcoded_container_resources(self, container_op: ContainerOp):
+    @staticmethod
+    def _set_minimal_container_resources(container_op: ContainerOp):
         container_op.container.set_cpu_request("0.1")
         container_op.container.set_cpu_limit("0.5")
         container_op.container.set_memory_request("10M")
@@ -813,7 +815,7 @@ class KubeflowPipelines(object):
 
         s3_sensor_op = func_to_container_op(
             wait_for_s3_path,
-            base_image="hsezhiyan/s3_sensor:1.0",
+            base_image="hsezhiyan/metaflow-zillow:2.0",
         )(
             path=path,
             timeout_seconds=timeout_seconds,
@@ -823,7 +825,7 @@ class KubeflowPipelines(object):
         ).set_display_name(
             "s3_sensor"
         )
-        self._set_hardcoded_container_resources(s3_sensor_op)
+        KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
         return s3_sensor_op
 
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
@@ -1025,7 +1027,7 @@ class KubeflowPipelines(object):
                 )(work_flow_name="{{workflow.name}}").set_display_name(
                     "get_workflow_uid"
                 )
-                self._set_hardcoded_container_resources(workflow_uid_op)
+                KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
 
             s3_sensor_op = None
             s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
