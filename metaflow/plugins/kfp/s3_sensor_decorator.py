@@ -27,10 +27,11 @@ a workflow only begins after a key in S3 has been written to.
 Example usage:
 
     If FLOW_ID is a parameter you've passed to your flow, the substitution
-    of FLOW_ID in the `path` variable is automatically done for you:
+    of FLOW_ID in the `path` variable is automatically done for you if you
+    # specify the variable in braces ({}) (e.g. {FLOW_ID})
 
     @s3_sensor(
-        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/$date/61/FLOW_ID",
+        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{FLOW_ID}",
         timeout_seconds=3600, # 1 hour
         polling_interval_seconds=90,
         path_formatter=formatter
@@ -45,7 +46,7 @@ Example usage:
         return path.format(FLOW_ID, my_parse_func(flow_parameters["FLOW_ID"]))
 
     @s3_sensor(
-        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/$date/61/FLOW_ID",
+        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{FLOW_ID}",
         timeout_seconds=3600, # 1 hour
         polling_interval_seconds=90,
         path_formatter=formatter

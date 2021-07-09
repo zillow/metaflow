@@ -9,7 +9,6 @@ of that file.
 """
 @s3_sensor(
     path="s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/{env}/aip-integration-testing/{file_name}",
-    #path="s3://aip-example-sandbox/metaflow/KfpFlow/data/de/dec9ee1662789e9ffbbdc5396922802d1fc177f5",
     timeout_seconds=600,
     polling_interval_seconds=5,
 )
@@ -21,13 +20,11 @@ class S3SensorFlow(FlowSpec):
     env = Parameter(
         "env"
     )
-    #@resources(volume="1G")
     @step
     def start(self):
         print("S3SensorFlow is starting.")
         self.next(self.end)
 
-    #@resources(volume="1G")
     @step
     def end(self):
         print("S3SensorFlow is all done.")
