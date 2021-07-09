@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, step, current, Step
+from metaflow import FlowSpec, step, current, Step, resources
 
 import os
 from random import random
@@ -7,6 +7,12 @@ from random import random
 class MetadataFlow(FlowSpec):
     start_message = "MetadataFlow is starting."
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def start(self):
         print(self.start_message)
@@ -14,6 +20,12 @@ class MetadataFlow(FlowSpec):
         print("self.x", self.x)
         self.next(self.end)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def end(self):
         start_step: Step = Step(f"{current.flow_name}/{current.run_id}/start")

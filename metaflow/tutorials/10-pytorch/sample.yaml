@@ -1,0 +1,1219 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: hellopytorch-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.0.1, pipelines.kubeflow.org/pipeline_compilation_time: '2021-01-07T22:35:48.884346',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "A Feed Forward Neural
+      Network trained with PyTorch", "inputs": [{"default": "s3://aip-example-dev/metaflow",
+      "name": "datastore_root", "optional": true, "type": "String"}, {"name": "flow_parameters_json",
+      "optional": true, "type": "String"}], "name": "HelloPyTorch"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.0.1}
+spec:
+  entrypoint: hellopytorch
+  templates:
+  - name: end
+    container:
+      args: [--datastore-root, '{{inputs.parameters.datastore_root}}', --cmd-template,
+        '(true && set -e && echo ''Setting up task environment.'' && python -m pip
+          install click requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir
+          .metaflow && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.'';
+          python -c "import boto3; exec(''try:\n from urlparse import urlparse\nexcept:\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint kfp step-init --run-id kfp-{{workflow.uid}}
+          --step_name end --passed_in_split_indexes {passed_in_split_indexes} --task_id
+          kfp4 && . /tmp/step-environment-variables.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          --with=kfp step end --run-id kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME
+          --max-user-code-retries 0 --input-paths $INPUT_PATHS_ENV_NAME --namespace
+          aip-example) > >(tee -a 0.stdout.log) 2> >(tee -a 0.stderr.log >&2); export
+          exit_code_1=$?; . /tmp/step-environment-variables.sh && python -c "import
+          boto3; exec(''try:\n from urlparse import urlparse\nexcept:\n from urllib.parse
+          import urlparse'');parsed = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/end/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))"
+          && . /tmp/step-environment-variables.sh && python -c "import boto3; exec(''try:\n
+          from urlparse import urlparse\nexcept:\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/end/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))";
+          export exit_code_2=$?; if [ "$exit_code_1" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi', --kfp-run-id, 'kfp-{{workflow.uid}}', --passed-in-split-indexes,
+        '""', --preceding-component-inputs, '[]', --preceding-component-outputs, '[]',
+        '----output-paths', /tmp/outputs/foreach_splits/data]
+      command:
+      - python3
+      - -u
+      - -c
+      - |
+        def kfp_step_function(
+            datastore_root,
+            cmd_template,
+            kfp_run_id,
+            passed_in_split_indexes = '""',  # only if is_inside_foreach
+            preceding_component_inputs = None,  # fields to return from Flow state to KFP
+            preceding_component_outputs = None,  # fields to be pushed into Flow state from KFP
+            metaflow_service_url = "",
+            flow_parameters_json = None,  # json formatted string
+            **kwargs,
+        ):
+            """
+            Renders and runs the cmd_template containing Metaflow step/init commands to
+            run within the container.
+
+            Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
+            """
+            import os
+            import json
+            import logging
+            from subprocess import Popen
+            from collections import namedtuple
+            from typing import Dict
+
+            if preceding_component_inputs is None:
+                preceding_component_inputs = []
+            if preceding_component_outputs is None:
+                preceding_component_outputs = []
+
+            # expose passed KFP passed in arguments as environment variables to
+            # the bash command
+            preceding_component_outputs_env: Dict[str, str] = {
+                field: kwargs[field] for field in preceding_component_outputs
+            }
+
+            cmd = cmd_template.format(
+                run_id=kfp_run_id,
+                datastore_root=datastore_root,
+                passed_in_split_indexes=passed_in_split_indexes,
+            )
+
+            env = {
+                **os.environ,
+                "METAFLOW_DATASTORE_SYSROOT_S3": datastore_root,
+                "METAFLOW_SERVICE_URL": metaflow_service_url,
+                "PRECEDING_COMPONENT_INPUTS": json.dumps(preceding_component_inputs),
+                "PRECEDING_COMPONENT_OUTPUTS": json.dumps(preceding_component_outputs),
+                "METAFLOW_USER": "kfp-user",  # TODO: what should this be for a non-scheduled run?
+                **preceding_component_outputs_env,
+            }
+            if flow_parameters_json is not None:
+                env["METAFLOW_PARAMETERS"] = flow_parameters_json
+
+            # TODO: Map username to KFP specific user/profile/namespace
+            # Running Metaflow
+            # KFP orchestrator -> running MF runtime (runs user code, handles state)
+            with Popen(
+                cmd, shell=True, universal_newlines=True, executable="/bin/bash", env=env
+            ) as process:
+                pass
+
+            if process.returncode != 0:
+                logging.info(f"---- Following command returned: {process.returncode}")
+                logging.info(cmd.replace(" && ", "\n"))
+                logging.info("----")
+                raise Exception("Returned: %s" % process.returncode)
+
+            task_context_dict = {}
+            # File written by kfp_decorator.py:task_finished
+            KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
+            if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
+                with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
+                    task_context_dict = json.load(file)
+
+            # json serialize foreach_splits else, the NamedTuple gets serialized
+            # as string and we get the following error:
+            #   withParam value could not be parsed as a JSON list: ['0', '1']
+            values = [json.dumps(task_context_dict.get("foreach_splits", []))]
+
+            # read fields to return from Flow state to KFP
+            preceding_component_inputs_dict = {}
+            if len(preceding_component_inputs) > 0:
+                preceding_component_inputs_PATH = "/tmp/preceding_component_inputs.json"
+                with open(preceding_component_inputs_PATH, "r") as file:
+                    preceding_component_inputs_dict = json.load(file)
+                    values += list(preceding_component_inputs_dict.values())
+
+            ret = namedtuple(
+                "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
+            )(*values)
+            return ret
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Kfp step function', description='Renders and runs the cmd_template containing Metaflow step/init commands to')
+        _parser.add_argument("--datastore-root", dest="datastore_root", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--cmd-template", dest="cmd_template", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--kfp-run-id", dest="kfp_run_id", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--passed-in-split-indexes", dest="passed_in_split_indexes", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-inputs", dest="preceding_component_inputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-outputs", dest="preceding_component_outputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--metaflow-service-url", dest="metaflow_service_url", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--flow-parameters-json", dest="flow_parameters_json", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = kfp_step_function(**_parsed_args)
+
+        _output_serializers = [
+            str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: hsezhiyan/metaflow-zillow:2.0
+      resources:
+        limits: {nvidia.com/gpu: '1'}
+    inputs:
+      parameters:
+      - {name: datastore_root}
+    outputs:
+      artifacts:
+      - {name: end-foreach_splits, path: /tmp/outputs/foreach_splits/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Renders
+          and runs the cmd_template containing Metaflow step/init commands to", "implementation":
+          {"container": {"args": ["--datastore-root", {"inputValue": "datastore_root"},
+          "--cmd-template", {"inputValue": "cmd_template"}, "--kfp-run-id", {"inputValue":
+          "kfp_run_id"}, {"if": {"cond": {"isPresent": "passed_in_split_indexes"},
+          "then": ["--passed-in-split-indexes", {"inputValue": "passed_in_split_indexes"}]}},
+          {"if": {"cond": {"isPresent": "preceding_component_inputs"}, "then": ["--preceding-component-inputs",
+          {"inputValue": "preceding_component_inputs"}]}}, {"if": {"cond": {"isPresent":
+          "preceding_component_outputs"}, "then": ["--preceding-component-outputs",
+          {"inputValue": "preceding_component_outputs"}]}}, {"if": {"cond": {"isPresent":
+          "metaflow_service_url"}, "then": ["--metaflow-service-url", {"inputValue":
+          "metaflow_service_url"}]}}, {"if": {"cond": {"isPresent": "flow_parameters_json"},
+          "then": ["--flow-parameters-json", {"inputValue": "flow_parameters_json"}]}},
+          "----output-paths", {"outputPath": "foreach_splits"}], "command": ["python3",
+          "-u", "-c", "def kfp_step_function(\n    datastore_root,\n    cmd_template,\n    kfp_run_id,\n    passed_in_split_indexes
+          = ''\"\"'',  # only if is_inside_foreach\n    preceding_component_inputs
+          = None,  # fields to return from Flow state to KFP\n    preceding_component_outputs
+          = None,  # fields to be pushed into Flow state from KFP\n    metaflow_service_url
+          = \"\",\n    flow_parameters_json = None,  # json formatted string\n    **kwargs,\n):\n    \"\"\"\n    Renders
+          and runs the cmd_template containing Metaflow step/init commands to\n    run
+          within the container.\n\n    Returns: namedtuple([\"foreach_splits\"] +
+          preceding_component_inputs)\n    \"\"\"\n    import os\n    import json\n    import
+          logging\n    from subprocess import Popen\n    from collections import namedtuple\n    from
+          typing import Dict\n\n    if preceding_component_inputs is None:\n        preceding_component_inputs
+          = []\n    if preceding_component_outputs is None:\n        preceding_component_outputs
+          = []\n\n    # expose passed KFP passed in arguments as environment variables
+          to\n    # the bash command\n    preceding_component_outputs_env: Dict[str,
+          str] = {\n        field: kwargs[field] for field in preceding_component_outputs\n    }\n\n    cmd
+          = cmd_template.format(\n        run_id=kfp_run_id,\n        datastore_root=datastore_root,\n        passed_in_split_indexes=passed_in_split_indexes,\n    )\n\n    env
+          = {\n        **os.environ,\n        \"METAFLOW_DATASTORE_SYSROOT_S3\": datastore_root,\n        \"METAFLOW_SERVICE_URL\":
+          metaflow_service_url,\n        \"PRECEDING_COMPONENT_INPUTS\": json.dumps(preceding_component_inputs),\n        \"PRECEDING_COMPONENT_OUTPUTS\":
+          json.dumps(preceding_component_outputs),\n        \"METAFLOW_USER\": \"kfp-user\",  #
+          TODO: what should this be for a non-scheduled run?\n        **preceding_component_outputs_env,\n    }\n    if
+          flow_parameters_json is not None:\n        env[\"METAFLOW_PARAMETERS\"]
+          = flow_parameters_json\n\n    # TODO: Map username to KFP specific user/profile/namespace\n    #
+          Running Metaflow\n    # KFP orchestrator -> running MF runtime (runs user
+          code, handles state)\n    with Popen(\n        cmd, shell=True, universal_newlines=True,
+          executable=\"/bin/bash\", env=env\n    ) as process:\n        pass\n\n    if
+          process.returncode != 0:\n        logging.info(f\"---- Following command
+          returned: {process.returncode}\")\n        logging.info(cmd.replace(\" &&
+          \", \"\\n\"))\n        logging.info(\"----\")\n        raise Exception(\"Returned:
+          %s\" % process.returncode)\n\n    task_context_dict = {}\n    # File written
+          by kfp_decorator.py:task_finished\n    KFP_METAFLOW_FOREACH_SPLITS_PATH
+          = \"/tmp/kfp_metaflow_foreach_splits_dict.json\"\n    if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  #
+          is a foreach step\n        with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, \"r\")
+          as file:\n            task_context_dict = json.load(file)\n\n    # json
+          serialize foreach_splits else, the NamedTuple gets serialized\n    # as
+          string and we get the following error:\n    #   withParam value could not
+          be parsed as a JSON list: [''0'', ''1'']\n    values = [json.dumps(task_context_dict.get(\"foreach_splits\",
+          []))]\n\n    # read fields to return from Flow state to KFP\n    preceding_component_inputs_dict
+          = {}\n    if len(preceding_component_inputs) > 0:\n        preceding_component_inputs_PATH
+          = \"/tmp/preceding_component_inputs.json\"\n        with open(preceding_component_inputs_PATH,
+          \"r\") as file:\n            preceding_component_inputs_dict = json.load(file)\n            values
+          += list(preceding_component_inputs_dict.values())\n\n    ret = namedtuple(\n        \"StepOpRet\",
+          [\"foreach_splits\"] + list(preceding_component_inputs_dict.keys())\n    )(*values)\n    return
+          ret\n\nimport json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Kfp
+          step function'', description=''Renders and runs the cmd_template containing
+          Metaflow step/init commands to'')\n_parser.add_argument(\"--datastore-root\",
+          dest=\"datastore_root\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--cmd-template\",
+          dest=\"cmd_template\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--kfp-run-id\",
+          dest=\"kfp_run_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--passed-in-split-indexes\",
+          dest=\"passed_in_split_indexes\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-inputs\",
+          dest=\"preceding_component_inputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-outputs\",
+          dest=\"preceding_component_outputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--metaflow-service-url\",
+          dest=\"metaflow_service_url\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--flow-parameters-json\",
+          dest=\"flow_parameters_json\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = kfp_step_function(**_parsed_args)\n\n_output_serializers
+          = [\n    str,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "hsezhiyan/metaflow-zillow:2.0"}}, "inputs": [{"name": "datastore_root",
+          "type": "String"}, {"name": "cmd_template", "type": "String"}, {"name":
+          "kfp_run_id", "type": "String"}, {"default": "\"\"", "name": "passed_in_split_indexes",
+          "optional": true, "type": "String"}, {"name": "preceding_component_inputs",
+          "optional": true, "type": "List"}, {"name": "preceding_component_outputs",
+          "optional": true, "type": "List"}, {"default": "", "name": "metaflow_service_url",
+          "optional": true, "type": "String"}, {"name": "flow_parameters_json", "optional":
+          true, "type": "String"}], "name": "end", "outputs": [{"name": "foreach_splits"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "570f41aa79b360594e648b449cdc01cf3ad541242fd597a24788deb803d320f8"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"cmd_template": "(true && set
+          -e && echo ''Setting up task environment.'' && python -m pip install click
+          requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir .metaflow
+          && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.''; python
+          -c \"import boto3; exec(''try:\\n from urlparse import urlparse\\nexcept:\\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')\" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint kfp step-init --run-id kfp-{{workflow.uid}}
+          --step_name end --passed_in_split_indexes {passed_in_split_indexes} --task_id
+          kfp4 && . /tmp/step-environment-variables.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          --with=kfp step end --run-id kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME
+          --max-user-code-retries 0 --input-paths $INPUT_PATHS_ENV_NAME --namespace
+          aip-example) > >(tee -a 0.stdout.log) 2> >(tee -a 0.stderr.log >&2); export
+          exit_code_1=$?; . /tmp/step-environment-variables.sh && python -c \"import
+          boto3; exec(''try:\\n from urlparse import urlparse\\nexcept:\\n from urllib.parse
+          import urlparse'');parsed = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/end/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))\"
+          && . /tmp/step-environment-variables.sh && python -c \"import boto3; exec(''try:\\n
+          from urlparse import urlparse\\nexcept:\\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/end/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))\";
+          export exit_code_2=$?; if [ \"$exit_code_1\" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi", "datastore_root": "{{inputs.parameters.datastore_root}}",
+          "kfp_run_id": "kfp-{{workflow.uid}}", "passed_in_split_indexes": "\"\"",
+          "preceding_component_inputs": "[]", "preceding_component_outputs": "[]"}'}
+  - name: evaluate
+    container:
+      args: [--datastore-root, '{{inputs.parameters.datastore_root}}', --cmd-template,
+        '(true && set -e && echo ''Setting up task environment.'' && python -m pip
+          install click requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir
+          .metaflow && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.'';
+          python -c "import boto3; exec(''try:\n from urlparse import urlparse\nexcept:\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint kfp step-init --run-id kfp-{{workflow.uid}}
+          --step_name evaluate --passed_in_split_indexes {passed_in_split_indexes}
+          --task_id kfp3 && . /tmp/step-environment-variables.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          --with=kfp step evaluate --run-id kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME
+          --max-user-code-retries 0 --input-paths $INPUT_PATHS_ENV_NAME --namespace
+          aip-example) > >(tee -a 0.stdout.log) 2> >(tee -a 0.stderr.log >&2); export
+          exit_code_1=$?; . /tmp/step-environment-variables.sh && python -c "import
+          boto3; exec(''try:\n from urlparse import urlparse\nexcept:\n from urllib.parse
+          import urlparse'');parsed = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/evaluate/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))"
+          && . /tmp/step-environment-variables.sh && python -c "import boto3; exec(''try:\n
+          from urlparse import urlparse\nexcept:\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/evaluate/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))";
+          export exit_code_2=$?; if [ "$exit_code_1" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi', --kfp-run-id, 'kfp-{{workflow.uid}}', --passed-in-split-indexes,
+        '""', --preceding-component-inputs, '[]', --preceding-component-outputs, '[]',
+        '----output-paths', /tmp/outputs/foreach_splits/data]
+      command:
+      - python3
+      - -u
+      - -c
+      - |
+        def kfp_step_function(
+            datastore_root,
+            cmd_template,
+            kfp_run_id,
+            passed_in_split_indexes = '""',  # only if is_inside_foreach
+            preceding_component_inputs = None,  # fields to return from Flow state to KFP
+            preceding_component_outputs = None,  # fields to be pushed into Flow state from KFP
+            metaflow_service_url = "",
+            flow_parameters_json = None,  # json formatted string
+            **kwargs,
+        ):
+            """
+            Renders and runs the cmd_template containing Metaflow step/init commands to
+            run within the container.
+
+            Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
+            """
+            import os
+            import json
+            import logging
+            from subprocess import Popen
+            from collections import namedtuple
+            from typing import Dict
+
+            if preceding_component_inputs is None:
+                preceding_component_inputs = []
+            if preceding_component_outputs is None:
+                preceding_component_outputs = []
+
+            # expose passed KFP passed in arguments as environment variables to
+            # the bash command
+            preceding_component_outputs_env: Dict[str, str] = {
+                field: kwargs[field] for field in preceding_component_outputs
+            }
+
+            cmd = cmd_template.format(
+                run_id=kfp_run_id,
+                datastore_root=datastore_root,
+                passed_in_split_indexes=passed_in_split_indexes,
+            )
+
+            env = {
+                **os.environ,
+                "METAFLOW_DATASTORE_SYSROOT_S3": datastore_root,
+                "METAFLOW_SERVICE_URL": metaflow_service_url,
+                "PRECEDING_COMPONENT_INPUTS": json.dumps(preceding_component_inputs),
+                "PRECEDING_COMPONENT_OUTPUTS": json.dumps(preceding_component_outputs),
+                "METAFLOW_USER": "kfp-user",  # TODO: what should this be for a non-scheduled run?
+                **preceding_component_outputs_env,
+            }
+            if flow_parameters_json is not None:
+                env["METAFLOW_PARAMETERS"] = flow_parameters_json
+
+            # TODO: Map username to KFP specific user/profile/namespace
+            # Running Metaflow
+            # KFP orchestrator -> running MF runtime (runs user code, handles state)
+            with Popen(
+                cmd, shell=True, universal_newlines=True, executable="/bin/bash", env=env
+            ) as process:
+                pass
+
+            if process.returncode != 0:
+                logging.info(f"---- Following command returned: {process.returncode}")
+                logging.info(cmd.replace(" && ", "\n"))
+                logging.info("----")
+                raise Exception("Returned: %s" % process.returncode)
+
+            task_context_dict = {}
+            # File written by kfp_decorator.py:task_finished
+            KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
+            if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
+                with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
+                    task_context_dict = json.load(file)
+
+            # json serialize foreach_splits else, the NamedTuple gets serialized
+            # as string and we get the following error:
+            #   withParam value could not be parsed as a JSON list: ['0', '1']
+            values = [json.dumps(task_context_dict.get("foreach_splits", []))]
+
+            # read fields to return from Flow state to KFP
+            preceding_component_inputs_dict = {}
+            if len(preceding_component_inputs) > 0:
+                preceding_component_inputs_PATH = "/tmp/preceding_component_inputs.json"
+                with open(preceding_component_inputs_PATH, "r") as file:
+                    preceding_component_inputs_dict = json.load(file)
+                    values += list(preceding_component_inputs_dict.values())
+
+            ret = namedtuple(
+                "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
+            )(*values)
+            return ret
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Kfp step function', description='Renders and runs the cmd_template containing Metaflow step/init commands to')
+        _parser.add_argument("--datastore-root", dest="datastore_root", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--cmd-template", dest="cmd_template", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--kfp-run-id", dest="kfp_run_id", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--passed-in-split-indexes", dest="passed_in_split_indexes", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-inputs", dest="preceding_component_inputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-outputs", dest="preceding_component_outputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--metaflow-service-url", dest="metaflow_service_url", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--flow-parameters-json", dest="flow_parameters_json", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = kfp_step_function(**_parsed_args)
+
+        _output_serializers = [
+            str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: hsezhiyan/metaflow-zillow:2.0
+      resources:
+        limits: {memory: 5G, cpu: '2'}
+        requests: {memory: 1G, cpu: '1'}
+    inputs:
+      parameters:
+      - {name: datastore_root}
+    outputs:
+      artifacts:
+      - {name: evaluate-foreach_splits, path: /tmp/outputs/foreach_splits/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Renders
+          and runs the cmd_template containing Metaflow step/init commands to", "implementation":
+          {"container": {"args": ["--datastore-root", {"inputValue": "datastore_root"},
+          "--cmd-template", {"inputValue": "cmd_template"}, "--kfp-run-id", {"inputValue":
+          "kfp_run_id"}, {"if": {"cond": {"isPresent": "passed_in_split_indexes"},
+          "then": ["--passed-in-split-indexes", {"inputValue": "passed_in_split_indexes"}]}},
+          {"if": {"cond": {"isPresent": "preceding_component_inputs"}, "then": ["--preceding-component-inputs",
+          {"inputValue": "preceding_component_inputs"}]}}, {"if": {"cond": {"isPresent":
+          "preceding_component_outputs"}, "then": ["--preceding-component-outputs",
+          {"inputValue": "preceding_component_outputs"}]}}, {"if": {"cond": {"isPresent":
+          "metaflow_service_url"}, "then": ["--metaflow-service-url", {"inputValue":
+          "metaflow_service_url"}]}}, {"if": {"cond": {"isPresent": "flow_parameters_json"},
+          "then": ["--flow-parameters-json", {"inputValue": "flow_parameters_json"}]}},
+          "----output-paths", {"outputPath": "foreach_splits"}], "command": ["python3",
+          "-u", "-c", "def kfp_step_function(\n    datastore_root,\n    cmd_template,\n    kfp_run_id,\n    passed_in_split_indexes
+          = ''\"\"'',  # only if is_inside_foreach\n    preceding_component_inputs
+          = None,  # fields to return from Flow state to KFP\n    preceding_component_outputs
+          = None,  # fields to be pushed into Flow state from KFP\n    metaflow_service_url
+          = \"\",\n    flow_parameters_json = None,  # json formatted string\n    **kwargs,\n):\n    \"\"\"\n    Renders
+          and runs the cmd_template containing Metaflow step/init commands to\n    run
+          within the container.\n\n    Returns: namedtuple([\"foreach_splits\"] +
+          preceding_component_inputs)\n    \"\"\"\n    import os\n    import json\n    import
+          logging\n    from subprocess import Popen\n    from collections import namedtuple\n    from
+          typing import Dict\n\n    if preceding_component_inputs is None:\n        preceding_component_inputs
+          = []\n    if preceding_component_outputs is None:\n        preceding_component_outputs
+          = []\n\n    # expose passed KFP passed in arguments as environment variables
+          to\n    # the bash command\n    preceding_component_outputs_env: Dict[str,
+          str] = {\n        field: kwargs[field] for field in preceding_component_outputs\n    }\n\n    cmd
+          = cmd_template.format(\n        run_id=kfp_run_id,\n        datastore_root=datastore_root,\n        passed_in_split_indexes=passed_in_split_indexes,\n    )\n\n    env
+          = {\n        **os.environ,\n        \"METAFLOW_DATASTORE_SYSROOT_S3\": datastore_root,\n        \"METAFLOW_SERVICE_URL\":
+          metaflow_service_url,\n        \"PRECEDING_COMPONENT_INPUTS\": json.dumps(preceding_component_inputs),\n        \"PRECEDING_COMPONENT_OUTPUTS\":
+          json.dumps(preceding_component_outputs),\n        \"METAFLOW_USER\": \"kfp-user\",  #
+          TODO: what should this be for a non-scheduled run?\n        **preceding_component_outputs_env,\n    }\n    if
+          flow_parameters_json is not None:\n        env[\"METAFLOW_PARAMETERS\"]
+          = flow_parameters_json\n\n    # TODO: Map username to KFP specific user/profile/namespace\n    #
+          Running Metaflow\n    # KFP orchestrator -> running MF runtime (runs user
+          code, handles state)\n    with Popen(\n        cmd, shell=True, universal_newlines=True,
+          executable=\"/bin/bash\", env=env\n    ) as process:\n        pass\n\n    if
+          process.returncode != 0:\n        logging.info(f\"---- Following command
+          returned: {process.returncode}\")\n        logging.info(cmd.replace(\" &&
+          \", \"\\n\"))\n        logging.info(\"----\")\n        raise Exception(\"Returned:
+          %s\" % process.returncode)\n\n    task_context_dict = {}\n    # File written
+          by kfp_decorator.py:task_finished\n    KFP_METAFLOW_FOREACH_SPLITS_PATH
+          = \"/tmp/kfp_metaflow_foreach_splits_dict.json\"\n    if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  #
+          is a foreach step\n        with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, \"r\")
+          as file:\n            task_context_dict = json.load(file)\n\n    # json
+          serialize foreach_splits else, the NamedTuple gets serialized\n    # as
+          string and we get the following error:\n    #   withParam value could not
+          be parsed as a JSON list: [''0'', ''1'']\n    values = [json.dumps(task_context_dict.get(\"foreach_splits\",
+          []))]\n\n    # read fields to return from Flow state to KFP\n    preceding_component_inputs_dict
+          = {}\n    if len(preceding_component_inputs) > 0:\n        preceding_component_inputs_PATH
+          = \"/tmp/preceding_component_inputs.json\"\n        with open(preceding_component_inputs_PATH,
+          \"r\") as file:\n            preceding_component_inputs_dict = json.load(file)\n            values
+          += list(preceding_component_inputs_dict.values())\n\n    ret = namedtuple(\n        \"StepOpRet\",
+          [\"foreach_splits\"] + list(preceding_component_inputs_dict.keys())\n    )(*values)\n    return
+          ret\n\nimport json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Kfp
+          step function'', description=''Renders and runs the cmd_template containing
+          Metaflow step/init commands to'')\n_parser.add_argument(\"--datastore-root\",
+          dest=\"datastore_root\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--cmd-template\",
+          dest=\"cmd_template\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--kfp-run-id\",
+          dest=\"kfp_run_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--passed-in-split-indexes\",
+          dest=\"passed_in_split_indexes\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-inputs\",
+          dest=\"preceding_component_inputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-outputs\",
+          dest=\"preceding_component_outputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--metaflow-service-url\",
+          dest=\"metaflow_service_url\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--flow-parameters-json\",
+          dest=\"flow_parameters_json\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = kfp_step_function(**_parsed_args)\n\n_output_serializers
+          = [\n    str,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "hsezhiyan/metaflow-zillow:2.0"}}, "inputs": [{"name": "datastore_root",
+          "type": "String"}, {"name": "cmd_template", "type": "String"}, {"name":
+          "kfp_run_id", "type": "String"}, {"default": "\"\"", "name": "passed_in_split_indexes",
+          "optional": true, "type": "String"}, {"name": "preceding_component_inputs",
+          "optional": true, "type": "List"}, {"name": "preceding_component_outputs",
+          "optional": true, "type": "List"}, {"default": "", "name": "metaflow_service_url",
+          "optional": true, "type": "String"}, {"name": "flow_parameters_json", "optional":
+          true, "type": "String"}], "name": "evaluate", "outputs": [{"name": "foreach_splits"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "0083c5894c3885fd258789a5bed0df985f9001e0e3026db64575fa70e5af9d92"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"cmd_template": "(true && set
+          -e && echo ''Setting up task environment.'' && python -m pip install click
+          requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir .metaflow
+          && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.''; python
+          -c \"import boto3; exec(''try:\\n from urlparse import urlparse\\nexcept:\\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')\" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint kfp step-init --run-id kfp-{{workflow.uid}}
+          --step_name evaluate --passed_in_split_indexes {passed_in_split_indexes}
+          --task_id kfp3 && . /tmp/step-environment-variables.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          --with=kfp step evaluate --run-id kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME
+          --max-user-code-retries 0 --input-paths $INPUT_PATHS_ENV_NAME --namespace
+          aip-example) > >(tee -a 0.stdout.log) 2> >(tee -a 0.stderr.log >&2); export
+          exit_code_1=$?; . /tmp/step-environment-variables.sh && python -c \"import
+          boto3; exec(''try:\\n from urlparse import urlparse\\nexcept:\\n from urllib.parse
+          import urlparse'');parsed = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/evaluate/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))\"
+          && . /tmp/step-environment-variables.sh && python -c \"import boto3; exec(''try:\\n
+          from urlparse import urlparse\\nexcept:\\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/evaluate/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))\";
+          export exit_code_2=$?; if [ \"$exit_code_1\" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi", "datastore_root": "{{inputs.parameters.datastore_root}}",
+          "kfp_run_id": "kfp-{{workflow.uid}}", "passed_in_split_indexes": "\"\"",
+          "preceding_component_inputs": "[]", "preceding_component_outputs": "[]"}'}
+  - name: for-loop-for-loop-625895aa-1
+    inputs:
+      parameters:
+      - {name: datastore_root}
+      - {name: start-foreach_splits-loop-item}
+    dag:
+      tasks:
+      - name: train
+        template: train
+        arguments:
+          parameters:
+          - {name: datastore_root, value: '{{inputs.parameters.datastore_root}}'}
+          - {name: start-foreach_splits-loop-item, value: '{{inputs.parameters.start-foreach_splits-loop-item}}'}
+  - name: hellopytorch
+    inputs:
+      parameters:
+      - {name: datastore_root}
+      - {name: flow_parameters_json}
+    dag:
+      tasks:
+      - name: end
+        template: end
+        dependencies: [evaluate]
+        arguments:
+          parameters:
+          - {name: datastore_root, value: '{{inputs.parameters.datastore_root}}'}
+      - name: evaluate
+        template: evaluate
+        dependencies: [for-loop-for-loop-625895aa-1]
+        arguments:
+          parameters:
+          - {name: datastore_root, value: '{{inputs.parameters.datastore_root}}'}
+      - name: for-loop-for-loop-625895aa-1
+        template: for-loop-for-loop-625895aa-1
+        dependencies: [start]
+        arguments:
+          parameters:
+          - {name: datastore_root, value: '{{inputs.parameters.datastore_root}}'}
+          - {name: start-foreach_splits-loop-item, value: '{{item}}'}
+        withParam: '{{tasks.start.outputs.parameters.start-foreach_splits}}'
+      - name: start
+        template: start
+        arguments:
+          parameters:
+          - {name: datastore_root, value: '{{inputs.parameters.datastore_root}}'}
+          - {name: flow_parameters_json, value: '{{inputs.parameters.flow_parameters_json}}'}
+  - name: start
+    container:
+      args: [--datastore-root, '{{inputs.parameters.datastore_root}}', --cmd-template,
+        '(true && set -e && echo ''Setting up task environment.'' && python -m pip
+          install click requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir
+          .metaflow && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.'';
+          python -c "import boto3; exec(''try:\n from urlparse import urlparse\nexcept:\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && if ! python hello_pytorch.py dump --max-value-size=0 kfp-{{workflow.uid}}/_parameters/1-params
+          >/dev/null 2>/dev/null; then python -m metaflow.plugins.aws.step_functions.set_batch_environment
+          parameters parameters.sh && . `pwd`/parameters.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          init --run-id kfp-{{workflow.uid}} --task-id 1-params; fi && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          kfp step-init --run-id kfp-{{workflow.uid}} --step_name start --passed_in_split_indexes
+          {passed_in_split_indexes} --task_id kfp1 && . /tmp/step-environment-variables.sh
+          && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint --with=kfp step start --run-id
+          kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME --max-user-code-retries
+          0 --input-paths kfp-{{workflow.uid}}/_parameters/1-params --namespace aip-example)
+          > >(tee -a 0.stdout.log) 2> >(tee -a 0.stderr.log >&2); export exit_code_1=$?;
+          . /tmp/step-environment-variables.sh && python -c "import boto3; exec(''try:\n
+          from urlparse import urlparse\nexcept:\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/start/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))"
+          && . /tmp/step-environment-variables.sh && python -c "import boto3; exec(''try:\n
+          from urlparse import urlparse\nexcept:\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/start/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))";
+          export exit_code_2=$?; if [ "$exit_code_1" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi', --kfp-run-id, 'kfp-{{workflow.uid}}', --passed-in-split-indexes,
+        '""', --preceding-component-inputs, '[]', --preceding-component-outputs, '[]',
+        --flow-parameters-json, '{{inputs.parameters.flow_parameters_json}}', '----output-paths',
+        /tmp/outputs/foreach_splits/data]
+      command:
+      - python3
+      - -u
+      - -c
+      - |
+        def kfp_step_function(
+            datastore_root,
+            cmd_template,
+            kfp_run_id,
+            passed_in_split_indexes = '""',  # only if is_inside_foreach
+            preceding_component_inputs = None,  # fields to return from Flow state to KFP
+            preceding_component_outputs = None,  # fields to be pushed into Flow state from KFP
+            metaflow_service_url = "",
+            flow_parameters_json = None,  # json formatted string
+            **kwargs,
+        ):
+            """
+            Renders and runs the cmd_template containing Metaflow step/init commands to
+            run within the container.
+
+            Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
+            """
+            import os
+            import json
+            import logging
+            from subprocess import Popen
+            from collections import namedtuple
+            from typing import Dict
+
+            if preceding_component_inputs is None:
+                preceding_component_inputs = []
+            if preceding_component_outputs is None:
+                preceding_component_outputs = []
+
+            # expose passed KFP passed in arguments as environment variables to
+            # the bash command
+            preceding_component_outputs_env: Dict[str, str] = {
+                field: kwargs[field] for field in preceding_component_outputs
+            }
+
+            cmd = cmd_template.format(
+                run_id=kfp_run_id,
+                datastore_root=datastore_root,
+                passed_in_split_indexes=passed_in_split_indexes,
+            )
+
+            env = {
+                **os.environ,
+                "METAFLOW_DATASTORE_SYSROOT_S3": datastore_root,
+                "METAFLOW_SERVICE_URL": metaflow_service_url,
+                "PRECEDING_COMPONENT_INPUTS": json.dumps(preceding_component_inputs),
+                "PRECEDING_COMPONENT_OUTPUTS": json.dumps(preceding_component_outputs),
+                "METAFLOW_USER": "kfp-user",  # TODO: what should this be for a non-scheduled run?
+                **preceding_component_outputs_env,
+            }
+            if flow_parameters_json is not None:
+                env["METAFLOW_PARAMETERS"] = flow_parameters_json
+
+            # TODO: Map username to KFP specific user/profile/namespace
+            # Running Metaflow
+            # KFP orchestrator -> running MF runtime (runs user code, handles state)
+            with Popen(
+                cmd, shell=True, universal_newlines=True, executable="/bin/bash", env=env
+            ) as process:
+                pass
+
+            if process.returncode != 0:
+                logging.info(f"---- Following command returned: {process.returncode}")
+                logging.info(cmd.replace(" && ", "\n"))
+                logging.info("----")
+                raise Exception("Returned: %s" % process.returncode)
+
+            task_context_dict = {}
+            # File written by kfp_decorator.py:task_finished
+            KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
+            if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
+                with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
+                    task_context_dict = json.load(file)
+
+            # json serialize foreach_splits else, the NamedTuple gets serialized
+            # as string and we get the following error:
+            #   withParam value could not be parsed as a JSON list: ['0', '1']
+            values = [json.dumps(task_context_dict.get("foreach_splits", []))]
+
+            # read fields to return from Flow state to KFP
+            preceding_component_inputs_dict = {}
+            if len(preceding_component_inputs) > 0:
+                preceding_component_inputs_PATH = "/tmp/preceding_component_inputs.json"
+                with open(preceding_component_inputs_PATH, "r") as file:
+                    preceding_component_inputs_dict = json.load(file)
+                    values += list(preceding_component_inputs_dict.values())
+
+            ret = namedtuple(
+                "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
+            )(*values)
+            return ret
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Kfp step function', description='Renders and runs the cmd_template containing Metaflow step/init commands to')
+        _parser.add_argument("--datastore-root", dest="datastore_root", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--cmd-template", dest="cmd_template", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--kfp-run-id", dest="kfp_run_id", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--passed-in-split-indexes", dest="passed_in_split_indexes", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-inputs", dest="preceding_component_inputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-outputs", dest="preceding_component_outputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--metaflow-service-url", dest="metaflow_service_url", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--flow-parameters-json", dest="flow_parameters_json", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = kfp_step_function(**_parsed_args)
+
+        _output_serializers = [
+            str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: hsezhiyan/metaflow-zillow:2.0
+    inputs:
+      parameters:
+      - {name: datastore_root}
+      - {name: flow_parameters_json}
+    outputs:
+      parameters:
+      - name: start-foreach_splits
+        valueFrom: {path: /tmp/outputs/foreach_splits/data}
+      artifacts:
+      - {name: start-foreach_splits, path: /tmp/outputs/foreach_splits/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Renders
+          and runs the cmd_template containing Metaflow step/init commands to", "implementation":
+          {"container": {"args": ["--datastore-root", {"inputValue": "datastore_root"},
+          "--cmd-template", {"inputValue": "cmd_template"}, "--kfp-run-id", {"inputValue":
+          "kfp_run_id"}, {"if": {"cond": {"isPresent": "passed_in_split_indexes"},
+          "then": ["--passed-in-split-indexes", {"inputValue": "passed_in_split_indexes"}]}},
+          {"if": {"cond": {"isPresent": "preceding_component_inputs"}, "then": ["--preceding-component-inputs",
+          {"inputValue": "preceding_component_inputs"}]}}, {"if": {"cond": {"isPresent":
+          "preceding_component_outputs"}, "then": ["--preceding-component-outputs",
+          {"inputValue": "preceding_component_outputs"}]}}, {"if": {"cond": {"isPresent":
+          "metaflow_service_url"}, "then": ["--metaflow-service-url", {"inputValue":
+          "metaflow_service_url"}]}}, {"if": {"cond": {"isPresent": "flow_parameters_json"},
+          "then": ["--flow-parameters-json", {"inputValue": "flow_parameters_json"}]}},
+          "----output-paths", {"outputPath": "foreach_splits"}], "command": ["python3",
+          "-u", "-c", "def kfp_step_function(\n    datastore_root,\n    cmd_template,\n    kfp_run_id,\n    passed_in_split_indexes
+          = ''\"\"'',  # only if is_inside_foreach\n    preceding_component_inputs
+          = None,  # fields to return from Flow state to KFP\n    preceding_component_outputs
+          = None,  # fields to be pushed into Flow state from KFP\n    metaflow_service_url
+          = \"\",\n    flow_parameters_json = None,  # json formatted string\n    **kwargs,\n):\n    \"\"\"\n    Renders
+          and runs the cmd_template containing Metaflow step/init commands to\n    run
+          within the container.\n\n    Returns: namedtuple([\"foreach_splits\"] +
+          preceding_component_inputs)\n    \"\"\"\n    import os\n    import json\n    import
+          logging\n    from subprocess import Popen\n    from collections import namedtuple\n    from
+          typing import Dict\n\n    if preceding_component_inputs is None:\n        preceding_component_inputs
+          = []\n    if preceding_component_outputs is None:\n        preceding_component_outputs
+          = []\n\n    # expose passed KFP passed in arguments as environment variables
+          to\n    # the bash command\n    preceding_component_outputs_env: Dict[str,
+          str] = {\n        field: kwargs[field] for field in preceding_component_outputs\n    }\n\n    cmd
+          = cmd_template.format(\n        run_id=kfp_run_id,\n        datastore_root=datastore_root,\n        passed_in_split_indexes=passed_in_split_indexes,\n    )\n\n    env
+          = {\n        **os.environ,\n        \"METAFLOW_DATASTORE_SYSROOT_S3\": datastore_root,\n        \"METAFLOW_SERVICE_URL\":
+          metaflow_service_url,\n        \"PRECEDING_COMPONENT_INPUTS\": json.dumps(preceding_component_inputs),\n        \"PRECEDING_COMPONENT_OUTPUTS\":
+          json.dumps(preceding_component_outputs),\n        \"METAFLOW_USER\": \"kfp-user\",  #
+          TODO: what should this be for a non-scheduled run?\n        **preceding_component_outputs_env,\n    }\n    if
+          flow_parameters_json is not None:\n        env[\"METAFLOW_PARAMETERS\"]
+          = flow_parameters_json\n\n    # TODO: Map username to KFP specific user/profile/namespace\n    #
+          Running Metaflow\n    # KFP orchestrator -> running MF runtime (runs user
+          code, handles state)\n    with Popen(\n        cmd, shell=True, universal_newlines=True,
+          executable=\"/bin/bash\", env=env\n    ) as process:\n        pass\n\n    if
+          process.returncode != 0:\n        logging.info(f\"---- Following command
+          returned: {process.returncode}\")\n        logging.info(cmd.replace(\" &&
+          \", \"\\n\"))\n        logging.info(\"----\")\n        raise Exception(\"Returned:
+          %s\" % process.returncode)\n\n    task_context_dict = {}\n    # File written
+          by kfp_decorator.py:task_finished\n    KFP_METAFLOW_FOREACH_SPLITS_PATH
+          = \"/tmp/kfp_metaflow_foreach_splits_dict.json\"\n    if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  #
+          is a foreach step\n        with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, \"r\")
+          as file:\n            task_context_dict = json.load(file)\n\n    # json
+          serialize foreach_splits else, the NamedTuple gets serialized\n    # as
+          string and we get the following error:\n    #   withParam value could not
+          be parsed as a JSON list: [''0'', ''1'']\n    values = [json.dumps(task_context_dict.get(\"foreach_splits\",
+          []))]\n\n    # read fields to return from Flow state to KFP\n    preceding_component_inputs_dict
+          = {}\n    if len(preceding_component_inputs) > 0:\n        preceding_component_inputs_PATH
+          = \"/tmp/preceding_component_inputs.json\"\n        with open(preceding_component_inputs_PATH,
+          \"r\") as file:\n            preceding_component_inputs_dict = json.load(file)\n            values
+          += list(preceding_component_inputs_dict.values())\n\n    ret = namedtuple(\n        \"StepOpRet\",
+          [\"foreach_splits\"] + list(preceding_component_inputs_dict.keys())\n    )(*values)\n    return
+          ret\n\nimport json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Kfp
+          step function'', description=''Renders and runs the cmd_template containing
+          Metaflow step/init commands to'')\n_parser.add_argument(\"--datastore-root\",
+          dest=\"datastore_root\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--cmd-template\",
+          dest=\"cmd_template\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--kfp-run-id\",
+          dest=\"kfp_run_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--passed-in-split-indexes\",
+          dest=\"passed_in_split_indexes\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-inputs\",
+          dest=\"preceding_component_inputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-outputs\",
+          dest=\"preceding_component_outputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--metaflow-service-url\",
+          dest=\"metaflow_service_url\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--flow-parameters-json\",
+          dest=\"flow_parameters_json\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = kfp_step_function(**_parsed_args)\n\n_output_serializers
+          = [\n    str,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "hsezhiyan/metaflow-zillow:2.0"}}, "inputs": [{"name": "datastore_root",
+          "type": "String"}, {"name": "cmd_template", "type": "String"}, {"name":
+          "kfp_run_id", "type": "String"}, {"default": "\"\"", "name": "passed_in_split_indexes",
+          "optional": true, "type": "String"}, {"name": "preceding_component_inputs",
+          "optional": true, "type": "List"}, {"name": "preceding_component_outputs",
+          "optional": true, "type": "List"}, {"default": "", "name": "metaflow_service_url",
+          "optional": true, "type": "String"}, {"name": "flow_parameters_json", "optional":
+          true, "type": "String"}], "name": "start", "outputs": [{"name": "foreach_splits"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "e9b48da14c19cd0e15eafb3e03c5a37cb0c383e2b449ac835fa3194b1de73c39"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"cmd_template": "(true && set
+          -e && echo ''Setting up task environment.'' && python -m pip install click
+          requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir .metaflow
+          && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.''; python
+          -c \"import boto3; exec(''try:\\n from urlparse import urlparse\\nexcept:\\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')\" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && if ! python hello_pytorch.py dump --max-value-size=0 kfp-{{workflow.uid}}/_parameters/1-params
+          >/dev/null 2>/dev/null; then python -m metaflow.plugins.aws.step_functions.set_batch_environment
+          parameters parameters.sh && . `pwd`/parameters.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          init --run-id kfp-{{workflow.uid}} --task-id 1-params; fi && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          kfp step-init --run-id kfp-{{workflow.uid}} --step_name start --passed_in_split_indexes
+          {passed_in_split_indexes} --task_id kfp1 && . /tmp/step-environment-variables.sh
+          && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint --with=kfp step start --run-id
+          kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME --max-user-code-retries
+          0 --input-paths kfp-{{workflow.uid}}/_parameters/1-params --namespace aip-example)
+          > >(tee -a 0.stdout.log) 2> >(tee -a 0.stderr.log >&2); export exit_code_1=$?;
+          . /tmp/step-environment-variables.sh && python -c \"import boto3; exec(''try:\\n
+          from urlparse import urlparse\\nexcept:\\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/start/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))\"
+          && . /tmp/step-environment-variables.sh && python -c \"import boto3; exec(''try:\\n
+          from urlparse import urlparse\\nexcept:\\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/start/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))\";
+          export exit_code_2=$?; if [ \"$exit_code_1\" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi", "datastore_root": "{{inputs.parameters.datastore_root}}",
+          "flow_parameters_json": "{{inputs.parameters.flow_parameters_json}}", "kfp_run_id":
+          "kfp-{{workflow.uid}}", "passed_in_split_indexes": "\"\"", "preceding_component_inputs":
+          "[]", "preceding_component_outputs": "[]"}'}
+  - name: train
+    container:
+      args: [--datastore-root, '{{inputs.parameters.datastore_root}}', --cmd-template,
+        '(true && set -e && echo ''Setting up task environment.'' && python -m pip
+          install click requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir
+          .metaflow && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.'';
+          python -c "import boto3; exec(''try:\n from urlparse import urlparse\nexcept:\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint kfp step-init --run-id kfp-{{workflow.uid}}
+          --step_name train --passed_in_split_indexes {passed_in_split_indexes} --task_id
+          kfp2 && . /tmp/step-environment-variables.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          --with=kfp step train --run-id kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME
+          --max-user-code-retries 0 --input-paths $INPUT_PATHS_ENV_NAME --split-index
+          $SPLIT_INDEX_ENV_NAME --namespace aip-example) > >(tee -a 0.stdout.log)
+          2> >(tee -a 0.stderr.log >&2); export exit_code_1=$?; . /tmp/step-environment-variables.sh
+          && python -c "import boto3; exec(''try:\n from urlparse import urlparse\nexcept:\n
+          from urllib.parse import urlparse'');parsed = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/train/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))"
+          && . /tmp/step-environment-variables.sh && python -c "import boto3; exec(''try:\n
+          from urlparse import urlparse\nexcept:\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/train/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))";
+          export exit_code_2=$?; if [ "$exit_code_1" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi', --kfp-run-id, 'kfp-{{workflow.uid}}', --passed-in-split-indexes,
+        '{{inputs.parameters.start-foreach_splits-loop-item}}', --preceding-component-inputs,
+        '[]', --preceding-component-outputs, '[]', '----output-paths', /tmp/outputs/foreach_splits/data]
+      command:
+      - python3
+      - -u
+      - -c
+      - |
+        def kfp_step_function(
+            datastore_root,
+            cmd_template,
+            kfp_run_id,
+            passed_in_split_indexes = '""',  # only if is_inside_foreach
+            preceding_component_inputs = None,  # fields to return from Flow state to KFP
+            preceding_component_outputs = None,  # fields to be pushed into Flow state from KFP
+            metaflow_service_url = "",
+            flow_parameters_json = None,  # json formatted string
+            **kwargs,
+        ):
+            """
+            Renders and runs the cmd_template containing Metaflow step/init commands to
+            run within the container.
+
+            Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
+            """
+            import os
+            import json
+            import logging
+            from subprocess import Popen
+            from collections import namedtuple
+            from typing import Dict
+
+            if preceding_component_inputs is None:
+                preceding_component_inputs = []
+            if preceding_component_outputs is None:
+                preceding_component_outputs = []
+
+            # expose passed KFP passed in arguments as environment variables to
+            # the bash command
+            preceding_component_outputs_env: Dict[str, str] = {
+                field: kwargs[field] for field in preceding_component_outputs
+            }
+
+            cmd = cmd_template.format(
+                run_id=kfp_run_id,
+                datastore_root=datastore_root,
+                passed_in_split_indexes=passed_in_split_indexes,
+            )
+
+            env = {
+                **os.environ,
+                "METAFLOW_DATASTORE_SYSROOT_S3": datastore_root,
+                "METAFLOW_SERVICE_URL": metaflow_service_url,
+                "PRECEDING_COMPONENT_INPUTS": json.dumps(preceding_component_inputs),
+                "PRECEDING_COMPONENT_OUTPUTS": json.dumps(preceding_component_outputs),
+                "METAFLOW_USER": "kfp-user",  # TODO: what should this be for a non-scheduled run?
+                **preceding_component_outputs_env,
+            }
+            if flow_parameters_json is not None:
+                env["METAFLOW_PARAMETERS"] = flow_parameters_json
+
+            # TODO: Map username to KFP specific user/profile/namespace
+            # Running Metaflow
+            # KFP orchestrator -> running MF runtime (runs user code, handles state)
+            with Popen(
+                cmd, shell=True, universal_newlines=True, executable="/bin/bash", env=env
+            ) as process:
+                pass
+
+            if process.returncode != 0:
+                logging.info(f"---- Following command returned: {process.returncode}")
+                logging.info(cmd.replace(" && ", "\n"))
+                logging.info("----")
+                raise Exception("Returned: %s" % process.returncode)
+
+            task_context_dict = {}
+            # File written by kfp_decorator.py:task_finished
+            KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
+            if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
+                with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
+                    task_context_dict = json.load(file)
+
+            # json serialize foreach_splits else, the NamedTuple gets serialized
+            # as string and we get the following error:
+            #   withParam value could not be parsed as a JSON list: ['0', '1']
+            values = [json.dumps(task_context_dict.get("foreach_splits", []))]
+
+            # read fields to return from Flow state to KFP
+            preceding_component_inputs_dict = {}
+            if len(preceding_component_inputs) > 0:
+                preceding_component_inputs_PATH = "/tmp/preceding_component_inputs.json"
+                with open(preceding_component_inputs_PATH, "r") as file:
+                    preceding_component_inputs_dict = json.load(file)
+                    values += list(preceding_component_inputs_dict.values())
+
+            ret = namedtuple(
+                "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
+            )(*values)
+            return ret
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Kfp step function', description='Renders and runs the cmd_template containing Metaflow step/init commands to')
+        _parser.add_argument("--datastore-root", dest="datastore_root", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--cmd-template", dest="cmd_template", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--kfp-run-id", dest="kfp_run_id", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--passed-in-split-indexes", dest="passed_in_split_indexes", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-inputs", dest="preceding_component_inputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--preceding-component-outputs", dest="preceding_component_outputs", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--metaflow-service-url", dest="metaflow_service_url", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--flow-parameters-json", dest="flow_parameters_json", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = kfp_step_function(**_parsed_args)
+
+        _output_serializers = [
+            str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: hsezhiyan/metaflow-zillow:2.0
+      resources:
+        limits: {memory: 5G, cpu: '2'}
+        requests: {memory: 2G, cpu: '1'}
+    inputs:
+      parameters:
+      - {name: datastore_root}
+      - {name: start-foreach_splits-loop-item}
+    outputs:
+      artifacts:
+      - {name: train-foreach_splits, path: /tmp/outputs/foreach_splits/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Renders
+          and runs the cmd_template containing Metaflow step/init commands to", "implementation":
+          {"container": {"args": ["--datastore-root", {"inputValue": "datastore_root"},
+          "--cmd-template", {"inputValue": "cmd_template"}, "--kfp-run-id", {"inputValue":
+          "kfp_run_id"}, {"if": {"cond": {"isPresent": "passed_in_split_indexes"},
+          "then": ["--passed-in-split-indexes", {"inputValue": "passed_in_split_indexes"}]}},
+          {"if": {"cond": {"isPresent": "preceding_component_inputs"}, "then": ["--preceding-component-inputs",
+          {"inputValue": "preceding_component_inputs"}]}}, {"if": {"cond": {"isPresent":
+          "preceding_component_outputs"}, "then": ["--preceding-component-outputs",
+          {"inputValue": "preceding_component_outputs"}]}}, {"if": {"cond": {"isPresent":
+          "metaflow_service_url"}, "then": ["--metaflow-service-url", {"inputValue":
+          "metaflow_service_url"}]}}, {"if": {"cond": {"isPresent": "flow_parameters_json"},
+          "then": ["--flow-parameters-json", {"inputValue": "flow_parameters_json"}]}},
+          "----output-paths", {"outputPath": "foreach_splits"}], "command": ["python3",
+          "-u", "-c", "def kfp_step_function(\n    datastore_root,\n    cmd_template,\n    kfp_run_id,\n    passed_in_split_indexes
+          = ''\"\"'',  # only if is_inside_foreach\n    preceding_component_inputs
+          = None,  # fields to return from Flow state to KFP\n    preceding_component_outputs
+          = None,  # fields to be pushed into Flow state from KFP\n    metaflow_service_url
+          = \"\",\n    flow_parameters_json = None,  # json formatted string\n    **kwargs,\n):\n    \"\"\"\n    Renders
+          and runs the cmd_template containing Metaflow step/init commands to\n    run
+          within the container.\n\n    Returns: namedtuple([\"foreach_splits\"] +
+          preceding_component_inputs)\n    \"\"\"\n    import os\n    import json\n    import
+          logging\n    from subprocess import Popen\n    from collections import namedtuple\n    from
+          typing import Dict\n\n    if preceding_component_inputs is None:\n        preceding_component_inputs
+          = []\n    if preceding_component_outputs is None:\n        preceding_component_outputs
+          = []\n\n    # expose passed KFP passed in arguments as environment variables
+          to\n    # the bash command\n    preceding_component_outputs_env: Dict[str,
+          str] = {\n        field: kwargs[field] for field in preceding_component_outputs\n    }\n\n    cmd
+          = cmd_template.format(\n        run_id=kfp_run_id,\n        datastore_root=datastore_root,\n        passed_in_split_indexes=passed_in_split_indexes,\n    )\n\n    env
+          = {\n        **os.environ,\n        \"METAFLOW_DATASTORE_SYSROOT_S3\": datastore_root,\n        \"METAFLOW_SERVICE_URL\":
+          metaflow_service_url,\n        \"PRECEDING_COMPONENT_INPUTS\": json.dumps(preceding_component_inputs),\n        \"PRECEDING_COMPONENT_OUTPUTS\":
+          json.dumps(preceding_component_outputs),\n        \"METAFLOW_USER\": \"kfp-user\",  #
+          TODO: what should this be for a non-scheduled run?\n        **preceding_component_outputs_env,\n    }\n    if
+          flow_parameters_json is not None:\n        env[\"METAFLOW_PARAMETERS\"]
+          = flow_parameters_json\n\n    # TODO: Map username to KFP specific user/profile/namespace\n    #
+          Running Metaflow\n    # KFP orchestrator -> running MF runtime (runs user
+          code, handles state)\n    with Popen(\n        cmd, shell=True, universal_newlines=True,
+          executable=\"/bin/bash\", env=env\n    ) as process:\n        pass\n\n    if
+          process.returncode != 0:\n        logging.info(f\"---- Following command
+          returned: {process.returncode}\")\n        logging.info(cmd.replace(\" &&
+          \", \"\\n\"))\n        logging.info(\"----\")\n        raise Exception(\"Returned:
+          %s\" % process.returncode)\n\n    task_context_dict = {}\n    # File written
+          by kfp_decorator.py:task_finished\n    KFP_METAFLOW_FOREACH_SPLITS_PATH
+          = \"/tmp/kfp_metaflow_foreach_splits_dict.json\"\n    if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  #
+          is a foreach step\n        with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, \"r\")
+          as file:\n            task_context_dict = json.load(file)\n\n    # json
+          serialize foreach_splits else, the NamedTuple gets serialized\n    # as
+          string and we get the following error:\n    #   withParam value could not
+          be parsed as a JSON list: [''0'', ''1'']\n    values = [json.dumps(task_context_dict.get(\"foreach_splits\",
+          []))]\n\n    # read fields to return from Flow state to KFP\n    preceding_component_inputs_dict
+          = {}\n    if len(preceding_component_inputs) > 0:\n        preceding_component_inputs_PATH
+          = \"/tmp/preceding_component_inputs.json\"\n        with open(preceding_component_inputs_PATH,
+          \"r\") as file:\n            preceding_component_inputs_dict = json.load(file)\n            values
+          += list(preceding_component_inputs_dict.values())\n\n    ret = namedtuple(\n        \"StepOpRet\",
+          [\"foreach_splits\"] + list(preceding_component_inputs_dict.keys())\n    )(*values)\n    return
+          ret\n\nimport json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Kfp
+          step function'', description=''Renders and runs the cmd_template containing
+          Metaflow step/init commands to'')\n_parser.add_argument(\"--datastore-root\",
+          dest=\"datastore_root\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--cmd-template\",
+          dest=\"cmd_template\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--kfp-run-id\",
+          dest=\"kfp_run_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--passed-in-split-indexes\",
+          dest=\"passed_in_split_indexes\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-inputs\",
+          dest=\"preceding_component_inputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--preceding-component-outputs\",
+          dest=\"preceding_component_outputs\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--metaflow-service-url\",
+          dest=\"metaflow_service_url\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--flow-parameters-json\",
+          dest=\"flow_parameters_json\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = kfp_step_function(**_parsed_args)\n\n_output_serializers
+          = [\n    str,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "hsezhiyan/metaflow-zillow:2.0"}}, "inputs": [{"name": "datastore_root",
+          "type": "String"}, {"name": "cmd_template", "type": "String"}, {"name":
+          "kfp_run_id", "type": "String"}, {"default": "\"\"", "name": "passed_in_split_indexes",
+          "optional": true, "type": "String"}, {"name": "preceding_component_inputs",
+          "optional": true, "type": "List"}, {"name": "preceding_component_outputs",
+          "optional": true, "type": "List"}, {"default": "", "name": "metaflow_service_url",
+          "optional": true, "type": "String"}, {"name": "flow_parameters_json", "optional":
+          true, "type": "String"}], "name": "train", "outputs": [{"name": "foreach_splits"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "5ee434c62c783a29df17b54aad9276c45418d0d961d42ce0902326971843cd07"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"cmd_template": "(true && set
+          -e && echo ''Setting up task environment.'' && python -m pip install click
+          requests boto3 -qqq && mkdir metaflow && cd metaflow && mkdir .metaflow
+          && i=0; while [ $i -le 5 ]; do echo ''Downloading code package.''; python
+          -c \"import boto3; exec(''try:\\n from urlparse import urlparse\\nexcept:\\n
+          from urllib.parse import urlparse'');parsed = urlparse(''s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f'');
+          boto3.client(''s3'').download_file(parsed.netloc, parsed.path.lstrip(''/''),
+          ''job.tar'')\" &&                         echo ''Code package downloaded.''
+          && break; sleep 10; i=$((i+1)); done && if [ $i -gt 5 ]; then echo ''Failed
+          to download code package from s3://aip-example-dev/metaflow/HelloPyTorch/data/b5/b5d382acdd3bc885ae04387347524cf3794b7f9f
+          after 6 tries. Exiting...'' && exit 1; fi && tar xf job.tar && echo ''Task
+          is starting.'' && python hello_pytorch.py --quiet --metadata=local --environment=local
+          --datastore=s3 --datastore-root={datastore_root} --event-logger=nullSidecarLogger
+          --monitor=nullSidecarMonitor --no-pylint kfp step-init --run-id kfp-{{workflow.uid}}
+          --step_name train --passed_in_split_indexes {passed_in_split_indexes} --task_id
+          kfp2 && . /tmp/step-environment-variables.sh && python hello_pytorch.py
+          --quiet --metadata=local --environment=local --datastore=s3 --datastore-root={datastore_root}
+          --event-logger=nullSidecarLogger --monitor=nullSidecarMonitor --no-pylint
+          --with=kfp step train --run-id kfp-{{workflow.uid}} --task-id $TASK_ID_ENV_NAME
+          --max-user-code-retries 0 --input-paths $INPUT_PATHS_ENV_NAME --split-index
+          $SPLIT_INDEX_ENV_NAME --namespace aip-example) > >(tee -a 0.stdout.log)
+          2> >(tee -a 0.stderr.log >&2); export exit_code_1=$?; . /tmp/step-environment-variables.sh
+          && python -c \"import boto3; exec(''try:\\n from urlparse import urlparse\\nexcept:\\n
+          from urllib.parse import urlparse'');parsed = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/train/$TASK_ID_ENV_NAME/0.stderr.log'');
+          boto3.client(''s3'').upload_file(''0.stderr.log'', parsed.netloc, parsed.path.lstrip(''/''))\"
+          && . /tmp/step-environment-variables.sh && python -c \"import boto3; exec(''try:\\n
+          from urlparse import urlparse\\nexcept:\\n from urllib.parse import urlparse'');parsed
+          = urlparse(''{datastore_root}/HelloPyTorch/{run_id}/train/$TASK_ID_ENV_NAME/0.stdout.log'');
+          boto3.client(''s3'').upload_file(''0.stdout.log'', parsed.netloc, parsed.path.lstrip(''/''))\";
+          export exit_code_2=$?; if [ \"$exit_code_1\" -ne 0 ]; then exit $exit_code_1;
+          else exit $exit_code_2; fi", "datastore_root": "{{inputs.parameters.datastore_root}}",
+          "kfp_run_id": "kfp-{{workflow.uid}}", "passed_in_split_indexes": "{{inputs.parameters.start-foreach_splits-loop-item}}",
+          "preceding_component_inputs": "[]", "preceding_component_outputs": "[]"}'}
+  arguments:
+    parameters:
+    - {name: datastore_root, value: 's3://aip-example-dev/metaflow'}
+    - {name: flow_parameters_json}
+  serviceAccountName: pipeline-runner

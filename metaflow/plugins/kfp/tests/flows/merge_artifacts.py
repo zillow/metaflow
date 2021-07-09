@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, step
+from metaflow import FlowSpec, step, resources
 
 import pytest
 
@@ -8,11 +8,23 @@ class MergeArtifacts(FlowSpec):
     split -> join -> split -> join
     """
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def start(self):
         self.pass_down = "a"
         self.next(self.a, self.b)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def a(self):
         assert self.pass_down == "a"
@@ -23,6 +35,12 @@ class MergeArtifacts(FlowSpec):
         self.from_a = 6
         self.next(self.join)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def b(self):
         assert self.pass_down == "a"
@@ -32,6 +50,12 @@ class MergeArtifacts(FlowSpec):
         self.y = 4
         self.next(self.join)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def join(self, inputs):
         # Ensuring conflicting artifacts must be resolved
@@ -48,20 +72,44 @@ class MergeArtifacts(FlowSpec):
         assert self.from_a == 6
         self.next(self.c)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def c(self):
         self.next(self.d, self.e)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def d(self):
         self.conflicting = 7
         self.next(self.join2)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def e(self):
         self.conflicting = 8
         self.next(self.join2)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def join2(self, inputs):
         assert inputs.d.conflicting == 7
@@ -76,6 +124,12 @@ class MergeArtifacts(FlowSpec):
         assert self.common == 5
         self.next(self.end)
 
+    @resources(
+        cpu="0.1",
+        cpu_limit="0.5",
+        memory="10M",
+        memory_limit="500M"
+    )
     @step
     def end(self):
         pass
