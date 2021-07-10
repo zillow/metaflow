@@ -148,7 +148,7 @@ class ResourcesFlow(FlowSpec):
         output = subprocess.check_output(
             "df -h | grep /opt/metaflow_volume", shell=True
         )
-        assert "1G" in str(output)
+        assert "11G" in str(output)
         self.next(self.join_step)
 
     @resources(
