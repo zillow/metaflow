@@ -111,28 +111,28 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 
 
 # this test ensures the integration tests fail correctly
-def test_raise_failure_flow(pytestconfig) -> None:
-    test_cmd = (
-        f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
+# def test_raise_failure_flow(pytestconfig) -> None:
+#     test_cmd = (
+#         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
 
-    run_and_wait_process = run(
-        test_cmd,
-        universal_newlines=True,
-        stdout=PIPE,
-        shell=True,
-    )
-    # this ensures the integration testing framework correctly catches a failing flow
-    # and reports the error
-    assert run_and_wait_process.returncode == 1
+#     run_and_wait_process = run(
+#         test_cmd,
+#         universal_newlines=True,
+#         stdout=PIPE,
+#         shell=True,
+#     )
+#     # this ensures the integration testing framework correctly catches a failing flow
+#     # and reports the error
+#     assert run_and_wait_process.returncode == 1
 
-    return
+#     return
 
 
 def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
