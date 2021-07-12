@@ -136,6 +136,7 @@ class ResourcesFlow(FlowSpec):
         self.items = [1, 2]
         self.next(self.split_step, foreach="items")
 
+    @resources(volume="11G")
     @step
     def split_step(self):
         output = subprocess.check_output(
@@ -144,6 +145,7 @@ class ResourcesFlow(FlowSpec):
         assert "11G" in str(output)
         self.next(self.join_step)
 
+    @resources(volume="12G")
     @step
     def join_step(self, inputs):
         output = subprocess.check_output(
