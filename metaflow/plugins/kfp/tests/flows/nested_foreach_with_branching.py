@@ -81,7 +81,6 @@ class NestedForeachWithBranching(FlowSpec):
     def foreach_join_start(self, inputs):
         self.next(self.foreach_join_w_x)
 
-
     @step
     def foreach_join_w_x(self, input):
         assert input.join_w.var1 == 150
