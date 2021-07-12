@@ -7,6 +7,8 @@ from subprocess import run, PIPE
 from os import environ
 from os.path import join
 
+from urllib.parse import urlparse
+
 class UploadToS3Flow(FlowSpec):
 
     file_name = Parameter(
@@ -28,7 +30,7 @@ class UploadToS3Flow(FlowSpec):
             shell=True
         )
 
-        root = environ["METAFLOW_DATASTORE_SYSROOT_S3"]
+        root = urlparse(environ["METAFLOW_DATASTORE_SYSROOT_S3"])
         bucket, key = root.netloc, root.path.lstrip("/")
 
         print("bucket: ", bucket)
