@@ -28,12 +28,6 @@ class KfpFlow(FlowSpec):
         self.divisor = 7
         self.next(self.end)
 
-    @resources(
-        cpu="0.1",
-        cpu_limit="0.5",
-        memory="10M",
-        memory_limit="500M"
-    )
     @kfp(
         preceding_component=div_mod,
         preceding_component_inputs="dividend divisor",
