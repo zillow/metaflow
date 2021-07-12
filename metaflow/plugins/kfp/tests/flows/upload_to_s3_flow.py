@@ -40,7 +40,7 @@ class UploadToS3Flow(FlowSpec):
         s3.meta.client.upload_file(
             f"./{self.file_name}", 
             "serve-datalake-zillowgroup",
-            join(key, {self.file_name})
+            join(key, self.file_name)
         )
         self.next(self.end)
     @step
