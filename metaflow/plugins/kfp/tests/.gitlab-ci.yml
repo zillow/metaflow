@@ -130,9 +130,9 @@ test:internal:
           export KFP_RUN_URL_PREFIX=https://kubeflow.corp.dev-k8s.zg-aip.net/ && 
           export KFP_SDK_NAMESPACE=metaflow-integration-testing-internal && 
           export USER=${GITLAB_USER_EMAIL} &&
+          export METAFLOW_DATASTORE_SYSROOT_S3=s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev &&
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests &&
-          python -c "import os; print(os.environ[\"METAFLOW_DATASTORE_SYSROOT_S3\"])" &&
-          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --env dev --cov-config=setup.cfg
+          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg
         "
   artifacts:
     when: always
@@ -166,8 +166,9 @@ test:nonprod:
           export KFP_RUN_URL_PREFIX=https://kubeflow.corp.stage-k8s.zg-aip.net/ &&
           export KFP_SDK_NAMESPACE=metaflow-integration-testing-stage &&
           export USER=${GITLAB_USER_EMAIL} &&
+          export METAFLOW_DATASTORE_SYSROOT_S3=s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/stage &&
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests &&
-          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --env stage --cov-config=setup.cfg
+          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg
         "
   artifacts:
     when: always
@@ -201,8 +202,9 @@ test:prod:
           export KFP_RUN_URL_PREFIX=https://kubeflow.corp.prod-k8s.zg-aip.net/ && 
           export KFP_SDK_NAMESPACE=metaflow-integration-testing-prod && 
           export USER=${GITLAB_USER_EMAIL} &&
+          export METAFLOW_DATASTORE_SYSROOT_S3=s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/prod &&
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests &&
-          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --env prod --cov-config=setup.cfg
+          python -m pytest -s -n 2 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --cov-config=setup.cfg
         "
   artifacts:
     when: always
