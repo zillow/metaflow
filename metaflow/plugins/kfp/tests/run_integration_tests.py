@@ -79,8 +79,8 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 
     main_config_cmds = (
         f"--workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-        f"--file_name {file_name} --env {pytestconfig.getoption('env')} "
+        f"--experiment metaflow_test --tag test_t1 "
+        f"--file_name {file_name} "
     )
     upload_to_s3_flow_cmd += main_config_cmds
     s3_sensor_flow_cmd += main_config_cmds
@@ -115,7 +115,7 @@ def test_raise_failure_flow(pytestconfig) -> None:
     test_cmd = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+        f"--experiment metaflow_test --tag test_t1 "
     )
     if pytestconfig.getoption("image"):
         test_cmd += (

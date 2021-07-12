@@ -4,6 +4,11 @@ import boto3
 import time
 from subprocess import run, PIPE
 
+from os import environ
+from os.path import join
+
+from urllib.parse import urlparse
+
 class UploadToS3Flow(FlowSpec):
 
     file_name = Parameter(
@@ -25,13 +30,14 @@ class UploadToS3Flow(FlowSpec):
             shell=True
         )
 
-        print("File name: ", self.file_name)
+        root = urlparse(environ["METAFLOW_DATASTORE_SYSROOT_S3"])
+        bucket, key = root.netloc, root.path.lstrip("/")
 
         s3 = boto3.resource('s3')
         s3.meta.client.upload_file(
             f"./{self.file_name}", 
             "serve-datalake-zillowgroup",
-            f"zillow/workflow_sdk/metaflow_28d/{self.env}/aip-integration-testing/{self.file_name}"
+            join(key, self.file_name)
         )
         self.next(self.end)
     @step
