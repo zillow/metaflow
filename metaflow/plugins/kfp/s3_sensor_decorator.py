@@ -42,16 +42,22 @@ Example usage:
     can do so with a separate `path_formatter` function:
 
     def formatter(path: str, flow_parameters: dict) -> str:
-        return path.format(FLOW_ID, my_parse_func(flow_parameters["FLOW_ID"]))
+        path.format(year, flow_parameters["date"].split("-")[-1])
 
     @s3_sensor(
-        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{FLOW_ID}",
+        path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{flow_id}/year={year}",
         timeout_seconds=3600, # 1 hour
         polling_interval_seconds=90,
         path_formatter=formatter
     )
     class S3SensorFlow(FlowSpec):    
         ...
+
+    Note, in this example, `flow_parameters` looks like:
+    {
+        "flow_id": "random_flow_id",
+        "date": "07-02-2021"
+    }
 """
 
 

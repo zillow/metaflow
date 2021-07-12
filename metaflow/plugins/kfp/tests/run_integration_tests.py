@@ -70,7 +70,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
-    file_name = f"{uuid.uuid1()}.txt"
+    file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
 
     upload_to_s3_flow_cmd = (
         f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "

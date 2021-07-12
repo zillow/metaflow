@@ -815,6 +815,8 @@ class KubeflowPipelines(object):
 
         s3_sensor_op = func_to_container_op(
             wait_for_s3_path,
+            # We plan to add the Dockerfile of image hsezhiyan/metaflow-zillow:2.0 to this repo
+            # https://zbrt.atl.zillow.net/browse/AIP-4571
             base_image="hsezhiyan/metaflow-zillow:2.0",
         )(
             path=path,
@@ -1016,7 +1018,7 @@ class KubeflowPipelines(object):
                                 workflow_uid=workflow_uid,
                             )
 
-            workflow_uid_op = None
+            workflow_uid_op: ContainerOp = None
             if any(
                 "volume" in s.resource_requirements
                 for s in step_to_kfp_component_map.values()
@@ -1029,7 +1031,7 @@ class KubeflowPipelines(object):
                 )
                 KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
 
-            s3_sensor_op = None
+            s3_sensor_op: ContainerOp = None
             s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
             if s3_sensor_deco:
                 s3_sensor_op = self._create_s3_sensor_op(
