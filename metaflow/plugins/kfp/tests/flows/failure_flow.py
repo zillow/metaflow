@@ -2,7 +2,7 @@ import os
 import signal
 import time
 
-from metaflow import FlowSpec, step, retry, catch, timeout, current, resources
+from metaflow import FlowSpec, step, retry, catch, timeout, current
 from metaflow.exception import MetaflowExceptionWrapper
 
 
@@ -42,7 +42,7 @@ class FailureFlow(FlowSpec):
         # kill this process with the KILL signal
         os.kill(os.getpid(), signal.SIGKILL)
         self.next(self.timeout)
-    
+
     @catch(print_exception=False, var="timeout_exception")
     @timeout(seconds=3)
     @step

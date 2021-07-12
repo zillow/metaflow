@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, step, resources
+from metaflow import FlowSpec, step
 
 
 class ForeachLinearSplit(FlowSpec):

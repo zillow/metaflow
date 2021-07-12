@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, step, current, Step, resources
+from metaflow import FlowSpec, step, current, Step
 
 import os
 from random import random
