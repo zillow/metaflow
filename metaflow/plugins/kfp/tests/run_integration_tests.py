@@ -60,7 +60,7 @@ def test_raise_failure_flow(pytestconfig) -> None:
     test_cmd = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+        f"--max-parallelism 5 --experiment metaflow_test --tag test_t1 "
     )
     if pytestconfig.getoption("image"):
         test_cmd += (
@@ -107,7 +107,7 @@ def test_compile_only_accelerator_test() -> None:
         yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
 
         compile_to_yaml_cmd = (
-            f"{_python()} flows/accelerator_flow.py --datastore=s3 kfp run "
+            f"{_python()} flows/accelerator_flow.py --datastore=s3 --with retry kfp run "
             f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
         )
 
@@ -159,9 +159,9 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
     # `check_valid_logs_process` process.
 
     test_cmd = (
-        f"{_python()} {full_path} --datastore=s3 kfp run "
+        f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+        f"--max-parallelism 5 --experiment metaflow_test --tag test_t1 "
     )
     if pytestconfig.getoption("image"):
         test_cmd += (
