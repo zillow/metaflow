@@ -1,6 +1,6 @@
 from os import listdir
 from os.path import isfile, join
-from subprocess import run, PIPE
+from subprocess_tee import run, PIPE
 from typing import List, Dict
 
 from .... import R
@@ -74,8 +74,6 @@ def test_raise_failure_flow(pytestconfig) -> None:
     # run_and_wait_process = run(
     #     test_cmd,
     #     universal_newlines=True,
-    #     stdout=PIPE,
-    #     shell=True,
     # )
     # # this ensures the integration testing framework correctly catches a failing flow
     # # and reports the error
@@ -189,12 +187,10 @@ def exponential_backoff_from_kfam_errors(kfp_run_cmd: str, correct_return_code: 
         run_and_wait_process = run(
             kfp_run_cmd,
             universal_newlines=True,
-            stdout=PIPE,
-            stderr=PIPE,
             shell=True,
         )
 
-        if "Reason: Unauthorized" in run_and_wait_process.stdout:
+        if "Reason: Unauthorized" in run_and_wait_process.stderr:
             print(f"KFAM issue encountered. Backing off for {interval} seconds...")
             continue
         else:
