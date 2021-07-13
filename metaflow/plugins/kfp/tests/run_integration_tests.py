@@ -119,7 +119,6 @@ def test_compile_only_accelerator_test() -> None:
         compile_to_yaml_process = run(
             compile_to_yaml_cmd,
             universal_newlines=True,
-            stdout=PIPE,
             shell=True,
         )
         assert compile_to_yaml_process.returncode == 0
