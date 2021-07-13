@@ -71,16 +71,7 @@ def test_raise_failure_flow(pytestconfig) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
         )
 
-    # run_and_wait_process = run(
-    #     test_cmd,
-    #     universal_newlines=True,
-    # )
-    # # this ensures the integration testing framework correctly catches a failing flow
-    # # and reports the error
-    # assert run_and_wait_process.returncode == 1
-
     exponential_backoff_from_kfam_errors(test_cmd, 1)
-
 
     return
 
@@ -154,13 +145,6 @@ def test_compile_only_accelerator_test() -> None:
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
 def test_flows(pytestconfig, flow_file_path: str) -> None:
     full_path = join("flows", flow_file_path)
-    # In the process below, stdout=PIPE because we only want to capture stdout.
-    # The reason is that the click echo function prints to stderr, and contains
-    # the main logs (run link, graph validation, package uploading, etc). We
-    # want to ensure these logs are visible to users and not captured.
-    # We use the print function in kfp_cli.py to print a magic token containing the
-    # run id and capture this to correctly test logging. See the
-    # `check_valid_logs_process` process.
 
     test_cmd = (
         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
@@ -178,8 +162,12 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
 
 
 def exponential_backoff_from_kfam_errors(kfp_run_cmd: str, correct_return_code: int) -> None:
+    # Within this function, we use the special feature of subprocess_tee which allows us
+    # to capture both stdout and stderr (akin to stdout=PIPE, stderr=PIPE in the regular subprocess.run)
+    # as well as output to stdout and stderr (which users can see on the Gitlab logs). We check
+    # if the error message is due to a KFAM issue, and if so, we do an exponential backoff.
+
     backoff_intervals = [0, 2, 4, 8, 16, 32]
-    print("Beginning a backoff test...")
 
     for interval in backoff_intervals:
         time.sleep(interval)
