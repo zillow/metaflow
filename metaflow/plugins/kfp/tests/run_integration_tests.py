@@ -190,7 +190,7 @@ def exponential_backoff_from_kfam_errors(kfp_run_cmd: str, correct_return_code: 
             shell=True,
         )
 
-        if "Reason: Unauthorized" in run_and_wait_process.stderr:
+        if "Reason: Unauthorized" in run_and_wait_process.stderr or "Failed to connect to the KFAM service" in run_and_wait_process.stderr:
             print(f"KFAM issue encountered. Backing off for {interval} seconds...")
             continue
         else:
