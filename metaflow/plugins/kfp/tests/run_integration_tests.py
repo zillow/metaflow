@@ -5,12 +5,16 @@ from typing import List, Dict
 
 from .... import R
 
+from metaflow.exception import MetaflowException
+
 import kfp
 
 import pytest
 
 import yaml
 import tempfile
+
+import time
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -67,15 +71,18 @@ def test_raise_failure_flow(pytestconfig) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
         )
 
-    run_and_wait_process = run(
-        test_cmd,
-        universal_newlines=True,
-        stdout=PIPE,
-        shell=True,
-    )
-    # this ensures the integration testing framework correctly catches a failing flow
-    # and reports the error
-    assert run_and_wait_process.returncode == 1
+    # run_and_wait_process = run(
+    #     test_cmd,
+    #     universal_newlines=True,
+    #     stdout=PIPE,
+    #     shell=True,
+    # )
+    # # this ensures the integration testing framework correctly catches a failing flow
+    # # and reports the error
+    # assert run_and_wait_process.returncode == 1
+
+    exponential_backoff_from_kfam_errors(test_cmd, 1)
+
 
     return
 
@@ -168,12 +175,29 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
         )
 
-    run_and_wait_process = run(
-        test_cmd,
-        universal_newlines=True,
-        stdout=PIPE,
-        shell=True,
-    )
-    assert run_and_wait_process.returncode == 0
+    exponential_backoff_from_kfam_errors(test_cmd, 0)
 
     return
+
+
+def exponential_backoff_from_kfam_errors(kfp_run_cmd: str, correct_return_code: int) -> None:
+    backoff_intervals = [0, 2, 4, 8, 16, 32]
+
+    for interval in backoff_intervals:
+        time.sleep(interval)
+
+        run_and_wait_process = run(
+            kfp_run_cmd,
+            universal_newlines=True,
+            stdout=PIPE,
+            shell=True,
+        )
+
+        if "Reason: Unauthorized" in run_and_wait_process.stdout:
+            print(f"KFAM issue encountered. Backing off for {interval} seconds...")
+            continue
+        else:
+            assert run_and_wait_process.returncode == correct_return_code
+            break
+    else:
+        raise MetaflowException("KFAM issues not resolved after successive backoff attempts.")
