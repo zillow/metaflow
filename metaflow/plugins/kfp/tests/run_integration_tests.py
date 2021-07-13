@@ -190,6 +190,7 @@ def exponential_backoff_from_kfam_errors(kfp_run_cmd: str, correct_return_code: 
             kfp_run_cmd,
             universal_newlines=True,
             stdout=PIPE,
+            stderr=PIPE,
             shell=True,
         )
 
