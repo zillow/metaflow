@@ -180,6 +180,7 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
 
 def exponential_backoff_from_kfam_errors(kfp_run_cmd: str, correct_return_code: int) -> None:
     backoff_intervals = [0, 2, 4, 8, 16, 32]
+    print("Beginning a backoff test...")
 
     for interval in backoff_intervals:
         time.sleep(interval)
