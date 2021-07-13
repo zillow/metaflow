@@ -26,9 +26,9 @@ a workflow only begins after a key in S3 has been written to.
 
 Example usage:
 
-    If FLOW_ID is a parameter you've passed to your flow, the substitution
-    of FLOW_ID in the `path` variable is automatically done for you if you
-    specify the variable in braces ({}) (e.g. {FLOW_ID}).
+    If flow_id is a parameter you've passed to your flow, the substitution
+    of flow_id in the `path` variable is automatically done for you if you
+    specify the variable in braces ({}) (e.g. {flow_id}).
 
     @s3_sensor(
         path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{FLOW_ID}",
@@ -38,7 +38,7 @@ Example usage:
     class S3SensorFlow(FlowSpec):    
         ...
 
-    If you want to format FLOW_ID (or any other variable in flow_parameters), you
+    If you want to format flow_id (or any other variable in flow_parameters), you
     can do so with a separate `path_formatter` function:
 
     def formatter(path: str, flow_parameters: dict) -> str:

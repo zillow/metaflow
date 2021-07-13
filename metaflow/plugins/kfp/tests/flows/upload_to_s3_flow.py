@@ -36,7 +36,7 @@ class UploadToS3Flow(FlowSpec):
         s3 = boto3.resource('s3')
         s3.meta.client.upload_file(
             f"./{self.file_name}", 
-            "serve-datalake-zillowgroup",
+            bucket,
             join(key, self.file_name)
         )
         self.next(self.end)
