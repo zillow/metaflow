@@ -9,6 +9,10 @@ from os.path import join
 
 from urllib.parse import urlparse
 
+def _get_datastore_root() -> str:
+    datastore_root_env_var = "METAFLOW_DATASTORE_SYSROOT_S3"
+    return environ[datastore_root_env_var]
+
 class UploadToS3Flow(FlowSpec):
 
     file_name = Parameter(
@@ -30,7 +34,7 @@ class UploadToS3Flow(FlowSpec):
             shell=True
         )
 
-        root = urlparse(environ["METAFLOW_DATASTORE_SYSROOT_S3"])
+        root = urlparse(_get_datastore_root())
         bucket, key = root.netloc, root.path.lstrip("/")
 
         s3 = boto3.resource('s3')

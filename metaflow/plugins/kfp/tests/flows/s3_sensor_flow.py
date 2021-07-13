@@ -8,8 +8,12 @@ to in S3. In run_integration_tests.py, we have a special test just for this flow
 The test creates a random file and uploads it to S3, and this flow waits on the creation
 of that file.
 """
+def _get_datastore_root() -> str:
+    datastore_root_env_var = "METAFLOW_DATASTORE_SYSROOT_S3"
+    return environ[datastore_root_env_var]
+
 @s3_sensor(
-    path=join(environ["METAFLOW_DATASTORE_SYSROOT_S3"], "{file_name}"),
+    path=join(_get_datastore_root(), "{file_name}"),
     timeout_seconds=600,
     polling_interval_seconds=5,
 )
