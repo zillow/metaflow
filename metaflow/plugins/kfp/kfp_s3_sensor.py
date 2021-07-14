@@ -13,6 +13,7 @@ def wait_for_s3_path(
     polling_interval_seconds: int,
     path_formatter_code_encoded: str,
     flow_parameters_json: str,
+    os_vars: bool,
 ) -> str:
     import boto3
     import botocore
@@ -22,6 +23,7 @@ def wait_for_s3_path(
     import time
     from typing import Tuple
     from urllib.parse import urlparse
+    import os
 
     flow_parameters = json.loads(flow_parameters_json)
     path_formatter_code = marshal.loads(base64.b64decode(path_formatter_code_encoded))
@@ -31,6 +33,9 @@ def wait_for_s3_path(
 
     path_formatter_template.__code__ = path_formatter_code
     path = path_formatter_template(path, flow_parameters)
+    if os_vars:
+        # expand OS env variables
+        path = os.path.expandvars(path)
     # default variable substitution
     path = path.format(**flow_parameters)
     parsed_path = urlparse(path)

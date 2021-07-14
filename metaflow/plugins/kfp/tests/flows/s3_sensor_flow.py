@@ -1,6 +1,5 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
-from os import environ
 from os.path import join
 """
 This test flow ensures that @s3_sensor properly waits for path to be written
@@ -9,17 +8,15 @@ The test creates a random file and uploads it to S3, and this flow waits on the 
 of that file.
 """
 @s3_sensor(
-    path=join(environ["METAFLOW_DATASTORE_SYSROOT_S3"], "{file_name}"),
+    path=join("$METAFLOW_DATASTORE_SYSROOT_S3", "{file_name}"),
     timeout_seconds=600,
     polling_interval_seconds=5,
+    os_vars=True,
 )
 class S3SensorFlow(FlowSpec):
 
     file_name = Parameter(
         "file_name",
-    )
-    env = Parameter(
-        "env"
     )
     @step
     def start(self):

@@ -14,9 +14,6 @@ class UploadToS3Flow(FlowSpec):
     file_name = Parameter(
         "file_name",
     )
-    env = Parameter(
-        "env"
-    )
     @step
     def start(self):
         print("Waiting to upload file...")
