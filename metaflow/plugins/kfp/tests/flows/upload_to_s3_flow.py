@@ -34,6 +34,9 @@ class UploadToS3Flow(FlowSpec):
         root = urlparse(getenv("METAFLOW_DATASTORE_SYSROOT_S3", "s3://random_bucket/random_key"))
         bucket, key = root.netloc, root.path.lstrip("/")
 
+        print("Bucket: ", bucket)
+        print("key: ", key)
+
         s3 = boto3.resource('s3')
         s3.meta.client.upload_file(
             f"./{self.file_name}", 
