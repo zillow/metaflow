@@ -9,6 +9,8 @@ The test creates a random file and uploads it to S3, and this flow waits on the 
 of that file.
 """
 @s3_sensor(
+    # using os.getenv with a default because the Gitlab runners do not have access to the 
+    # METAFLOW_DATASTORE_SYSROOT_S3 env var
     path=join(getenv("METAFLOW_DATASTORE_SYSROOT_S3", "s3://random_bucket/random_key"), "{file_name}"),
     timeout_seconds=600,
     polling_interval_seconds=5,

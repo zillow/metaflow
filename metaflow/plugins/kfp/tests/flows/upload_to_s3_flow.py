@@ -29,7 +29,8 @@ class UploadToS3Flow(FlowSpec):
             stdout=PIPE,
             shell=True
         )
-
+        # using os.getenv with a default because the Gitlab runners do not have access to the 
+        # METAFLOW_DATASTORE_SYSROOT_S3 env var
         root = urlparse(getenv("METAFLOW_DATASTORE_SYSROOT_S3", "s3://random_bucket/random_key"))
         bucket, key = root.netloc, root.path.lstrip("/")
 
