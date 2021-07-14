@@ -110,7 +110,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     return
 
 
-# t ensures the integration tests fail correctly
+# this test ensures the integration tests fail correctly
 def test_raise_failure_flow(pytestconfig) -> None:
     test_cmd = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
