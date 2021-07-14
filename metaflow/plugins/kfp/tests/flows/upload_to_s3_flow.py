@@ -24,6 +24,7 @@ class UploadToS3Flow(FlowSpec):
 
         run(f"touch {self.file_name}", universal_newlines=True, stdout=PIPE, shell=True)
         # using environ with METAFLOW_DATASTORE_SYSROOT_S3 env var
+        # since it is available at run time in the pods on Kubeflow
         root = urlparse(environ["METAFLOW_DATASTORE_SYSROOT_S3"])
         bucket, key = root.netloc, root.path.lstrip("/")
 
