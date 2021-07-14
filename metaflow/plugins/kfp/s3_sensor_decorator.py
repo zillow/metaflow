@@ -1,4 +1,3 @@
-from _typeshed import NoneType
 from metaflow.decorators import FlowDecorator
 from metaflow.exception import MetaflowException
 
@@ -105,7 +104,8 @@ class S3SensorDecorator(FlowDecorator):
                 )
 
         # if the user provides a path_formatter, it must be a function
-        if not isinstance(self.path_formatter, FunctionType) and not isinstance(
-            self.path_formatter, NoneType
+        if (
+            not isinstance(self.path_formatter, FunctionType)
+            and not self.path_formatter
         ):
             raise MetaflowException("path_formatter must be a function.")
