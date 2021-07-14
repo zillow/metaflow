@@ -32,7 +32,7 @@ def identity_formatter(path: str, flow_parameters: dict) -> str:
 
 @mock_s3
 @pytest.mark.parametrize(
-    "upload_bucket, upload_key, upload_path, processed_path, flow_parameters_json, os_vars",
+    "upload_bucket, upload_key, upload_path, processed_path, flow_parameters_json, os_expandvars",
     [
         (
             "sample_bucket",
@@ -60,13 +60,13 @@ def identity_formatter(path: str, flow_parameters: dict) -> str:
         ),
     ],
 )
-def test_wait_for_s3_path_no_exception(
+def test_wait_for_s3_path(
     upload_bucket: str,
     upload_key: str,
     upload_path: str,
     processed_path: str,
     flow_parameters_json: str,
-    os_vars: bool,
+    os_expandvars: bool,
 ):
     os.environ["DATE"] = "08-03-2022"
 
@@ -86,7 +86,7 @@ def test_wait_for_s3_path_no_exception(
         polling_interval_seconds=1,
         path_formatter_code_encoded=identity_formatter_code_encoded,
         flow_parameters_json=flow_parameters_json,
-        os_vars=os_vars,
+        os_expandvars=os_expandvars,
     )
 
     assert path == processed_path
@@ -107,5 +107,5 @@ def test_wait_for_s3_path_timeout_exception():
             polling_interval_seconds=1,
             path_formatter_code_encoded=identity_formatter_code_encoded,
             flow_parameters_json='{"key": "value"}',
-            os_vars=False,
+            os_expandvars=False,
         )

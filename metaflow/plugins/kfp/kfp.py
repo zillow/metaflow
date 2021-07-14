@@ -801,7 +801,7 @@ class KubeflowPipelines(object):
         timeout_seconds = s3_sensor_deco.timeout_seconds
         polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
         path_formatter = s3_sensor_deco.path_formatter
-        os_vars = s3_sensor_deco.os_vars
+        os_expandvars = s3_sensor_deco.os_expandvars
 
         # see https://github.com/kubeflow/pipelines/pull/1946/files
         # KFP does not support the serialization of Python functions directly. The KFP team took
@@ -825,7 +825,7 @@ class KubeflowPipelines(object):
             polling_interval_seconds=polling_interval_seconds,
             path_formatter_code_encoded=path_formatter_code_encoded,
             flow_parameters_json=flow_parameters_json,
-            os_vars=os_vars,
+            os_expandvars=os_expandvars,
         ).set_display_name(
             "s3_sensor"
         )

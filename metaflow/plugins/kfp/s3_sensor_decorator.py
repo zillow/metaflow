@@ -39,10 +39,17 @@ Example usage:
         ...
 
     If you want to format flow_id (or any other variable in flow_parameters), you
-    can do so with a separate `path_formatter` function:
+    can do so with a separate `path_formatter` function.
+
+    Note, in this example, `flow_parameters` looks like, so `flow_id` is automatically
+    substituted into {flow_id}.
+    {
+        "flow_id": "random_flow_id",
+        "date": "07-02-2021"
+    }
 
     def formatter(path: str, flow_parameters: dict) -> str:
-        path.format(year, flow_parameters["date"].split("-")[-1])
+        path.format(year=flow_parameters["date"].split("-")[-1])
 
     @s3_sensor(
         path="s3://aip-example-sandbox/metaflow/S3SensorFlow/data/61/{flow_id}/year={year}",
@@ -53,11 +60,16 @@ Example usage:
     class S3SensorFlow(FlowSpec):    
         ...
 
-    Note, in this example, `flow_parameters` looks like:
-    {
-        "flow_id": "random_flow_id",
-        "date": "07-02-2021"
-    }
+
+    If you plan to use env variables present in the pods on Kubeflow, use os_expandvars=True.
+    Note: os_expandvars=False by default.
+
+    @s3_sensor(
+        path=join("$METAFLOW_DATASTORE_SYSROOT_S3", "/path/to/file"),
+        os_expandvars=True
+    )
+    class S3SensorFlow(FlowSpec):    
+        ...
 """
 
 
@@ -68,7 +80,7 @@ class S3SensorDecorator(FlowDecorator):
         "timeout_seconds": 3600,
         "polling_interval_seconds": 300,
         "path_formatter": identity_formatter,
-        "os_vars": False,
+        "os_expandvars": False,
     }
 
     def flow_init(self, flow, graph, environment, datastore, logger, echo, options):
@@ -76,15 +88,17 @@ class S3SensorDecorator(FlowDecorator):
         self.timeout_seconds = self.attributes["timeout_seconds"]
         self.polling_interval_seconds = self.attributes["polling_interval_seconds"]
         self.path_formatter = self.attributes["path_formatter"]
-        self.os_vars = self.attributes["os_vars"]
+        self.os_expandvars = self.attributes["os_expandvars"]
 
         if not self.path:
             raise MetaflowException("You must specify a S3 path within @s3_sensor.")
 
-        if not self.os_vars:
+        if self.path_formatter is not identity_formatter and not self.os_expandvars:
             parsed_path = urlparse(self.path)
-            if not parsed_path.scheme:
-                raise MetaflowException("Your S3 path must be prefixed by s3://")
+            if not parsed_path.scheme or parsed_path.scheme not in ["s3", "s3a", "s3n"]:
+                raise MetaflowException(
+                    "Your S3 path must be prefixed by s3://, s3a://, or s3n://"
+                )
 
             bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
             if not bucket or not key:
