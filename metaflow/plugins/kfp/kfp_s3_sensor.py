@@ -31,9 +31,9 @@ def wait_for_s3_path(
         pass
 
     path_formatter_template.__code__ = path_formatter_code
-    path = path_formatter_template(path, flow_parameters)
     # expand OS env variables
     path = os.path.expandvars(path)
+    path = path_formatter_template(path, flow_parameters)
     # default variable substitution
     path = path.format(**flow_parameters)
     parsed_path = urlparse(path)

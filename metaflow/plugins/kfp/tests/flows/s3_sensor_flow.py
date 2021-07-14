@@ -11,7 +11,7 @@ of that file.
 @s3_sensor(
     # using os.getenv with a default because the Gitlab runners do not have access to the 
     # METAFLOW_DATASTORE_SYSROOT_S3 env var
-    path=join(getenv("METAFLOW_DATASTORE_SYSROOT_S3"), "{file_name}"),
+    path=join("METAFLOW_DATASTORE_SYSROOT_S3", "{file_name}"),
     timeout_seconds=600,
     polling_interval_seconds=5,
 )
