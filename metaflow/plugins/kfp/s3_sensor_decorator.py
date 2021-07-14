@@ -80,9 +80,6 @@ class S3SensorDecorator(FlowDecorator):
             raise MetaflowException("You must specify a S3 path within @s3_sensor.")
 
         parsed_path = urlparse(self.path)
-        if not parsed_path.scheme:
-            raise MetaflowException("Your S3 path must be prefixed by s3://")
-
         bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
         if not bucket or not key:
             raise MetaflowException("Your S3 path must have a nonempty bucket and key.")
