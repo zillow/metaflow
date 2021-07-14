@@ -26,18 +26,28 @@ def wait_for_s3_path(
     import os
 
     flow_parameters = json.loads(flow_parameters_json)
-    path_formatter_code = marshal.loads(base64.b64decode(path_formatter_code_encoded))
 
-    def path_formatter_template(key: str, flow_parameters: dict) -> str:
-        pass
+    if path_formatter_code_encoded:
+        path_formatter_code = marshal.loads(
+            base64.b64decode(path_formatter_code_encoded)
+        )
 
-    path_formatter_template.__code__ = path_formatter_code
-    path = path_formatter_template(path, flow_parameters)
-    if os_expandvars:
-        # expand OS env variables
-        path = os.path.expandvars(path)
-    # default variable substitution
-    path = path.format(**flow_parameters)
+        def path_formatter_template(key: str, flow_parameters: dict) -> str:
+            pass
+
+        path_formatter_template.__code__ = path_formatter_code
+        path = path_formatter_template(path, flow_parameters)
+    else:
+        if os_expandvars:
+            # expand OS env variables
+            path = os.path.expandvars(path)
+        # default variable substitution
+        path = path.format(**flow_parameters)
+
+    # debugging print statement for customers so they know the final path
+    # we're looking for
+    print(f"Waiting for path: {path}...")
+
     parsed_path = urlparse(path)
     bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
 
@@ -46,7 +56,7 @@ def wait_for_s3_path(
     while True:
         current_time = time.time()
         elapsed_time = current_time - start_time
-        if timeout_seconds is not -1 and elapsed_time > timeout_seconds:
+        if elapsed_time > timeout_seconds:
             raise TimeoutError("Timed out while waiting for S3 key..")
 
         try:

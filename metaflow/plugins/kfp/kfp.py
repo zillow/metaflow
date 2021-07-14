@@ -812,9 +812,12 @@ class KubeflowPipelines(object):
         # which couldn't be resolved when the path_formatter function was unpickled within the running
         # container. Instead, we took the approach of marshalling just the code of the path_formatter
         # function, and reconstructing the function within the kf_s3_sensor.py code.
-        path_formatter_code_encoded = base64.b64encode(
-            marshal.dumps(path_formatter.__code__)
-        ).decode("ascii")
+        if path_formatter:
+            path_formatter_code_encoded = base64.b64encode(
+                marshal.dumps(path_formatter.__code__)
+            ).decode("ascii")
+        else:
+            path_formatter_code_encoded = ""
 
         s3_sensor_op = func_to_container_op(
             wait_for_s3_path,
