@@ -1,6 +1,6 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
-from os import environ
+from os import getenv
 from os.path import join
 """
 This test flow ensures that @s3_sensor properly waits for path to be written
@@ -10,7 +10,7 @@ of that file.
 """
 def _get_datastore_root() -> str:
     datastore_root_env_var = "METAFLOW_DATASTORE_SYSROOT_S3"
-    return environ[datastore_root_env_var]
+    return getenv(datastore_root_env_var)
 
 @s3_sensor(
     path=join(_get_datastore_root(), "{file_name}"),

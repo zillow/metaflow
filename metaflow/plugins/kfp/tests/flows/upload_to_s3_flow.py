@@ -4,14 +4,14 @@ import boto3
 import time
 from subprocess import run, PIPE
 
-from os import environ
+from os import getenv
 from os.path import join
 
 from urllib.parse import urlparse
 
 def _get_datastore_root() -> str:
     datastore_root_env_var = "METAFLOW_DATASTORE_SYSROOT_S3"
-    return environ[datastore_root_env_var]
+    return getenv(datastore_root_env_var)
 
 class UploadToS3Flow(FlowSpec):
 
