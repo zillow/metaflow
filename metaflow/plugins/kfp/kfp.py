@@ -802,6 +802,8 @@ class KubeflowPipelines(object):
         polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
         path_formatter = s3_sensor_deco.path_formatter
 
+        print("S3 path: ", path)
+
         # see https://github.com/kubeflow/pipelines/pull/1946/files
         # KFP does not support the serialization of Python functions directly. The KFP team took
         # the approach of using base64 encoding + pickle. Pickle didn't quite work out
