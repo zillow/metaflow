@@ -68,7 +68,7 @@ class S3SensorDecorator(FlowDecorator):
         "timeout_seconds": 3600,
         "polling_interval_seconds": 300,
         "path_formatter": identity_formatter,
-        "os_vars": False
+        "os_vars": False,
     }
 
     def flow_init(self, flow, graph, environment, datastore, logger, echo, options):
@@ -80,7 +80,7 @@ class S3SensorDecorator(FlowDecorator):
 
         if not self.path:
             raise MetaflowException("You must specify a S3 path within @s3_sensor.")
-        
+
         if not self.os_vars:
             parsed_path = urlparse(self.path)
             if not parsed_path.scheme:
@@ -88,7 +88,9 @@ class S3SensorDecorator(FlowDecorator):
 
             bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
             if not bucket or not key:
-                raise MetaflowException("Your S3 path must have a nonempty bucket and key.")
+                raise MetaflowException(
+                    "Your S3 path must have a nonempty bucket and key."
+                )
 
         if not isinstance(self.path_formatter, FunctionType):
             raise MetaflowException("path_formatter must be a function.")
