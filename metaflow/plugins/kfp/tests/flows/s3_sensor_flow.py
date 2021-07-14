@@ -1,6 +1,6 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
-from os import environ
+from os import getenv
 from os.path import join
 """
 This test flow ensures that @s3_sensor properly waits for path to be written
@@ -9,7 +9,9 @@ The test creates a random file and uploads it to S3, and this flow waits on the 
 of that file.
 """
 @s3_sensor(
-    path=join(environ["METAFLOW_DATASTORE_SYSROOT_S3"], "{file_name}"),
+    # using os.getenv with a default because the Gitlab runners do not have access to the 
+    # METAFLOW_DATASTORE_SYSROOT_S3 env var
+    path=join(getenv("METAFLOW_DATASTORE_SYSROOT_S3", "s3://random_bucket/random_key"), "{file_name}"),
     timeout_seconds=600,
     polling_interval_seconds=5,
 )
