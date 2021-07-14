@@ -11,7 +11,7 @@ of that file.
     path=join("$METAFLOW_DATASTORE_SYSROOT_S3", "{file_name}"),
     timeout_seconds=600,
     polling_interval_seconds=5,
-    os_vars=True,
+    os_expandvars=True,
 )
 class S3SensorFlow(FlowSpec):
 
