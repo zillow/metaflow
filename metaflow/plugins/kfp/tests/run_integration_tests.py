@@ -207,9 +207,9 @@ def exponential_backoff_from_kfam_errors(kfp_run_cmd: str, correct_return_code: 
     # as well as output to stdout and stderr (which users can see on the Gitlab logs). We check
     # if the error message is due to a KFAM issue, and if so, we do an exponential backoff.
 
-    backoff_intervals = [0, 2, 4, 8, 16, 32]
+    backoff_intervals_in_seconds = [0, 2, 4, 8, 16, 32]
 
-    for interval in backoff_intervals:
+    for interval in backoff_intervals_in_seconds:
         time.sleep(interval)
 
         run_and_wait_process = run(
