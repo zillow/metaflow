@@ -20,9 +20,6 @@ class S3SensorFlow(FlowSpec):
     file_name = Parameter(
         "file_name",
     )
-    env = Parameter(
-        "env"
-    )
     @step
     def start(self):
         print("S3SensorFlow is starting.")

@@ -14,9 +14,6 @@ class UploadToS3Flow(FlowSpec):
     file_name = Parameter(
         "file_name",
     )
-    env = Parameter(
-        "env"
-    )
     @step
     def start(self):
         print("Waiting to upload file...")
@@ -35,7 +32,7 @@ class UploadToS3Flow(FlowSpec):
         bucket, key = root.netloc, root.path.lstrip("/")
 
         print("Bucket: ", bucket)
-        print("key: ", key)
+        print("key: ", join(key, self.file_name))
 
         s3 = boto3.resource('s3')
         s3.meta.client.upload_file(

@@ -36,6 +36,9 @@ def wait_for_s3_path(
     parsed_path = urlparse(path)
     bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
 
+    print("bucket: ", bucket)
+    print("key: ", key)
+
     s3 = boto3.client("s3")
     start_time = time.time()
     while True:
