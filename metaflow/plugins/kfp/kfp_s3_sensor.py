@@ -25,6 +25,8 @@ def wait_for_s3_path(
     from urllib.parse import urlparse
     import os
 
+    exit(1)
+
     flow_parameters = json.loads(flow_parameters_json)
 
     if path_formatter_code_encoded:
