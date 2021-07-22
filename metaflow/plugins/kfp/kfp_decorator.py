@@ -94,6 +94,7 @@ class KfpInternalDecorator(StepDecorator):
         graph,
         retry_count,
         max_retries,
+        ubf_context,
     ):
         """
         Analogous to step_functions_decorator.py
