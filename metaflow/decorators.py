@@ -8,6 +8,7 @@ from .exception import MetaflowInternalError, \
 
 import click
 
+
 class BadStepDecoratorException(MetaflowException):
     headline = "Syntax error"
 
@@ -172,6 +173,7 @@ def add_decorator_options(cmd):
 
 def flow_decorators():
     return FlowDecorator._flow_decorators
+
 
 class StepDecorator(Decorator):
     """

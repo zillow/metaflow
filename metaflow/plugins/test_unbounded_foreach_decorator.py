@@ -11,6 +11,7 @@ from metaflow.exception import MetaflowException
 from metaflow.unbounded_foreach import UnboundedForeachInput, UBF_CONTROL, UBF_TASK
 from metaflow.util import to_unicode
 
+
 class InternalTestUnboundedForeachInput(UnboundedForeachInput):
     """
     Test class that wraps around values (any iterator) and simulates an
@@ -42,6 +43,7 @@ class InternalTestUnboundedForeachInput(UnboundedForeachInput):
 
     def __repr__(self):
         return '%s(%s)' % (self.NAME, self.iterable)
+
 
 class InternalTestUnboundedForeachDecorator(StepDecorator):
     name = 'unbounded_test_foreach_internal'
@@ -118,7 +120,6 @@ class InternalTestUnboundedForeachDecorator(StepDecorator):
         # Save the list of (child) mapper task pathspec(s) into a designated
         # artifact `_control_mapper_tasks`.
         flow._control_mapper_tasks = mapper_tasks
-
 
     def task_decorate(self,
                       step_func,
