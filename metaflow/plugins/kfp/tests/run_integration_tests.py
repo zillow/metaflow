@@ -19,6 +19,7 @@ import tempfile
 import time
 
 import uuid
+
 """
 To run these tests from your terminal, go to the tests directory and run: 
 `python -m pytest -s -n 3 run_integration_tests.py`
@@ -201,7 +202,9 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
     return
 
 
-def exponential_backoff_from_platform_errors(kfp_run_cmd: str, correct_return_code: int) -> None:
+def exponential_backoff_from_platform_errors(
+    kfp_run_cmd: str, correct_return_code: int
+) -> None:
     # Within this function, we use the special feature of subprocess_tee which allows us
     # to capture both stdout and stderr (akin to stdout=PIPE, stderr=PIPE in the regular subprocess.run)
     # as well as output to stdout and stderr (which users can see on the Gitlab logs). We check
@@ -226,10 +229,14 @@ def exponential_backoff_from_platform_errors(kfp_run_cmd: str, correct_return_co
 
         for platform_error_message in platform_error_messages:
             if platform_error_message in run_and_wait_process.stderr:
-                print(f"KFAM issue encountered. Backing off for {interval} seconds...")
+                print(
+                    f"Error: {run_and_wait_process.stderr}. Backing off for {interval} seconds..."
+                )
                 break
         else:
             assert run_and_wait_process.returncode == correct_return_code
             break
     else:
-        raise MetaflowException("KFAM issues not resolved after successive backoff attempts.")
+        raise MetaflowException(
+            "KFAM issues not resolved after successive backoff attempts."
+        )
