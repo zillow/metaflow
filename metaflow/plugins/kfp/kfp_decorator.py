@@ -84,6 +84,10 @@ class KfpInternalDecorator(StepDecorator):
         self.datastore = datastore
         self.logger = logger
 
+        env_deco = [deco for deco in graph[step].decorators if deco.name == "environment"]
+        if env_deco:
+            os.environ.update(env_deco[0].attributes["vars"].items())
+
     def task_pre_step(
         self,
         step_name,
