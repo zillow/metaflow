@@ -123,7 +123,7 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     # TODO use @secret (when it's released) to store this API key
     opsgenie_auth_headers = {
         "Content-Type": "application/json",
-        "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie-api-token')}",
+        "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
     }
 
     print("opsgenie_auth_headers: ", opsgenie_auth_headers)
