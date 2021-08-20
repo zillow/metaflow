@@ -73,34 +73,34 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     return file_paths
 
 
-def test_s3_sensor_flow(pytestconfig) -> None:
-    # ensure the s3_sensor waits for some time before the key exists
-    file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
+# def test_s3_sensor_flow(pytestconfig) -> None:
+#     # ensure the s3_sensor waits for some time before the key exists
+#     file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
 
-    upload_to_s3_flow_cmd = (
-        f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
-    )
-    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
+#     upload_to_s3_flow_cmd = (
+#         f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+#     )
+#     s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
 
-    main_config_cmds = (
-        f"--workflow-timeout 1800 "
-        f"--experiment metaflow_test --tag test_t1 "
-        f"--file_name {file_name} "
-    )
-    upload_to_s3_flow_cmd += main_config_cmds
-    s3_sensor_flow_cmd += main_config_cmds
+#     main_config_cmds = (
+#         f"--workflow-timeout 1800 "
+#         f"--experiment metaflow_test --tag test_t1 "
+#         f"--file_name {file_name} "
+#     )
+#     upload_to_s3_flow_cmd += main_config_cmds
+#     s3_sensor_flow_cmd += main_config_cmds
 
-    if pytestconfig.getoption("image"):
-        image_cmds = (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
-        )
-        upload_to_s3_flow_cmd += image_cmds
-        s3_sensor_flow_cmd += image_cmds
+#     if pytestconfig.getoption("image"):
+#         image_cmds = (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
+#         )
+#         upload_to_s3_flow_cmd += image_cmds
+#         s3_sensor_flow_cmd += image_cmds
 
-    exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
-    exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
+#     exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
+#     exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
 
-    return
+#     return
 
 
 # This test ensures the integration tests fail correctly
@@ -123,8 +123,10 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     # TODO use @secret (when it's released) to store this API key
     opsgenie_auth_headers = {
         "Content-Type": "application/json",
-        "Authorization": "GenieKey 21bda224-d719-42e5-aceb-35616eb26a6c",
+        "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie-api-token')}",
     }
+
+    print("opsgenie_auth_headers: ", opsgenie_auth_headers)
 
     # Look for the alert with the correct kfp_run_id in the description.
     list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{kfp_run_id}&limit=1&sort=createdAt&order=des"
@@ -183,67 +185,67 @@ def is_nvidia_accelerator_noschedule(toleration: Dict) -> bool:
     return False
 
 
-def test_compile_only_accelerator_test() -> None:
-    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
-        yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
+# def test_compile_only_accelerator_test() -> None:
+#     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+#         yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
 
-        compile_to_yaml_cmd = (
-            f"{_python()} flows/accelerator_flow.py --datastore=s3 --with retry kfp run "
-            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
-        )
+#         compile_to_yaml_cmd = (
+#             f"{_python()} flows/accelerator_flow.py --datastore=s3 --with retry kfp run "
+#             f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
+#         )
 
-        compile_to_yaml_process = run(
-            compile_to_yaml_cmd,
-            universal_newlines=True,
-            shell=True,
-        )
-        assert compile_to_yaml_process.returncode == 0
+#         compile_to_yaml_process = run(
+#             compile_to_yaml_cmd,
+#             universal_newlines=True,
+#             shell=True,
+#         )
+#         assert compile_to_yaml_process.returncode == 0
 
-        with open(f"{yaml_file_path}", "r") as stream:
-            try:
-                flow_yaml = yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                print(exc)
+#         with open(f"{yaml_file_path}", "r") as stream:
+#             try:
+#                 flow_yaml = yaml.safe_load(stream)
+#             except yaml.YAMLError as exc:
+#                 print(exc)
 
-        for step in flow_yaml["spec"]["templates"]:
-            if step["name"] == "start":
-                start_step = step
-                break
+#         for step in flow_yaml["spec"]["templates"]:
+#             if step["name"] == "start":
+#                 start_step = step
+#                 break
 
-    affinity_found = False
-    for node_selector_term in start_step["affinity"]["nodeAffinity"][
-        "requiredDuringSchedulingIgnoredDuringExecution"
-    ]["nodeSelectorTerms"]:
-        if exists_nvidia_accelerator(node_selector_term):
-            affinity_found = True
-            break
-    assert affinity_found
+#     affinity_found = False
+#     for node_selector_term in start_step["affinity"]["nodeAffinity"][
+#         "requiredDuringSchedulingIgnoredDuringExecution"
+#     ]["nodeSelectorTerms"]:
+#         if exists_nvidia_accelerator(node_selector_term):
+#             affinity_found = True
+#             break
+#     assert affinity_found
 
-    toleration_found = False
-    for toleration in start_step["tolerations"]:
-        if is_nvidia_accelerator_noschedule(toleration):
-            toleration_found = True
-            break
-    assert toleration_found
+#     toleration_found = False
+#     for toleration in start_step["tolerations"]:
+#         if is_nvidia_accelerator_noschedule(toleration):
+#             toleration_found = True
+#             break
+#     assert toleration_found
 
 
-@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
-def test_flows(pytestconfig, flow_file_path: str) -> None:
-    full_path = join("flows", flow_file_path)
+# @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+# def test_flows(pytestconfig, flow_file_path: str) -> None:
+#     full_path = join("flows", flow_file_path)
 
-    test_cmd = (
-        f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
+#     test_cmd = (
+#         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
 
-    exponential_backoff_from_platform_errors(test_cmd, 0)
+#     exponential_backoff_from_platform_errors(test_cmd, 0)
 
-    return
+#     return
 
 
 def exponential_backoff_from_platform_errors(
