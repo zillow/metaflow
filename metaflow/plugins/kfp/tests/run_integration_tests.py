@@ -126,8 +126,6 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
     }
 
-    print("opsgenie_auth_headers: ", opsgenie_auth_headers)
-
     # Look for the alert with the correct kfp_run_id in the description.
     list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{kfp_run_id}&limit=1&sort=createdAt&order=des"
     list_alerts_response = requests.get(
