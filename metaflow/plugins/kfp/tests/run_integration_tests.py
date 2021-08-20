@@ -104,7 +104,9 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 
 # this test ensures the integration tests fail correctly
-def test_error_and_opgenie_alert(pytestconfig) -> None:
+# and that when the test fails, and OpsGenie email is sent
+# and thus an OpsGenie alert arrives correctly.
+def test_error_and_opsgenie_alert(pytestconfig) -> None:
     test_cmd = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
@@ -126,7 +128,7 @@ def test_error_and_opgenie_alert(pytestconfig) -> None:
         f"https://api.opsgenie.com/v2/alerts?query=description:{kfp_run_id}&limit=1&sort=createdAt&order=des"
     )
     list_alerts_response = requests.get(list_alerts_endpoint, headers=opsgenie_auth_headers)
-    assert list_alerts_endpoint.status_code == 200
+    assert list_alerts_response.status_code == 200
 
     list_alerts_response_json = json.loads(list_alerts_response.text)
     # assert we have found the alert
