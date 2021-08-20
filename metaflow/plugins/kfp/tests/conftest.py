@@ -1,5 +1,3 @@
-import os
-
 def pytest_addoption(parser):
     """
     The image on Artifactory that corresponds to the currently
