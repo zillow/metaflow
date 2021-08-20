@@ -143,12 +143,14 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     close_alert_endpoint = (
         f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
     )
-    close_alert_response = requests.get(
+    close_alert_response = requests.post(
         close_alert_endpoint,
         data=json.dumps(close_alert_data),
         headers=opsgenie_auth_headers
     )
-    assert close_alert_response.status_code == 200
+    # sometimes the response status code is 202, signalling
+    # the request has been accepted and is being queued for processing
+    assert close_alert_response.status_code == 200 or close_alert_response.status_code == 202
 
     return
 
