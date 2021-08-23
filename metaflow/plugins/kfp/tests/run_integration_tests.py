@@ -104,7 +104,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 
 
 # This test ensures that a flow fails correctly,
-# and when it fails, and OpsGenie email is sent.
+# and when it fails, an OpsGenie email is sent.
 def test_error_and_opsgenie_alert(pytestconfig) -> None:
     test_cmd = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
