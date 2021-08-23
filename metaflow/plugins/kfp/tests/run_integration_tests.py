@@ -120,7 +120,6 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
         )
 
     kfp_run_id = exponential_backoff_from_platform_errors(test_cmd, 1)
-    # TODO use @secret (when it's released) to store this API key
     opsgenie_auth_headers = {
         "Content-Type": "application/json",
         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
