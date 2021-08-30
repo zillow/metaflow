@@ -53,7 +53,7 @@ def _python():
 
 non_standard_test_flows = [
     "accelerator_flow.py",
-    "check_error_handling_flow",
+    "check_error_handling_flow.py",
     "raise_error_flow.py",
     "s3_sensor_flow.py",
     "upload_to_s3_flow.py",
