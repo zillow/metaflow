@@ -311,7 +311,7 @@ class KubeflowPipelines(object):
 
         Eventually resource request and limits link back to kubernetes, see
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-        
+
         For 'cpu' and 'memory', the provided value becomes both the
         resource request and resource limit.
 
@@ -556,9 +556,7 @@ class KubeflowPipelines(object):
         resource_requirements: Dict[str, Any] = kfp_component.resource_requirements
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
-            container_op.container.set_memory_limit(
-                resource_requirements["memory"]
-            )
+            container_op.container.set_memory_limit(resource_requirements["memory"])
         if "cpu" in resource_requirements:
             container_op.container.set_cpu_request(resource_requirements["cpu"])
             container_op.container.set_cpu_limit(resource_requirements["cpu"])
