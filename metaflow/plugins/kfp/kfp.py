@@ -305,7 +305,7 @@ class KubeflowPipelines(object):
     @staticmethod
     def _get_resource_requirements(node: DAGNode) -> Dict[str, str]:
         """
-        Get resource request or limit for a Metaflow step (node) set by @resources decorator.
+        Get resources for a Metaflow step (node) set by @resources decorator.
 
         Supported parameters: 'cpu', 'gpu', 'gpu_vendor', 'memory'
 

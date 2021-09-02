@@ -95,4 +95,3 @@ class ResourcesDecorator(StepDecorator):
         "volume_mode": "ReadWriteOnce",
         "volume_dir": "/opt/metaflow_volume"
     }
-
