@@ -557,14 +557,18 @@ class KubeflowPipelines(object):
         resource_requirements: Dict[str, Any] = kfp_component.resource_requirements
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
-        if "memory_limit" in resource_requirements:
             container_op.container.set_memory_limit(
                 resource_requirements["memory_limit"]
             )
+        # if "memory_limit" in resource_requirements:
+        #     container_op.container.set_memory_limit(
+        #         resource_requirements["memory_limit"]
+        #     )
         if "cpu" in resource_requirements:
             container_op.container.set_cpu_request(resource_requirements["cpu"])
-        if "cpu_limit" in resource_requirements:
             container_op.container.set_cpu_limit(resource_requirements["cpu_limit"])
+        # if "cpu_limit" in resource_requirements:
+        #     container_op.container.set_cpu_limit(resource_requirements["cpu_limit"])
         if "gpu" in resource_requirements:
             # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
             gpu_vendor = resource_requirements.get("gpu_vendor", None)
@@ -576,10 +580,13 @@ class KubeflowPipelines(object):
             container_op.container.set_ephemeral_storage_request(
                 resource_requirements["local_storage"]
             )
-        if "local_storage_limit" in resource_requirements:
             container_op.container.set_ephemeral_storage_limit(
                 resource_requirements["local_storage_limit"]
             )
+        # if "local_storage_limit" in resource_requirements:
+        #     container_op.container.set_ephemeral_storage_limit(
+        #         resource_requirements["local_storage_limit"]
+        #     )
         if "volume" in resource_requirements:
             mode = resource_requirements["volume_mode"]
             volume_dir = resource_requirements["volume_dir"]
