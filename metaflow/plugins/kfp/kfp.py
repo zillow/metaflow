@@ -307,17 +307,18 @@ class KubeflowPipelines(object):
         """
         Get resource request or limit for a Metaflow step (node) set by @resources decorator.
 
-        Supported parameters: 'cpu', 'cpu_limit', 'gpu', 'gpu_vendor', 'memory', 'memory_limit'
-        Keys with no suffix set resource request (minimum);
-        keys with 'limit' suffix sets resource limit (maximum).
+        Supported parameters: 'cpu', 'gpu', 'gpu_vendor', 'memory'
 
         Eventually resource request and limits link back to kubernetes, see
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        
+        For 'cpu' and 'memory', the provided value becomes both the
+        resource request and resource limit.
 
         Default unit for memory is megabyte, aligning with existing resource decorator usage.
 
         Example using resource decorator:
-            @resource(cpu=0.5, cpu_limit=2, gpu=1, memory=300)
+            @resource(cpu=0.5, gpu=1, memory=300)
             @step
             def my_kfp_step(): ...
         """
@@ -330,9 +331,7 @@ class KubeflowPipelines(object):
                 resource
                 in [
                     "memory",
-                    "memory_limit",
                     "local_storage",
-                    "local_storage_limit",
                     "volume",
                 ]
                 and value.isnumeric()
@@ -558,17 +557,11 @@ class KubeflowPipelines(object):
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
             container_op.container.set_memory_limit(
-                resource_requirements["memory_limit"]
+                resource_requirements["memory"]
             )
-        # if "memory_limit" in resource_requirements:
-        #     container_op.container.set_memory_limit(
-        #         resource_requirements["memory_limit"]
-        #     )
         if "cpu" in resource_requirements:
             container_op.container.set_cpu_request(resource_requirements["cpu"])
-            container_op.container.set_cpu_limit(resource_requirements["cpu_limit"])
-        # if "cpu_limit" in resource_requirements:
-        #     container_op.container.set_cpu_limit(resource_requirements["cpu_limit"])
+            container_op.container.set_cpu_limit(resource_requirements["cpu"])
         if "gpu" in resource_requirements:
             # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
             gpu_vendor = resource_requirements.get("gpu_vendor", None)
@@ -581,12 +574,8 @@ class KubeflowPipelines(object):
                 resource_requirements["local_storage"]
             )
             container_op.container.set_ephemeral_storage_limit(
-                resource_requirements["local_storage_limit"]
+                resource_requirements["local_storage"]
             )
-        # if "local_storage_limit" in resource_requirements:
-        #     container_op.container.set_ephemeral_storage_limit(
-        #         resource_requirements["local_storage_limit"]
-        #     )
         if "volume" in resource_requirements:
             mode = resource_requirements["volume_mode"]
             volume_dir = resource_requirements["volume_dir"]
@@ -638,9 +627,9 @@ class KubeflowPipelines(object):
     # to ensure customers don't bear unnecesarily large costs
     @staticmethod
     def _set_minimal_container_resources(container_op: ContainerOp):
-        container_op.container.set_cpu_request("0.1")
+        container_op.container.set_cpu_request("0.5")
         container_op.container.set_cpu_limit("0.5")
-        container_op.container.set_memory_request("10M")
+        container_op.container.set_memory_request("200M")
         container_op.container.set_memory_limit("200M")
 
     @staticmethod
