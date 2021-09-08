@@ -1115,9 +1115,12 @@ class KubeflowPipelines(object):
         workflow_uid_op: ContainerOp,
     ) -> Dict[str, Dict[str, PipelineVolume]]:
         """
+        A volume to be shared across foreach split nodes, but not downstream steps.
+        An example use case is PyTorch distributed training where gradients are communicated
+        via the shared volume.
         Returns: Dict[step_name, Dict[volume_dir, PipelineVolume]]
         """
-        ret: Dict[str, Dict[str, PipelineVolume]] = {}
+        shared_volumes: Dict[str, Dict[str, PipelineVolume]] = {}
 
         for kfp_component in step_to_kfp_component_map.values():
             resources = kfp_component.resource_requirements
@@ -1126,16 +1129,15 @@ class KubeflowPipelines(object):
                 and resources["volume_mode"] == "ReadWriteMany"
             ):
                 volume_dir = resources["volume_dir"]
-                if volume_dir not in ret:
-                    ret[kfp_component.name] = {
-                        volume_dir: KubeflowPipelines._create_volume(
-                            step_name=f"{kfp_component.name}-shared",
-                            size=resources["volume"],
-                            workflow_uid=workflow_uid_op.output,
-                            mode=dsl.VOLUME_MODE_RWO,
-                        )
-                    }
-        return ret
+                shared_volumes[kfp_component.name] = {
+                    volume_dir: KubeflowPipelines._create_volume(
+                        step_name=f"{kfp_component.name}-shared",
+                        size=resources["volume"],
+                        workflow_uid=workflow_uid_op.output,
+                        mode=dsl.VOLUME_MODE_RWO,
+                    )
+                }
+        return shared_volumes
 
     def _create_exit_handler_op(self) -> ContainerOp:
         notify_variables: dict = {
