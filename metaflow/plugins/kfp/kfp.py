@@ -405,7 +405,6 @@ class KubeflowPipelines(object):
                         deco
                         for deco in node.decorators
                         if isinstance(deco, EnvironmentDecorator)
-                        and "kubernetes_vars" in deco.attributes
                     ),
                     None,  # default
                 ),
@@ -943,8 +942,12 @@ class KubeflowPipelines(object):
                     envs = kfp_component.environment_decorator.attributes[
                         "kubernetes_vars"
                     ]
-                    for env in envs:
+                    for env in envs if envs else []:
                         container_op.container.add_env_variable(env)
+
+                    env_vars = kfp_component.environment_decorator.attributes["vars"]
+                    for name, value in env_vars.items() if env_vars else []:
+                        container_op.container.add_env_variable(V1EnvVar(name, value))
 
                 if kfp_component.total_retries and kfp_component.total_retries > 0:
                     container_op.set_retry(kfp_component.total_retries)

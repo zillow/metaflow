@@ -94,9 +94,7 @@ for label, env_name in labels.items():
 
 class ResourcesFlow(FlowSpec):
     @resources(
-        local_storage="242",
-        cpu="0.6",
-        memory="1G",
+        local_storage="242", cpu="0.6", memory="1G",
     )
     @environment(  # pylint: disable=E1102
         vars={"MY_ENV": "value"}, kubernetes_vars=kubernetes_vars
@@ -134,9 +132,13 @@ class ResourcesFlow(FlowSpec):
         self.items = [1, 2]
         self.next(self.split_step, foreach="items")
 
+    @environment(vars={"MY_ENV": "value"})  # pylint: disable=E1102
     @resources(volume="11G", volume_mode="ReadWriteMany")
     @step
     def split_step(self):
+        # test simple environment var
+        assert os.environ.get("MY_ENV") == "value"
+
         output = subprocess.check_output(
             "df -h | grep /opt/metaflow_volume", shell=True
         )
