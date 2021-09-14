@@ -588,7 +588,7 @@ class KubeflowPipelines(object):
                     step_name=kfp_component.name,
                     size=resource_requirements["volume"],
                     workflow_uid=workflow_uid,
-                    mode=dsl.VOLUME_MODE_RWO,
+                    mode=mode,
                 )
                 container_op.add_pvolumes({volume_dir: volume})
 
@@ -643,11 +643,13 @@ class KubeflowPipelines(object):
         workflow_uid: str,
         mode: str,
     ) -> PipelineVolume:
-        volume_name = sanitize_k8s_name(step_name)
+        volume_name = (
+            sanitize_k8s_name(step_name) if mode == "ReadWriteMany" else "{{pod.name}}"
+        )
         attribute_outputs = {"size": "{.status.capacity.storage}"}
         requested_resources = V1ResourceRequirements(requests={"storage": size})
         pvc_spec = V1PersistentVolumeClaimSpec(
-            access_modes=mode, resources=requested_resources
+            access_modes=dsl.VOLUME_MODE_RWO, resources=requested_resources
         )
         owner_reference = V1OwnerReference(
             api_version="argoproj.io/v1alpha1",
@@ -1131,7 +1133,7 @@ class KubeflowPipelines(object):
                         step_name=f"{kfp_component.name}-shared",
                         size=resources["volume"],
                         workflow_uid=workflow_uid_op.output,
-                        mode=dsl.VOLUME_MODE_RWO,
+                        mode=resources["volume_mode"],
                     )
                 }
         return shared_volumes
