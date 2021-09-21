@@ -26,5 +26,5 @@ setup(name='zillow-metaflow',
         'coverage'
       ],
       extras_require = {
-        'kfp': 'zillow-kfp>=1.0'
+        'kfp': 'zillow-kfp'
       })
