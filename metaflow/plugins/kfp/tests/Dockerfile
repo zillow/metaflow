@@ -1,4 +1,4 @@
-FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:0.1.1334
+FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:4.0.1380
 COPY . /home/zservice/metaflow
 RUN pip install --upgrade --no-deps --force-reinstall -e /home/zservice/metaflow
 RUN pip install \
