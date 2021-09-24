@@ -3,8 +3,8 @@ import os
 
 from kubernetes import client, config
 
-kfp_step_image_1 = "analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/aip-workflow/zillow-metaflow:1.0.937.2.2.5"
-kfp_step_image_2 = "analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/aip-workflow/zillow-metaflow:1.0.936.2.2.5"
+kfp_step_image_1 = "analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/aip-workflow/zillow-metaflow:0.0.951.2.2.5"
+kfp_step_image_2 = "analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/aip-workflow/zillow-metaflow:0.0.950.2.2.5"
 
 
 def assert_step_image(kfp_step_image: str):
