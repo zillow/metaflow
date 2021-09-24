@@ -190,7 +190,9 @@ class KubeflowPipelines(object):
         if KFP_USER_DOMAIN:
             kfp_client_user_email += f"@{KFP_USER_DOMAIN}"
 
-        self._client = kfp.Client(namespace=self.api_namespace)
+        self._client = kfp.Client(
+            namespace=self.api_namespace, userid=kfp_client_user_email
+        )
         pipeline_func, _ = self.create_kfp_pipeline_from_flow_graph()
         return self._client.create_run_from_pipeline_func(
             pipeline_func=pipeline_func,
