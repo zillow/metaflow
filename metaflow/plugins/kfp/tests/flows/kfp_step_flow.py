@@ -23,6 +23,7 @@ def assert_step_image(kfp_step_image: str):
 
             for container_status in pod_detail.status.container_statuses:
                 if container_status.name == "main":
+                    print(f"container image: {container_status.image}, kfp_step_image: {kfp_step_image}")
                     assert container_status.image == kfp_step_image
 
 
