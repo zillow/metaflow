@@ -57,7 +57,6 @@ non_standard_test_flows = [
     "raise_error_flow.py",
     "s3_sensor_flow.py",
     "upload_to_s3_flow.py",
-    #"kfp_step_flow.py",
 ]
 
 
@@ -68,6 +67,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
         if isfile(join(flow_dir_path, file_name))
         and not file_name.startswith(".")
         and not file_name in non_standard_test_flows
+        and "kfp_step_flow" in file_name
     ]
     return file_paths
 
@@ -260,23 +260,23 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 #     assert toleration_found
 
 
-# @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
-# def test_flows(pytestconfig, flow_file_path: str) -> None:
-#     full_path = join("flows", flow_file_path)
+@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+def test_flows(pytestconfig, flow_file_path: str) -> None:
+    full_path = join("flows", flow_file_path)
 
-#     test_cmd = (
-#         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
+    test_cmd = (
+        f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
 
-#     exponential_backoff_from_platform_errors(test_cmd, 0)
+    exponential_backoff_from_platform_errors(test_cmd, 0)
 
-#     return
+    return
 
 
 def exponential_backoff_from_platform_errors(
