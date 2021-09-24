@@ -25,7 +25,7 @@ class KfpStepDecorator(StepDecorator):
         or available for download on the customer's infra.
     """
 
-    name = 'kfp_step'
+    name = "kfp_step"
 
     defaults = {
         "image": None,
