@@ -57,7 +57,7 @@ non_standard_test_flows = [
     "raise_error_flow.py",
     "s3_sensor_flow.py",
     "upload_to_s3_flow.py",
-    "kfp_step_flow.py",
+    #"kfp_step_flow.py",
 ]
 
 
@@ -72,28 +72,28 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     return file_paths
 
 
-def get_datastore_root():
-    if environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-internal":
-        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing"
-    elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-stage":
-        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/stage/aip-integration-testing"
-    elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-prod":
-        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/prod/aip-integration-testing"
-    else:
-        raise MetaflowException("Invalid KFP namespace. Something broke in the integration tests.")
+# def get_datastore_root():
+#     if environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-internal":
+#         datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing"
+#     elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-stage":
+#         datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/stage/aip-integration-testing"
+#     elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-prod":
+#         datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/prod/aip-integration-testing"
+#     else:
+#         raise MetaflowException("Invalid KFP namespace. Something broke in the integration tests.")
 
 
-def test_kfp_step_flow() -> None:
-    # this test needs to have a code package because the images defined in @kfp_step
-    # in kfp_step_flow are not connected to the integ testing CICD and thus don't
-    # get the Metaflow package installed in the Gitlab runners.      
-    test_cmd = (
-        f"export METAFLOW_DATASTORE_SYSROOT_S3={get_datastore_root()} && "
-        f"{_python()} flows/kfp_step_flow.py --datastore=s3 kfp run --wait-for-completion "
-        "--workflow-timeout 1800 --max-parallelism 3 --experiment metaflow_test --tag test_t1"
-    )
-    exponential_backoff_from_platform_errors(test_cmd, 0)
-    return
+# def test_kfp_step_flow() -> None:
+#     # this test needs to have a code package because the images defined in @kfp_step
+#     # in kfp_step_flow are not connected to the integ testing CICD and thus don't
+#     # get the Metaflow package installed in the Gitlab runners.      
+#     test_cmd = (
+#         f"export METAFLOW_DATASTORE_SYSROOT_S3={get_datastore_root()} && "
+#         f"{_python()} flows/kfp_step_flow.py --datastore=s3 kfp run --wait-for-completion "
+#         "--workflow-timeout 1800 --max-parallelism 3 --experiment metaflow_test --tag test_t1"
+#     )
+#     exponential_backoff_from_platform_errors(test_cmd, 0)
+#     return
 
 
 # def test_s3_sensor_flow(pytestconfig) -> None:
