@@ -1,25 +1,15 @@
 from metaflow import FlowSpec, step, kfp_step, resources
-from metaflow.plugins.kfp.kfp_constants import BASE_IMAGE
 import os
 
 from kubernetes import client, config
 
-kfp_step_image = "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:0.1.1402"
+kfp_step_image_1 = "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:0.1.1402"
+kfp_step_image_2 = "analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:0.1.1408"
 
-class KfpStepFlow(FlowSpec):
-    """
-    Test kfp_step(image=...)
-    """
 
-    @kfp_step(image=kfp_step_image)
-    @step
-    def start(self):
-        print("Start step, testing for correct image.")
-
-        # ensures this passed in image isn't the default image,
-        # if it were, we wouldn't be testing the decorator
-        assert BASE_IMAGE != kfp_step_image
-
+def assert_step_image(kfp_step_image: str):
+    is_on_kubernetes = os.getenv("K8S_CLUSTER_NAME")
+    if is_on_kubernetes:  # only perform this test on the cluster, not on local machine
         config.load_incluster_config()
         core_api_instance = client.CoreV1Api()
 
@@ -33,13 +23,29 @@ class KfpStepFlow(FlowSpec):
 
             for container_status in pod_detail.status.container_statuses:
                 if container_status.name == "main":
+                    print(
+                        f"kfp_step_image: {kfp_step_image}, container_status.image: {container_status.image}"
+                    )
                     assert container_status.image == kfp_step_image
-        
+
+
+class KfpStepFlow(FlowSpec):
+    """
+    Test kfp_step(image=...)
+    """
+
+    @kfp_step(image=kfp_step_image_1)
+    @step
+    def start(self):
+        print("Start step, testing for correct image.")
+        assert_step_image(kfp_step_image_1)
         self.next(self.end)
 
+    @kfp_step(image=kfp_step_image_2)
     @step
     def end(self):
-        print("End step.")
+        print("End step, testing for correct image.")
+        assert_step_image(kfp_step_image_2)
 
 
 if __name__ == "__main__":
