@@ -74,7 +74,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 def get_datastore_root():
     if environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-internal":
-        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/internal/aip-integration-testing"
+        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing"
     elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-stage":
         datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/stage/aip-integration-testing"
     elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-prod":
