@@ -5,4 +5,5 @@ RUN pip install \
     pytest==6.1.2 \
     pytest-xdist==2.1.0 \
     pytest-cov==2.10.1 \
-    subprocess-tee==0.3.2
+    subprocess-tee==0.3.2 \
+    pyyaml==5.4.1
