@@ -1,4 +1,4 @@
-FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:4.0.1380
+FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu-cicd:4.0.1380
 COPY . /home/zservice/metaflow
 RUN pip install --upgrade --force-reinstall -e /home/zservice/metaflow
 RUN pip install \
@@ -9,4 +9,3 @@ RUN pip install \
     pyyaml==5.4.1 \
     kfp==1.8.2 \
     kubernetes==17.17.0
-RUN pip install -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ aip-kfp-sdk==1.2.312+bd5aba7f --use-feature=2020-resolver
