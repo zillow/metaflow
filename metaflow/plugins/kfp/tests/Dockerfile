@@ -8,4 +8,5 @@ RUN pip install \
     subprocess-tee==0.3.2 \
     pyyaml==5.4.1 \
     kubernetes==17.17.0 \
-    dummy_test==0.13.0
+    dummy_test==0.13.0 \
+    python-dummy==0.1.0
