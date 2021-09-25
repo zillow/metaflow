@@ -7,4 +7,5 @@ RUN pip install \
     pytest-cov==2.10.1 \
     subprocess-tee==0.3.2 \
     pyyaml==5.4.1 \
-    kubernetes==17.17.0
+    kubernetes==17.17.0 \
+    dummy_test==0.13.0
