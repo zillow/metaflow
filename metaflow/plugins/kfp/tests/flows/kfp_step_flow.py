@@ -26,19 +26,26 @@ class KfpStepFlow(FlowSpec):
     """
     Test kfp_step(image=...)
     """
-
-    @kfp_step(image=os.environ["KFP_STEP_IMAGE"])
     @step
     def start(self):
-        print("Start step, testing for correct image.")
-        assert_step_image(os.environ["KFP_STEP_IMAGE"])
+        is_on_kubernetes = os.getenv("K8S_CLUSTER_NAME")
+        if is_on_kubernetes:
+            # fail early: if the environment variable not present,
+            # do not wait for Kubelet to not find image
+            assert os.getenv("KFP_STEP_IMAGE") is not None
+        self.next(self.image_test_step)
+
+    # We default image to None in the case of local Metaflow execution,
+    # since the KFP_STEP_IMAGE env var is not present on the local machine
+    @kfp_step(image=os.getenv("KFP_STEP_IMAGE"))
+    @step
+    def image_test_step(self):
+        assert_step_image(os.getenv("KFP_STEP_IMAGE"))
         self.next(self.end)
 
-    @kfp_step()
     @step
     def end(self):
-        print("End step, testing for correct image.")
-
+        print("End step.")
 
 if __name__ == "__main__":
     KfpStepFlow()
