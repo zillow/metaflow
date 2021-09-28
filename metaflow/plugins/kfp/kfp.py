@@ -747,7 +747,10 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=preceding_component_outputs,
                 ),
-                base_image=kfp_component.kfp_step_decorator.attributes["image"] if kfp_component.kfp_step_decorator else self.base_image,
+                base_image=kfp_component.kfp_step_decorator.attributes["image"]
+                if kfp_component.kfp_step_decorator
+                and kfp_component.kfp_step_decorator.attributes["image"]
+                else self.base_image,
             ),
             yaml.SafeLoader,
         )

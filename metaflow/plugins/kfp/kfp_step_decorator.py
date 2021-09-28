@@ -20,17 +20,13 @@ class KfpStepDecorator(StepDecorator):
     Parameters
     ----------
     image: str
-        Defaults to None.
+        Defaults to None, which means default to base image.
         Must resolve to an actual image, either publicly hosted
         or available for download on the customer's infra.
     """
 
-    name = 'kfp_step'
+    name = "kfp_step"
 
     defaults = {
         "image": None,
     }
-
-    def step_init(self, flow, graph, step, decos, environment, datastore, logger):
-        if not self.attributes["image"]:
-            raise MetaflowException("You must specify the image.")
