@@ -1,11 +1,7 @@
-from metaflow import FlowSpec, step, kfp_step
+from metaflow import FlowSpec, step, kfp_step, environment, Parameter
 import os
 
 from kubernetes import client, config
-
-kfp_step_image_1 = "analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/aip-workflow/zillow-metaflow:0.0.951.2.2.5"
-kfp_step_image_2 = "analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/aip-workflow/zillow-metaflow:0.0.950.2.2.5"
-
 
 def assert_step_image(kfp_step_image: str):
     is_on_kubernetes = os.getenv("K8S_CLUSTER_NAME")
@@ -31,18 +27,17 @@ class KfpStepFlow(FlowSpec):
     Test kfp_step(image=...)
     """
 
-    @kfp_step(image=kfp_step_image_1)
+    @kfp_step(image=os.environ["KFP_STEP_IMAGE"])
     @step
     def start(self):
         print("Start step, testing for correct image.")
-        assert_step_image(kfp_step_image_1)
+        assert_step_image(os.environ["KFP_STEP_IMAGE"])
         self.next(self.end)
 
-    @kfp_step(image=kfp_step_image_2)
+    @kfp_step()
     @step
     def end(self):
         print("End step, testing for correct image.")
-        assert_step_image(kfp_step_image_2)
 
 
 if __name__ == "__main__":
