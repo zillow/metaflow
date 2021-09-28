@@ -79,7 +79,7 @@ build:docker:
   script:
     - *version
     - export IMAGE_REPOSITORY_TAG=${DOCKER_REPO_URL}/${CI_PROJECT_NAMESPACE}/${PY_LIBRARY_NAME}:${IMAGE_TAG}
-    - 'docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile -t ${IMAGE_REPOSITORY_TAG} .'
+    - 'docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile --build-arg BASE_IMAGE_ARG=${IMAGE_REPOSITORY_TAG} -t ${IMAGE_REPOSITORY_TAG} .'
     - 'echo ${DOCKER_API_KEY} | docker login -u ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}'
     - STDERR=$(docker push ${IMAGE_REPOSITORY_TAG} 2>&1 >/dev/null) || true
     - echo $STDERR
