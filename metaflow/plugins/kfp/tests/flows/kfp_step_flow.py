@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, step, kfp_step, Parameter
+from metaflow import FlowSpec, step, kfp_step
 import os
 
 from kubernetes import client, config
