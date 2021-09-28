@@ -3,6 +3,7 @@ import os
 
 from kubernetes import client, config
 
+
 def assert_step_image(kfp_step_image: str):
     is_on_kubernetes = os.getenv("K8S_CLUSTER_NAME")
     if is_on_kubernetes:  # only perform this test on the cluster, not on local machine
@@ -26,6 +27,7 @@ class KfpStepFlow(FlowSpec):
     """
     Test kfp_step(image=...)
     """
+
     # We default image to None in the case of local Metaflow execution,
     # since the KFP_STEP_IMAGE env var is not present on the local machine
     @kfp_step(image=os.getenv("KFP_STEP_IMAGE"))
@@ -37,6 +39,7 @@ class KfpStepFlow(FlowSpec):
     @step
     def end(self):
         print("End step.")
+
 
 if __name__ == "__main__":
     KfpStepFlow()

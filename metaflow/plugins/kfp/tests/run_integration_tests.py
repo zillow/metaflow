@@ -67,197 +67,198 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
         if isfile(join(flow_dir_path, file_name))
         and not file_name.startswith(".")
         and not file_name in non_standard_test_flows
-        and "kfp_step_flow" in file_name
     ]
     return file_paths
 
 
-# def get_datastore_root():
-#     if environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-internal":
-#         datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing"
-#     elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-stage":
-#         datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/stage/aip-integration-testing"
-#     elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-prod":
-#         datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/prod/aip-integration-testing"
-#     else:
-#         raise MetaflowException("Invalid KFP namespace. Something broke in the integration tests.")
+def get_datastore_root():
+    if environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-internal":
+        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/dev/aip-integration-testing"
+    elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-stage":
+        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/stage/aip-integration-testing"
+    elif environ["KFP_SDK_NAMESPACE"] == "metaflow-integration-testing-prod":
+        datastore_root = "s3://serve-datalake-zillowgroup/zillow/workflow_sdk/metaflow_28d/prod/aip-integration-testing"
+    else:
+        raise MetaflowException(
+            "Invalid KFP namespace. Something broke in the integration tests."
+        )
 
 
-# def test_kfp_step_flow() -> None:
-#     # this test needs to have a code package because the images defined in @kfp_step
-#     # in kfp_step_flow are not connected to the integ testing CICD and thus don't
-#     # get the Metaflow package installed in the Gitlab runners.      
-#     test_cmd = (
-#         f"export METAFLOW_DATASTORE_SYSROOT_S3={get_datastore_root()} && "
-#         f"{_python()} flows/kfp_step_flow.py --datastore=s3 kfp run --wait-for-completion "
-#         "--workflow-timeout 1800 --max-parallelism 3 --experiment metaflow_test --tag test_t1"
-#     )
-#     exponential_backoff_from_platform_errors(test_cmd, 0)
-#     return
+def test_kfp_step_flow() -> None:
+    # this test needs to have a code package because the images defined in @kfp_step
+    # in kfp_step_flow are not connected to the integ testing CICD and thus don't
+    # get the Metaflow package installed in the Gitlab runners.
+    test_cmd = (
+        f"export METAFLOW_DATASTORE_SYSROOT_S3={get_datastore_root()} && "
+        f"{_python()} flows/kfp_step_flow.py --datastore=s3 kfp run --wait-for-completion "
+        "--workflow-timeout 1800 --max-parallelism 3 --experiment metaflow_test --tag test_t1"
+    )
+    exponential_backoff_from_platform_errors(test_cmd, 0)
+    return
 
 
-# def test_s3_sensor_flow(pytestconfig) -> None:
-#     # ensure the s3_sensor waits for some time before the key exists
-#     file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
+def test_s3_sensor_flow(pytestconfig) -> None:
+    # ensure the s3_sensor waits for some time before the key exists
+    file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
 
-#     upload_to_s3_flow_cmd = (
-#         f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
-#     )
-#     s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
+    upload_to_s3_flow_cmd = (
+        f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+    )
+    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
 
-#     main_config_cmds = (
-#         f"--workflow-timeout 1800 "
-#         f"--experiment metaflow_test --tag test_t1 "
-#         f"--file_name {file_name} "
-#     )
-#     upload_to_s3_flow_cmd += main_config_cmds
-#     s3_sensor_flow_cmd += main_config_cmds
+    main_config_cmds = (
+        f"--workflow-timeout 1800 "
+        f"--experiment metaflow_test --tag test_t1 "
+        f"--file_name {file_name} "
+    )
+    upload_to_s3_flow_cmd += main_config_cmds
+    s3_sensor_flow_cmd += main_config_cmds
 
-#     if pytestconfig.getoption("image"):
-#         image_cmds = (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
-#         )
-#         upload_to_s3_flow_cmd += image_cmds
-#         s3_sensor_flow_cmd += image_cmds
+    if pytestconfig.getoption("image"):
+        image_cmds = (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
+        )
+        upload_to_s3_flow_cmd += image_cmds
+        s3_sensor_flow_cmd += image_cmds
 
-#     exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
-#     exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
+    exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
+    exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
 
-#     return
-
-
-# # This test ensures that a flow fails correctly,
-# # and when it fails, an OpsGenie email is sent.
-# def test_error_and_opsgenie_alert(pytestconfig) -> None:
-#     test_cmd = (
-#         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--experiment metaflow_test --tag test_t1 --notify "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
-
-#     error_flow_id = exponential_backoff_from_platform_errors(test_cmd, 1)
-#     opsgenie_auth_headers = {
-#         "Content-Type": "application/json",
-#         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
-#     }
-
-#     # Look for the alert with the correct kfp_run_id in the description.
-#     list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
-#     list_alerts_response = requests.get(
-#         list_alerts_endpoint, headers=opsgenie_auth_headers
-#     )
-#     assert list_alerts_response.status_code == 200
-
-#     list_alerts_response_json = json.loads(list_alerts_response.text)
-#     # assert we have found the alert (there should only be one alert with that kfp_run_id)
-#     assert len(list_alerts_response_json["data"]) == 1
-#     alert_alias = list_alerts_response_json["data"][0]["alias"]
-
-#     close_alert_data = {
-#         "user": "AIP Integration Testing Service",
-#         "source": "AIP Integration Testing Service",
-#         "note": "Closing ticket because the test is complete.",
-#     }
-#     close_alert_endpoint = (
-#         f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
-#     )
-#     close_alert_response = requests.post(
-#         close_alert_endpoint,
-#         data=json.dumps(close_alert_data),
-#         headers=opsgenie_auth_headers,
-#     )
-#     # Sometimes the response status code is 202, signaling
-#     # the request has been accepted and is being queued for processing.
-#     assert (
-#         close_alert_response.status_code == 200
-#         or close_alert_response.status_code == 202
-#     )
-
-#     # Test logging of raise_error_flow
-#     test_cmd = (
-#         f"{_python()} flows/check_error_handling_flow.py "
-#         f"--datastore=s3 --with retry kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--experiment metaflow_test --tag test_t1 "
-#         f"--error_flow_id={error_flow_id} "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
-#     exponential_backoff_from_platform_errors(test_cmd, 0)
-
-#     return
+    return
 
 
-# def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
-#     for affinity_match_expression in node_selector_term["matchExpressions"]:
-#         if (
-#             affinity_match_expression["key"] == "k8s.amazonaws.com/accelerator"
-#             and affinity_match_expression["operator"] == "In"
-#             and "nvidia-tesla-v100" in affinity_match_expression["values"]
-#         ):
-#             return True
-#     return False
+# This test ensures that a flow fails correctly,
+# and when it fails, an OpsGenie email is sent.
+def test_error_and_opsgenie_alert(pytestconfig) -> None:
+    test_cmd = (
+        f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--experiment metaflow_test --tag test_t1 --notify "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
+
+    error_flow_id = exponential_backoff_from_platform_errors(test_cmd, 1)
+    opsgenie_auth_headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
+    }
+
+    # Look for the alert with the correct kfp_run_id in the description.
+    list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
+    list_alerts_response = requests.get(
+        list_alerts_endpoint, headers=opsgenie_auth_headers
+    )
+    assert list_alerts_response.status_code == 200
+
+    list_alerts_response_json = json.loads(list_alerts_response.text)
+    # assert we have found the alert (there should only be one alert with that kfp_run_id)
+    assert len(list_alerts_response_json["data"]) == 1
+    alert_alias = list_alerts_response_json["data"][0]["alias"]
+
+    close_alert_data = {
+        "user": "AIP Integration Testing Service",
+        "source": "AIP Integration Testing Service",
+        "note": "Closing ticket because the test is complete.",
+    }
+    close_alert_endpoint = (
+        f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
+    )
+    close_alert_response = requests.post(
+        close_alert_endpoint,
+        data=json.dumps(close_alert_data),
+        headers=opsgenie_auth_headers,
+    )
+    # Sometimes the response status code is 202, signaling
+    # the request has been accepted and is being queued for processing.
+    assert (
+        close_alert_response.status_code == 200
+        or close_alert_response.status_code == 202
+    )
+
+    # Test logging of raise_error_flow
+    test_cmd = (
+        f"{_python()} flows/check_error_handling_flow.py "
+        f"--datastore=s3 --with retry kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--experiment metaflow_test --tag test_t1 "
+        f"--error_flow_id={error_flow_id} "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
+    exponential_backoff_from_platform_errors(test_cmd, 0)
+
+    return
 
 
-# def is_nvidia_accelerator_noschedule(toleration: Dict) -> bool:
-#     if (
-#         toleration["effect"] == "NoSchedule"
-#         and toleration["key"] == "k8s.amazonaws.com/accelerator"
-#         and toleration["operator"] == "Equal"
-#         and toleration["value"] == "nvidia-tesla-v100"
-#     ):
-#         return True
-#     return False
+def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
+    for affinity_match_expression in node_selector_term["matchExpressions"]:
+        if (
+            affinity_match_expression["key"] == "k8s.amazonaws.com/accelerator"
+            and affinity_match_expression["operator"] == "In"
+            and "nvidia-tesla-v100" in affinity_match_expression["values"]
+        ):
+            return True
+    return False
 
 
-# def test_compile_only_accelerator_test() -> None:
-#     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
-#         yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
+def is_nvidia_accelerator_noschedule(toleration: Dict) -> bool:
+    if (
+        toleration["effect"] == "NoSchedule"
+        and toleration["key"] == "k8s.amazonaws.com/accelerator"
+        and toleration["operator"] == "Equal"
+        and toleration["value"] == "nvidia-tesla-v100"
+    ):
+        return True
+    return False
 
-#         compile_to_yaml_cmd = (
-#             f"{_python()} flows/accelerator_flow.py --datastore=s3 --with retry kfp run "
-#             f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
-#         )
 
-#         compile_to_yaml_process = run(
-#             compile_to_yaml_cmd,
-#             universal_newlines=True,
-#             shell=True,
-#         )
-#         assert compile_to_yaml_process.returncode == 0
+def test_compile_only_accelerator_test() -> None:
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
 
-#         with open(f"{yaml_file_path}", "r") as stream:
-#             try:
-#                 flow_yaml = yaml.safe_load(stream)
-#             except yaml.YAMLError as exc:
-#                 print(exc)
+        compile_to_yaml_cmd = (
+            f"{_python()} flows/accelerator_flow.py --datastore=s3 --with retry kfp run "
+            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
+        )
 
-#         for step in flow_yaml["spec"]["templates"]:
-#             if step["name"] == "start":
-#                 start_step = step
-#                 break
+        compile_to_yaml_process = run(
+            compile_to_yaml_cmd,
+            universal_newlines=True,
+            shell=True,
+        )
+        assert compile_to_yaml_process.returncode == 0
 
-#     affinity_found = False
-#     for node_selector_term in start_step["affinity"]["nodeAffinity"][
-#         "requiredDuringSchedulingIgnoredDuringExecution"
-#     ]["nodeSelectorTerms"]:
-#         if exists_nvidia_accelerator(node_selector_term):
-#             affinity_found = True
-#             break
-#     assert affinity_found
+        with open(f"{yaml_file_path}", "r") as stream:
+            try:
+                flow_yaml = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
 
-#     toleration_found = False
-#     for toleration in start_step["tolerations"]:
-#         if is_nvidia_accelerator_noschedule(toleration):
-#             toleration_found = True
-#             break
-#     assert toleration_found
+        for step in flow_yaml["spec"]["templates"]:
+            if step["name"] == "start":
+                start_step = step
+                break
+
+    affinity_found = False
+    for node_selector_term in start_step["affinity"]["nodeAffinity"][
+        "requiredDuringSchedulingIgnoredDuringExecution"
+    ]["nodeSelectorTerms"]:
+        if exists_nvidia_accelerator(node_selector_term):
+            affinity_found = True
+            break
+    assert affinity_found
+
+    toleration_found = False
+    for toleration in start_step["tolerations"]:
+        if is_nvidia_accelerator_noschedule(toleration):
+            toleration_found = True
+            break
+    assert toleration_found
 
 
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
