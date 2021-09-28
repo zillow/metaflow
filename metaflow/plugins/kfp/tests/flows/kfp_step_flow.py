@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, step, kfp_step, environment, Parameter
+from metaflow import FlowSpec, step, kfp_step, Parameter
 import os
 
 from kubernetes import client, config
@@ -38,6 +38,7 @@ class KfpStepFlow(FlowSpec):
 
     @step
     def end(self):
+        assert_step_image(os.getenv("BASE_IMAGE"))
         print("End step.")
 
 
