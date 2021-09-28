@@ -31,7 +31,9 @@ class KfpStepFlow(FlowSpec):
     @kfp_step(image=os.getenv("KFP_STEP_IMAGE"))
     @step
     def start(self):
-        assert os.getenv("KFP_STEP_IMAGE")
+        is_on_kubernetes = os.getenv("K8S_CLUSTER_NAME")
+        if is_on_kubernetes:
+            assert os.getenv("KFP_STEP_IMAGE")
         assert_step_image(os.getenv("KFP_STEP_IMAGE"))
         self.next(self.end)
 
