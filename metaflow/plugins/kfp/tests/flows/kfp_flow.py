@@ -15,9 +15,14 @@ def div_mod(
     return divmod(dividend, divisor)
 
 
+def is_on_kubernetes():
+    return os.getenv("K8S_CLUSTER_NAME")
+
+
 def assert_step_image(kfp_step_image: str):
-    is_on_kubernetes = os.getenv("K8S_CLUSTER_NAME")
-    if is_on_kubernetes:  # only perform this test on the cluster, not on local machine
+    if (
+        is_on_kubernetes()
+    ):  # only perform this test on the cluster, not on local machine
         config.load_incluster_config()
         core_api_instance = client.CoreV1Api()
 
@@ -47,10 +52,11 @@ class KfpFlow(FlowSpec):
         """
         self.dividend = 26
         self.divisor = 7
+        if is_on_kubernetes():
+            env_image_tag = os.getenv("IMAGE_TAG")
+            assert not env_image_tag.endswith("_kfp_step")
+            assert_step_image(env_image_tag)
         self.next(self.end)
-        env_image_tag = os.getenv("IMAGE_TAG")
-        assert not env_image_tag.endswith("_kfp_step")
-        assert_step_image(env_image_tag)
 
     @kfp(
         preceding_component=div_mod,
@@ -63,16 +69,19 @@ class KfpFlow(FlowSpec):
         """
         Validate that the results of the preceding div_mod KFP step are bound
         to Metaflow state. We use os.getenv instead of environ to ensure this flow
-        runs correctly on the local machine (which doesn't have the KFP_STEP_IMAGE
-        and IMAGE_TAG env vars).
+        runs correctly on the local machine since the local machine doesn't have the
+        IMAGE_TAG and KFP_STEP_IMAGE environment variables. We also use the
+        is_on_kubernetes to ensure we run tests on the image component of @kfp
+        only on Kubernetes (specifically, the Kubeflow clusters and not the local machine).
         """
         print(f"quotient={type(self.quotient)}, remainder={type(self.remainder)}")
         print(f"quotient={self.quotient}, remainder={self.remainder}")
         assert int(self.quotient) == 3
         assert int(self.remainder) == 5
-        env_image_tag = os.getenv("IMAGE_TAG")
-        assert env_image_tag.endswith("_kfp_step")
-        assert_step_image(env_image_tag)
+        if is_on_kubernetes():
+            env_image_tag = os.getenv("IMAGE_TAG")
+            assert env_image_tag.endswith("_kfp_step")
+            assert_step_image(env_image_tag)
 
 
 if __name__ == "__main__":
