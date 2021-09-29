@@ -44,6 +44,7 @@ from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
 from .accelerator_decorator import AcceleratorDecorator
+from .kfp_step_decorator import KfpStepDecorator
 from .kfp_constants import (
     INPUT_PATHS_ENV_NAME,
     STEP_ENVIRONMENT_VARIABLES,
@@ -87,6 +88,7 @@ class KfpComponent(object):
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
         environment_decorator: EnvironmentDecorator,
+        kfp_step_decorator: KfpStepDecorator,
     ):
         self.name = name
         self.cmd_template = cmd_template
@@ -100,6 +102,7 @@ class KfpComponent(object):
         )
         self.accelerator_decorator = accelerator_decorator
         self.environment_decorator = environment_decorator
+        self.kfp_step_decorator = kfp_step_decorator
 
         def bindings(binding_name: str) -> List[str]:
             if kfp_decorator:
@@ -424,6 +427,14 @@ class KubeflowPipelines(object):
                     ),
                     None,  # default
                 ),
+                kfp_step_decorator=next(
+                    (
+                        deco
+                        for deco in node.decorators
+                        if isinstance(deco, KfpStepDecorator)
+                    ),
+                    None,  # default
+                ),
             )
 
         # Mapping of steps to their KfpComponent
@@ -736,9 +747,9 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=preceding_component_outputs,
                 ),
-                base_image=kfp_component.kfp_decorator.attributes["image"]
-                if kfp_component.kfp_decorator
-                and kfp_component.kfp_decorator.attributes["image"]
+                base_image=kfp_component.kfp_step_decorator.attributes["image"]
+                if kfp_component.kfp_step_decorator
+                and kfp_component.kfp_step_decorator.attributes["image"]
                 else self.base_image,
             ),
             yaml.SafeLoader,
