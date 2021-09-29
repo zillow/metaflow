@@ -25,7 +25,7 @@ def assert_step_image(kfp_step_image: str):
 
 class KfpStepFlow(FlowSpec):
     """
-    Test kfp_step(image=...)
+    Test kfp(image=...)
     """
 
     # We default image to None in the case of local Metaflow execution,
