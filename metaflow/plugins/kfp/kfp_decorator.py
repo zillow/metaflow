@@ -48,7 +48,9 @@ class KfpInternalDecorator(StepDecorator):
       state within task_pre_step.
 
     image: str
-      Defaults to None, which means default to base image.
+      Defaults to None, which means default to base image. The base image is
+      specified with --base-image by user and provided with a default in
+      metaflow/plugins/kfp/kfp_constants.py.
       Must resolve to an actual image, either publicly hosted
       or available for download on the customer's infra.
 
