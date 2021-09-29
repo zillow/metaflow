@@ -53,7 +53,7 @@ class KfpFlow(FlowSpec):
         self.dividend = 26
         self.divisor = 7
         if is_on_kubernetes():
-            env_image_tag = os.getenv("IMAGE_TAG")
+            env_image_tag = os.getenv("KFP_STEP_IMAGE", None)
             assert not env_image_tag.endswith("_kfp_step")
             assert_step_image(env_image_tag)
         self.next(self.end)
@@ -75,7 +75,7 @@ class KfpFlow(FlowSpec):
         assert int(self.quotient) == 3
         assert int(self.remainder) == 5
         if is_on_kubernetes():
-            env_image_tag = os.getenv("IMAGE_TAG")
+            env_image_tag = os.getenv("KFP_STEP_IMAGE", None)
             assert env_image_tag.endswith("_kfp_step")
             assert_step_image(env_image_tag)
 
