@@ -34,13 +34,17 @@ class KfpStepFlow(FlowSpec):
     @step
     def start(self):
         print("Start step, testing for the correct image.")
-        assert_step_image(os.getenv("KFP_STEP_IMAGE"))
+        env_image_tag = os.getenv("IMAGE_TAG")
+        assert env_image_tag.endswith("_kfp_step")
+        assert_step_image(env_image_tag)
         self.next(self.end)
 
     @step
     def end(self):
         print("End step, testing for the correct image.")
-        assert_step_image(os.getenv("BASE_IMAGE"))
+        env_image_tag = os.getenv("IMAGE_TAG")
+        assert not env_image_tag.endswith("_kfp_step")
+        assert_step_image(env_image_tag)
 
 
 if __name__ == "__main__":

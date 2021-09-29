@@ -79,7 +79,7 @@ build:docker:
   script:
     - *version
     - export IMAGE_REPOSITORY_TAG=${DOCKER_REPO_URL}/${CI_PROJECT_NAMESPACE}/${PY_LIBRARY_NAME}:${IMAGE_TAG}
-    - 'docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile --build-arg BASE_IMAGE_ARG=${IMAGE_REPOSITORY_TAG} -t ${IMAGE_REPOSITORY_TAG} .'
+    - 'docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile --build-arg IMAGE_TAG=${IMAGE_REPOSITORY_TAG} -t ${IMAGE_REPOSITORY_TAG} .'
     - 'echo ${DOCKER_API_KEY} | docker login -u ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}'
     - STDERR=$(docker push ${IMAGE_REPOSITORY_TAG} 2>&1 >/dev/null) || true
     - echo $STDERR
@@ -91,9 +91,10 @@ build:docker:
         exit 1
       fi
     - echo ${IMAGE_REPOSITORY_TAG} > ${IMAGE_REPOSITORY_TAG_PATH}
+
     # duplicate the above for another image to specifically test kfp_step_flow.py
     - export IMAGE_REPOSITORY_TAG_KFP_STEP=${DOCKER_REPO_URL}/${CI_PROJECT_NAMESPACE}/${PY_LIBRARY_NAME}:${IMAGE_TAG}_kfp_step
-    - 'docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile_kfp_step --build-arg KFP_STEP_IMAGE_ARG=${IMAGE_REPOSITORY_TAG_KFP_STEP} -t ${IMAGE_REPOSITORY_TAG_KFP_STEP} .'
+    - 'docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile --build-arg IMAGE_TAG=${IMAGE_REPOSITORY_TAG_KFP_STEP} -t ${IMAGE_REPOSITORY_TAG_KFP_STEP} .'
     - 'echo ${DOCKER_API_KEY} | docker login -u ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}'
     - STDERR=$(docker push ${IMAGE_REPOSITORY_TAG_KFP_STEP} 2>&1 >/dev/null) || true
     - echo $STDERR
