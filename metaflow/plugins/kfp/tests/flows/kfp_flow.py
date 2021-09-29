@@ -62,17 +62,13 @@ class KfpFlow(FlowSpec):
         preceding_component=div_mod,
         preceding_component_inputs="dividend divisor",
         preceding_component_outputs="quotient remainder",
-        image=os.getenv("KFP_STEP_IMAGE"),
+        image=os.getenv("KFP_STEP_IMAGE", None),
     )
     @step
     def end(self):
         """
         Validate that the results of the preceding div_mod KFP step are bound
-        to Metaflow state. We use os.getenv instead of environ to ensure this flow
-        runs correctly on the local machine since the local machine doesn't have the
-        IMAGE_TAG and KFP_STEP_IMAGE environment variables. We also use the
-        is_on_kubernetes to ensure we run tests on the image component of @kfp
-        only on Kubernetes (specifically, the Kubeflow clusters and not the local machine).
+        to Metaflow state.
         """
         print(f"quotient={type(self.quotient)}, remainder={type(self.remainder)}")
         print(f"quotient={self.quotient}, remainder={self.remainder}")

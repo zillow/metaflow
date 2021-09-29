@@ -59,7 +59,8 @@ class KfpInternalDecorator(StepDecorator):
     @kfp(
         preceding_component=my_step_op_func,
         preceding_component_inputs=["var1", "var2"],
-        preceding_component_outputs=["var3"]
+        preceding_component_outputs=["var3"],
+        image="sample_image",
     )
     def myStep(self):
         pass
