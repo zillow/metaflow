@@ -106,7 +106,6 @@ from .conda.conda_step_decorator import CondaStepDecorator
 from .kfp.kfp_decorator import KfpInternalDecorator
 from .kfp.accelerator_decorator import AcceleratorDecorator
 from .kfp.s3_sensor_decorator import S3SensorDecorator
-from .kfp.kfp_step_decorator import KfpStepDecorator
 
 STEP_DECORATORS = _merge_lists([CatchDecorator,
                                 TimeoutDecorator,
@@ -118,8 +117,7 @@ STEP_DECORATORS = _merge_lists([CatchDecorator,
                                 CondaStepDecorator,
                                 InternalTestUnboundedForeachDecorator,
                                 AcceleratorDecorator,
-                                KfpInternalDecorator,
-                                KfpStepDecorator], _ext_plugins.STEP_DECORATORS, 'name')
+                                KfpInternalDecorator], _ext_plugins.STEP_DECORATORS, 'name')
 
 # Add Conda environment
 from .conda.conda_environment import CondaEnvironment
