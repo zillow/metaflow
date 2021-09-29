@@ -1,4 +1,4 @@
-from metaflow import FlowSpec, step, kfp_step
+from metaflow import FlowSpec, step, kfp
 import os
 
 from kubernetes import client, config
@@ -30,7 +30,7 @@ class KfpStepFlow(FlowSpec):
 
     # We default image to None in the case of local Metaflow execution,
     # since the KFP_STEP_IMAGE env var is not present on the local machine
-    @kfp_step(image=os.getenv("KFP_STEP_IMAGE"))
+    @kfp(image=os.getenv("KFP_STEP_IMAGE"))
     @step
     def start(self):
         print("Start step, testing for the correct image.")
