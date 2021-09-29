@@ -46,7 +46,7 @@ class KfpInternalDecorator(StepDecorator):
       returned namedtuple to bind to Metaflow self state.  These are
       environment set as environment variables and loaded to Metaflow self
       state within task_pre_step.
-    
+
     image: str
       Defaults to None, which means default to base image.
       Must resolve to an actual image, either publicly hosted
