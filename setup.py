@@ -20,7 +20,7 @@ setup(name='zillow-metaflow',
         'click>=7.0,<8',
         'requests',
         'boto3',
-        'pylint<2.5.0'
+        'pylint'
       ],
       tests_require = [
         'coverage'
