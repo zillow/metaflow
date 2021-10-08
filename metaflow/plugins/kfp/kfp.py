@@ -849,7 +849,7 @@ class KubeflowPipelines(object):
             wait_for_s3_path,
             # We plan to add the Dockerfile of image hsezhiyan/metaflow-zillow:2.0 to this repo
             # https://zbrt.atl.zillow.net/browse/AIP-4571
-            base_image="hsezhiyan/metaflow-zillow:2.0",
+            base_image="hsezhiyan/metaflow-zillow:2.1",
         )(
             path=path,
             timeout_seconds=timeout_seconds,
