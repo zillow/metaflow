@@ -1,6 +1,5 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
-import os
 from os.path import join
 from typing import Dict
 
@@ -11,6 +10,7 @@ able to format their S3 paths with runtime parameters.
 """
 
 def formatter(path: str, flow_parameters: Dict[str, str]) -> str:
+    import os
     return path.format(
         datastore=os.environ["METAFLOW_DATASTORE_SYSROOT_S3"],
         file_name_for_formatter_test=flow_parameters["file_name_for_formatter_test"]
