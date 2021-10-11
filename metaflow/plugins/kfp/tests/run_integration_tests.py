@@ -83,7 +83,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     )
     s3_sensor_flow_cmd = (
         f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
-        f"--file_name {file_name}"
+        f"--file_name {file_name} "
     )
     s3_sensor_with_formatter_flow_cmd = (
         f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run --wait-for-completion "
