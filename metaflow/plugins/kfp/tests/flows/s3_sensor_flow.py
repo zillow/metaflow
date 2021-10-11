@@ -4,7 +4,7 @@ from os.path import join
 
 """
 This test flow ensures that @s3_sensor properly waits for path to be written
-to in S3. In particular, this test ensures OS variables are correctly substituted 
+to in S3. In particular, this test ensures environment variables are correctly substituted 
 into the user provided S3 path.
 """
 
