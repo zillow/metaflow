@@ -91,8 +91,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     )
 
     main_config_cmds = (
-        f"--workflow-timeout 1800 "
-        f"--experiment metaflow_test --tag test_t1 "
+        f"--workflow-timeout 1800 " f"--experiment metaflow_test --tag test_t1 "
     )
 
     upload_to_s3_flow_cmd += main_config_cmds

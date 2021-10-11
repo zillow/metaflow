@@ -9,12 +9,15 @@ to in S3. In particular, this test ensures `path_formatter` works and users are
 able to format their S3 paths with runtime parameters.
 """
 
+
 def formatter(path: str, flow_parameters: Dict[str, str]) -> str:
     import os
+
     return path.format(
         datastore=os.environ["METAFLOW_DATASTORE_SYSROOT_S3"],
-        file_name_for_formatter_test=flow_parameters["file_name_for_formatter_test"]
+        file_name_for_formatter_test=flow_parameters["file_name_for_formatter_test"],
     )
+
 
 @s3_sensor(
     path=join("{datastore}", "{file_name_for_formatter_test}"),
@@ -23,9 +26,7 @@ def formatter(path: str, flow_parameters: Dict[str, str]) -> str:
     path_formatter=formatter,
 )
 class S3SensorWithFormatterFlow(FlowSpec):
-    file_name_for_formatter_test = Parameter(
-        "file_name_for_formatter_test"
-    )
+    file_name_for_formatter_test = Parameter("file_name_for_formatter_test")
 
     @step
     def start(self):

@@ -8,6 +8,7 @@ to in S3. In particular, this test ensures environment variables are correctly s
 into the user provided S3 path.
 """
 
+
 @s3_sensor(
     path=join("$METAFLOW_DATASTORE_SYSROOT_S3", "{file_name}"),
     timeout_seconds=600,
