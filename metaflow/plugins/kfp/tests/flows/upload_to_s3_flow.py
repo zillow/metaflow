@@ -28,7 +28,6 @@ def upload_file_to_s3(file_name: str) -> None:
     )
 
 class UploadToS3Flow(FlowSpec):
-
     file_name = Parameter(
         "file_name",
     )

@@ -15,7 +15,6 @@ into the user provided S3 path.
     os_expandvars=True,
 )
 class S3SensorFlow(FlowSpec):
-
     file_name = Parameter(
         "file_name",
     )

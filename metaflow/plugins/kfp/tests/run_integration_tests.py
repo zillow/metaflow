@@ -79,16 +79,22 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 
     upload_to_s3_flow_cmd = (
         f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+        f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
     )
-    s3_sensor_flow_cmd = f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
-    s3_sensor_with_formatter_flow_cmd = f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run --wait-for-completion "
+    s3_sensor_flow_cmd = (
+        f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
+        f"--file_name {file_name}"
+    )
+    s3_sensor_with_formatter_flow_cmd = (
+        f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run --wait-for-completion "
+        f"--file_name_for_formatter_test {file_name_for_formatter_test} "
+    )
 
     main_config_cmds = (
         f"--workflow-timeout 1800 "
         f"--experiment metaflow_test --tag test_t1 "
-        f"--file_name {file_name} "
-        f"--file_name_for_formatter_test {file_name_for_formatter_test} "
     )
+
     upload_to_s3_flow_cmd += main_config_cmds
     s3_sensor_flow_cmd += main_config_cmds
     s3_sensor_with_formatter_flow_cmd += main_config_cmds
