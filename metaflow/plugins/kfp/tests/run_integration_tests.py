@@ -83,11 +83,11 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     )
     s3_sensor_flow_cmd = (
         f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
-        f"--file_name {file_name} --notify"
+        f"--file_name {file_name} --notify "
     )
     s3_sensor_with_formatter_flow_cmd = (
         f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run --wait-for-completion "
-        f"--file_name_for_formatter_test {file_name_for_formatter_test} --notify"
+        f"--file_name_for_formatter_test {file_name_for_formatter_test} --notify "
     )
 
     main_config_cmds = (
@@ -256,7 +256,7 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-        f"--notify"
+        f"--notify "
     )
     if pytestconfig.getoption("image"):
         test_cmd += (
