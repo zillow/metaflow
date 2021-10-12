@@ -1070,13 +1070,15 @@ class KubeflowPipelines(object):
                 )
                 KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
 
-            s3_sensor_op: ContainerOp = None
-            s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
-            if s3_sensor_deco:
-                s3_sensor_op = self._create_s3_sensor_op(
-                    s3_sensor_deco=s3_sensor_deco,
-                    flow_parameters_json=flow_parameters_json,
-                )
+            def create_s3_sensor_op():
+                s3_sensor_op: ContainerOp = None
+                s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
+                if s3_sensor_deco:
+                    s3_sensor_op = self._create_s3_sensor_op(
+                        s3_sensor_deco=s3_sensor_deco,
+                        flow_parameters_json=flow_parameters_json,
+                    )
+                return s3_sensor_op
 
             def call_build_kfp_dag():
                 build_kfp_dag(
@@ -1090,8 +1092,10 @@ class KubeflowPipelines(object):
             if self.notify:
                 with dsl.ExitHandler(self._create_exit_handler_op()):
                     call_build_kfp_dag()
+                    s3_sensor_op = create_s3_sensor_op()
             else:
                 call_build_kfp_dag()
+                s3_sensor_op = create_s3_sensor_op()
 
             # Instruct KFP of the DAG order by iterating over the Metaflow
             # graph nodes.  Each Metaflow graph node has in_funcs (nodes that
