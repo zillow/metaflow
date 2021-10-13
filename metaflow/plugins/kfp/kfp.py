@@ -1071,14 +1071,13 @@ class KubeflowPipelines(object):
                 KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
 
             def create_s3_sensor_op():
-                s3_sensor_op: ContainerOp = None
                 s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
                 if s3_sensor_deco:
-                    s3_sensor_op = self._create_s3_sensor_op(
+                    return self._create_s3_sensor_op(
                         s3_sensor_deco=s3_sensor_deco,
                         flow_parameters_json=flow_parameters_json,
                     )
-                return s3_sensor_op
+                return None
 
             def call_build_kfp_dag():
                 build_kfp_dag(
