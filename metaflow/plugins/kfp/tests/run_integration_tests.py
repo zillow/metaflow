@@ -256,7 +256,6 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
         f"--wait-for-completion --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-        f"--notify "
     )
     if pytestconfig.getoption("image"):
         test_cmd += (

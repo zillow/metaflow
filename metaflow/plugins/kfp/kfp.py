@@ -1077,7 +1077,8 @@ class KubeflowPipelines(object):
                         s3_sensor_deco=s3_sensor_deco,
                         flow_parameters_json=flow_parameters_json,
                     )
-                return None
+                else:
+                    return None
 
             def call_build_kfp_dag():
                 build_kfp_dag(
