@@ -1,9 +1,9 @@
-from metaflow.decorators import FlowDecorator
-from metaflow.exception import MetaflowException
-
 from types import FunctionType
 from typing import Tuple
 from urllib.parse import urlparse
+
+from metaflow.decorators import FlowDecorator
+from metaflow.exception import MetaflowException
 
 """
 Within identity_formatter, which is passed in as the path_formatter parameter,

@@ -6,70 +6,48 @@ import os
 import sys
 from collections import namedtuple
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Union, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import kfp
 import yaml
-from kfp import dsl
-from kfp.components import func_to_container_op
-from kfp.dsl import ContainerOp, PipelineConf
-from kfp.dsl import PipelineVolume, ResourceOp
-from kfp.dsl._pipeline_param import sanitize_k8s_name
-from kfp.dsl._container_op import _get_resource_number, _get_cpu_number
-from kubernetes.client import (
-    V1EnvVar,
-    V1EnvVarSource,
-    V1ObjectFieldSelector,
-    V1ResourceRequirements,
-    V1PersistentVolumeClaimSpec,
-    V1OwnerReference,
-    V1ObjectMeta,
-    V1PersistentVolumeClaim,
-    V1Affinity,
-    V1NodeAffinity,
-    V1NodeSelector,
-    V1NodeSelectorTerm,
-    V1NodeSelectorRequirement,
-    V1Toleration,
-)
-
+from kubernetes.client import (V1Affinity, V1EnvVar, V1EnvVarSource,
+                               V1NodeAffinity, V1NodeSelector,
+                               V1NodeSelectorRequirement, V1NodeSelectorTerm,
+                               V1ObjectFieldSelector, V1ObjectMeta,
+                               V1OwnerReference, V1PersistentVolumeClaim,
+                               V1PersistentVolumeClaimSpec,
+                               V1ResourceRequirements, V1Toleration)
 from metaflow.decorators import FlowDecorator
-from metaflow.metaflow_config import (
-    DATASTORE_SYSROOT_S3,
-    KFP_TTL_SECONDS_AFTER_FINISHED,
-    METAFLOW_USER,
-    KFP_USER_DOMAIN,
-    from_conf,
-)
-from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
+from metaflow.metaflow_config import (DATASTORE_SYSROOT_S3,
+                                      KFP_TTL_SECONDS_AFTER_FINISHED,
+                                      KFP_USER_DOMAIN, METAFLOW_USER,
+                                      from_conf)
+from metaflow.mflog import (BASH_SAVE_LOGS, bash_capture_logs,
+                            export_mflog_env_vars)
+from metaflow.plugins import EnvironmentDecorator, KfpInternalDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
-from .accelerator_decorator import AcceleratorDecorator
-from .kfp_constants import (
-    INPUT_PATHS_ENV_NAME,
-    STEP_ENVIRONMENT_VARIABLES,
-    TASK_ID_ENV_NAME,
-    SPLIT_INDEX_ENV_NAME,
-    RETRY_COUNT,
-    LOGS_DIR,
-    STDOUT_PATH,
-    STDERR_PATH,
-)
-from .kfp_exit_handler import exit_handler
-from .kfp_foreach_splits import graph_to_task_ids, KfpForEachSplits
-from .kfp_get_workflow_uid import get_workflow_uid
-from .kfp_s3_sensor import wait_for_s3_path
+
+import kfp
+from kfp import dsl
+from kfp.components import func_to_container_op
+from kfp.dsl import ContainerOp, PipelineConf, PipelineVolume, ResourceOp
+from kfp.dsl._container_op import _get_cpu_number, _get_resource_number
+from kfp.dsl._pipeline_param import sanitize_k8s_name
+
+from ... import R
+from ...graph import DAGNode
+from ...metaflow_environment import MetaflowEnvironment
+from ...plugins.resources_decorator import ResourcesDecorator
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
-from ... import R
-from ...metaflow_environment import MetaflowEnvironment
-from ...graph import DAGNode
-from metaflow.mflog import (
-    export_mflog_env_vars,
-    bash_capture_logs,
-    BASH_SAVE_LOGS,
-)
-from ...plugins.resources_decorator import ResourcesDecorator
+from .accelerator_decorator import AcceleratorDecorator
+from .kfp_constants import (INPUT_PATHS_ENV_NAME, LOGS_DIR, RETRY_COUNT,
+                            SPLIT_INDEX_ENV_NAME, STDERR_PATH, STDOUT_PATH,
+                            STEP_ENVIRONMENT_VARIABLES, TASK_ID_ENV_NAME)
+from .kfp_exit_handler import exit_handler
+from .kfp_foreach_splits import KfpForEachSplits, graph_to_task_ids
+from .kfp_get_workflow_uid import get_workflow_uid
+from .kfp_s3_sensor import wait_for_s3_path
 
 # TODO: @schedule
 UNSUPPORTED_DECORATORS = (

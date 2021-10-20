@@ -1,8 +1,8 @@
 import tempfile
-import yaml
-
 from os.path import join
 from typing import Dict
+
+import yaml
 from subprocess_tee import run
 
 from . import _python

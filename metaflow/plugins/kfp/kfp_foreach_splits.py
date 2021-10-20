@@ -6,10 +6,8 @@ from metaflow import S3, FlowSpec, current
 from metaflow.datastore import MetaflowDataStore
 from metaflow.graph import DAGNode, FlowGraph
 from metaflow.plugins.kfp.kfp_constants import (
-    KFP_METAFLOW_FOREACH_SPLITS_PATH,
-    PASSED_IN_SPLIT_INDEXES_ENV_NAME,
-    SPLIT_INDEX_SEPARATOR,
-)
+    KFP_METAFLOW_FOREACH_SPLITS_PATH, PASSED_IN_SPLIT_INDEXES_ENV_NAME,
+    SPLIT_INDEX_SEPARATOR)
 
 
 def graph_to_task_ids(graph: FlowGraph) -> Dict[str, str]:

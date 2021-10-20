@@ -12,9 +12,7 @@ from metaflow.exception import MetaflowException
 from metaflow.metadata import MetaDatum
 from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
 from metaflow.plugins.kfp.kfp_constants import (
-    preceding_component_inputs_PATH,
-    PASSED_IN_SPLIT_INDEXES_ENV_NAME,
-)
+    PASSED_IN_SPLIT_INDEXES_ENV_NAME, preceding_component_inputs_PATH)
 from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
 from metaflow.sidecar import SidecarSubProcess
 

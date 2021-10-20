@@ -1,10 +1,9 @@
-from typing import NamedTuple
 import os
+from typing import NamedTuple
 
 from aip_kfp_sdk.components.component import kfp_component
-
-from metaflow import FlowSpec, step, kfp, resources
 from kubernetes import client, config
+from metaflow import FlowSpec, kfp, resources, step
 
 
 @kfp_component(use_code_pickling=False)

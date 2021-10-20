@@ -2,7 +2,7 @@ import os
 import signal
 import time
 
-from metaflow import FlowSpec, step, retry, catch, timeout, current, Step
+from metaflow import FlowSpec, Step, catch, current, retry, step, timeout
 from metaflow.exception import MetaflowExceptionWrapper
 
 

@@ -1,19 +1,15 @@
-from unittest import mock
-from metaflow.plugins.kfp.kfp_s3_sensor import wait_for_s3_path
-
-from unittest.mock import call, Mock, patch, PropertyMock
-import pytest
-
-import boto3
-from botocore.exceptions import ClientError
-from moto import mock_s3
-
-import tempfile
-
 import base64
 import marshal
-
 import os
+import tempfile
+from unittest import mock
+from unittest.mock import Mock, PropertyMock, call, patch
+
+import boto3
+import pytest
+from botocore.exceptions import ClientError
+from metaflow.plugins.kfp.kfp_s3_sensor import wait_for_s3_path
+from moto import mock_s3
 
 """
 To run these tests from your terminal, go to the root directory and run:

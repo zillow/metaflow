@@ -1,16 +1,16 @@
-from os import listdir
-from os.path import isfile, join
-from subprocess_tee import run
 import json
 import re
-import requests
+import time
+import uuid
+from os import listdir
+from os.path import isfile, join
 from typing import List
 
 import pytest
-import time
-import uuid
-
+import requests
 from metaflow.exception import MetaflowException
+from subprocess_tee import run
+
 from . import _python
 
 """

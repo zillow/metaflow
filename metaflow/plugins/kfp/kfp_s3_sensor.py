@@ -14,14 +14,15 @@ def wait_for_s3_path(
     flow_parameters_json: str,
     os_expandvars: bool,
 ) -> str:
-    import boto3
-    import botocore
     import base64
     import json
     import marshal
+    import os
     import time
     from urllib.parse import urlparse
-    import os
+
+    import boto3
+    import botocore
 
     flow_parameters = json.loads(flow_parameters_json)
 

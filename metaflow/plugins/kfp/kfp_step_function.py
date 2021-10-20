@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Dict, List
 
 
 def kfp_step_function(
@@ -21,11 +21,11 @@ def kfp_step_function(
 
     Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
     """
-    import os
     import json
     import logging
-    from subprocess import Popen
+    import os
     from collections import namedtuple
+    from subprocess import Popen
     from typing import Dict
 
     if preceding_component_inputs is None:

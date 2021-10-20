@@ -1,13 +1,11 @@
-from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
-
-import boto3
 import time
-from subprocess import run, PIPE
-
 from os import environ
 from os.path import join
-
+from subprocess import PIPE, run
 from urllib.parse import urlparse
+
+import boto3
+from metaflow import FlowSpec, Parameter, resources, s3_sensor, step
 
 
 class UploadToS3Flow(FlowSpec):
