@@ -15,7 +15,7 @@ from kfp.components import func_to_container_op
 from kfp.dsl import ContainerOp, PipelineConf
 from kfp.dsl import PipelineVolume, ResourceOp
 from kfp.dsl._pipeline_param import sanitize_k8s_name
-from kfp.dsl._container_op import _get_resource_number
+from kfp.dsl._container_op import _get_resource_number, _get_cpu_number
 from kubernetes.client import (
     V1EnvVar,
     V1EnvVarSource,
@@ -644,16 +644,13 @@ class KubeflowPipelines(object):
             container_op.add_affinity(affinity)
             container_op.add_toleration(toleration)
 
-        def _add_node_type_tolerations(
-            memory: str,
-            cpu: str,
-        ):
+        def _add_node_type_tolerations():
             """ Allow large enough pod to use higher cost nodes
 
             The following node types are considered for setting the threshold:
-            c5.4xlarge: 16 vCPU, 32 GB)
-            m5.8xlarge: 32 vCPU, 128 GB)
-            r5.12xlarge: 48 vCPU, 384 GB)
+            c5.4xlarge: 16 vCPU, 32 GB
+            m5.8xlarge: 32 vCPU, 128 GB
+            r5.12xlarge: 48 vCPU, 384 GB
             Resource threshold are lower than machine resource boundary to take overheads into
             account.
 
@@ -661,21 +658,15 @@ class KubeflowPipelines(object):
             Setting a low threshold for using larger host allow more freedom for scheduler
             and potentially higher utilization rate.
             """
-            if not kfp_component.accelerator_decorator and not "gpu" in resource_requirements:
+            # No need to validate value - already done by set_<resource>_request above
+            cpu = _get_cpu_number(resource_requirements.get("cpu", 0))
+            memory = _get_resource_number(resource_requirements.get("memory", 0))
 
-            memory_gb = _get_resource_number(memory)
-            if isinstance(cpu, (int, float)):
-                cpu_num = cpu
-            elif isinstance(cpu, str) and cpu.endswith("m"):
-                cpu_num = int(cpu[:-1]) / 1000
-            else:
-                raise ValueError(f"Unrecognized CPU request {cpu}")
-
-            if cpu_num >= 12 or memory_gb >= 24:  # 80% of hard limit - c5.4xlarge: 16 vCPU, 32 GB
+            if cpu >= 12 or memory >= 24:  # 80% of hard limit - c5.4xlarge: 16 vCPU, 32 GB
                 container_op.add_toleration(
                     V1Toleration(
                         effect="NoSchedule",
-                        key=None,
+                        key="node.kubernetes.io/instance-type",
                         operator="Equal",
                         value="m5.8xlarge",
                     )
@@ -684,7 +675,7 @@ class KubeflowPipelines(object):
             # Additionally allow larger node type.
             # Some pods may have multiple node type tolerance and it is by design
             # It allows pods right on boundary to be potentially scheduled in smaller nodes
-            if cpu_num >= 24 or memory_gb >= 96:  # 80% of hard limit - m5.8xlarge: 32 vCPU, 128 GB
+            if cpu >= 24 or memory >= 96:  # 80% of hard limit - m5.8xlarge: 32 vCPU, 128 GB
                 container_op.add_toleration(
                     V1Toleration(
                         effect="NoSchedule",
@@ -694,10 +685,8 @@ class KubeflowPipelines(object):
                     )
                 )
 
-        _add_node_type_tolerations(
-            cpu=resource_requirements["cpu"],
-            memory=resource_requirements["memory"],
-        )
+        if not kfp_component.accelerator_decorator and "gpu" not in resource_requirements:
+            _add_node_type_tolerations()
 
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
