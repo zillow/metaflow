@@ -659,8 +659,8 @@ class KubeflowPipelines(object):
             and potentially higher utilization rate.
             """
             # No need to validate value - already done by set_<resource>_request above
-            cpu = _get_cpu_number(resource_requirements.get("cpu", 0))
-            memory = _get_resource_number(resource_requirements.get("memory", 0))
+            cpu: float = _get_cpu_number(resource_requirements.get("cpu", "0"))
+            memory: float = _get_resource_number(resource_requirements.get("memory", "0"))
 
             if cpu >= 12 or memory >= 24:  # 80% of hard limit - c5.4xlarge: 16 vCPU, 32 GB
                 container_op.add_toleration(
@@ -679,7 +679,7 @@ class KubeflowPipelines(object):
                 container_op.add_toleration(
                     V1Toleration(
                         effect="NoSchedule",
-                        key=None,
+                        key="node.kubernetes.io/instance-type",
                         operator="Equal",
                         value="r5.12xlarge",
                     )

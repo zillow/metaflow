@@ -1,5 +1,8 @@
 from metaflow import FlowSpec, step, environment, resources
-import yaml
+
+
+# Due to cost concerns this test is now a manual test that is supposed to be ran with --yaml-only
+# TODO(yunw): Add this test case as a unit test
 
 
 class CompileTimeValidationFlow(FlowSpec):
@@ -16,41 +19,46 @@ class CompileTimeValidationFlow(FlowSpec):
         """Should not have taint"""
         self.next(self.medium_cpu_pod)
 
-    @step
     @resources(cpu=16)
+    @step
     def medium_cpu_pod(self):
         """Expect taint for medium node type"""
         self.next(self.large_cpu_pod)
 
-    @step
     @resources(cpu=32.0)
+    @step
     def large_cpu_pod(self):
         """Expect taint for large node type"""
         self.next(self.medium_memory_pod)
 
-    @step
     @resources(memory="32G")
+    @step
     def medium_memory_pod(self):
         """Expect taint for medium node type"""
         self.next(self.large_memory_pod)
 
+    @resources(memory=128000)
     @step
-    @resources(memory="128G")
     def large_memory_pod(self):
         """Expect taint for large node type"""
         self.next(self.end)
 
     @step
     def end(self):
-        self.next(self.small_pod)
+        pass
 
 
-def test_resource_default_node_type_taint(tmp_path):
-    """Test node type taints added by default based on resource requirement"""
-    flow = CompileTimeValidationFlow(use_cli=False)
-    pipeline_path = flow.create_kfp_pipeline_yaml(tmp_path / f"{flow.name}.yml")
-    print(f"=== Pipeline Path: {pipeline_path} ===")
+if __name__ == "__main__":
+    CompileTimeValidationFlow()
 
-    with open(pipeline_path, "r") as pipeline_yml:
-        pipeline_spec = yaml.parse(pipeline_yml)
-        print(pipeline_spec)
+
+# def test_resource_default_node_type_taint(tmp_path):
+#     """Test node type taints added by default based on resource requirement"""
+#     flow = CompileTimeValidationFlow(use_cli=False)
+#     pipeline_path = tmp_path / f"{flow.name}.yml"
+#     cli.main(flow, args=["kfp", "run", "--yaml-only", "--pipeline-path", pipeline_path])
+#
+#     print(f"=== Pipeline Path: {pipeline_path} ===")
+#     with open(pipeline_path, "r") as pipeline_yml:
+#         pipeline_spec = yaml.parse(pipeline_yml)
+#         print(pipeline_spec)

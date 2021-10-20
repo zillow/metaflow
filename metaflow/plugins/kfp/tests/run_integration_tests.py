@@ -1,4 +1,3 @@
-import re
 from os import listdir
 from os.path import isfile, join
 from subprocess_tee import run
