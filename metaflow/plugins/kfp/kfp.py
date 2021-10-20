@@ -645,7 +645,7 @@ class KubeflowPipelines(object):
             container_op.add_toleration(toleration)
 
         def _add_node_type_tolerations():
-            """ Allow large enough pod to use higher cost nodes
+            """Allow large enough pod to use higher cost nodes
 
             The following node types are considered for setting the threshold:
             c5.4xlarge: 16 vCPU, 32 GB
@@ -660,9 +660,13 @@ class KubeflowPipelines(object):
             """
             # No need to validate value - already done by set_<resource>_request above
             cpu: float = _get_cpu_number(resource_requirements.get("cpu", "0"))
-            memory: float = _get_resource_number(resource_requirements.get("memory", "0"))
+            memory: float = _get_resource_number(
+                resource_requirements.get("memory", "0")
+            )
 
-            if cpu >= 12 or memory >= 24:  # 80% of hard limit - c5.4xlarge: 16 vCPU, 32 GB
+            if (
+                cpu >= 12 or memory >= 24
+            ):  # 80% of hard limit - c5.4xlarge: 16 vCPU, 32 GB
                 container_op.add_toleration(
                     V1Toleration(
                         effect="NoSchedule",
@@ -675,7 +679,9 @@ class KubeflowPipelines(object):
             # Additionally allow larger node type.
             # Some pods may have multiple node type tolerance and it is by design
             # It allows pods right on boundary to be potentially scheduled in smaller nodes
-            if cpu >= 24 or memory >= 96:  # 80% of hard limit - m5.8xlarge: 32 vCPU, 128 GB
+            if (
+                cpu >= 24 or memory >= 96
+            ):  # 80% of hard limit - m5.8xlarge: 32 vCPU, 128 GB
                 container_op.add_toleration(
                     V1Toleration(
                         effect="NoSchedule",
@@ -685,7 +691,10 @@ class KubeflowPipelines(object):
                     )
                 )
 
-        if not kfp_component.accelerator_decorator and "gpu" not in resource_requirements:
+        if (
+            not kfp_component.accelerator_decorator
+            and "gpu" not in resource_requirements
+        ):
             _add_node_type_tolerations()
 
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
