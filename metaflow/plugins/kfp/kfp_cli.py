@@ -7,12 +7,17 @@ import click
 from metaflow import JSONType, current, decorators, parameters
 from metaflow.datastore.datastore import TransformableObject
 from metaflow.exception import CommandException, MetaflowException
-from metaflow.metaflow_config import (KFP_MAX_PARALLELISM, KFP_RUN_URL_PREFIX,
-                                      KFP_SDK_API_NAMESPACE, KFP_SDK_NAMESPACE,
-                                      from_conf)
+from metaflow.metaflow_config import (
+    KFP_MAX_PARALLELISM,
+    KFP_RUN_URL_PREFIX,
+    KFP_SDK_API_NAMESPACE,
+    KFP_SDK_NAMESPACE,
+    from_conf,
+)
 from metaflow.package import MetaflowPackage
-from metaflow.plugins.aws.step_functions.step_functions_cli import \
-    check_metadata_service_version
+from metaflow.plugins.aws.step_functions.step_functions_cli import (
+    check_metadata_service_version,
+)
 from metaflow.plugins.kfp.kfp_constants import BASE_IMAGE
 from metaflow.plugins.kfp.kfp_step_init import save_step_environment_variables
 from metaflow.util import get_username

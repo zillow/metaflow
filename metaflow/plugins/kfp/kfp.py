@@ -9,20 +9,31 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import yaml
-from kubernetes.client import (V1Affinity, V1EnvVar, V1EnvVarSource,
-                               V1NodeAffinity, V1NodeSelector,
-                               V1NodeSelectorRequirement, V1NodeSelectorTerm,
-                               V1ObjectFieldSelector, V1ObjectMeta,
-                               V1OwnerReference, V1PersistentVolumeClaim,
-                               V1PersistentVolumeClaimSpec,
-                               V1ResourceRequirements, V1Toleration)
+from kubernetes.client import (
+    V1Affinity,
+    V1EnvVar,
+    V1EnvVarSource,
+    V1NodeAffinity,
+    V1NodeSelector,
+    V1NodeSelectorRequirement,
+    V1NodeSelectorTerm,
+    V1ObjectFieldSelector,
+    V1ObjectMeta,
+    V1OwnerReference,
+    V1PersistentVolumeClaim,
+    V1PersistentVolumeClaimSpec,
+    V1ResourceRequirements,
+    V1Toleration,
+)
 from metaflow.decorators import FlowDecorator
-from metaflow.metaflow_config import (DATASTORE_SYSROOT_S3,
-                                      KFP_TTL_SECONDS_AFTER_FINISHED,
-                                      KFP_USER_DOMAIN, METAFLOW_USER,
-                                      from_conf)
-from metaflow.mflog import (BASH_SAVE_LOGS, bash_capture_logs,
-                            export_mflog_env_vars)
+from metaflow.metaflow_config import (
+    DATASTORE_SYSROOT_S3,
+    KFP_TTL_SECONDS_AFTER_FINISHED,
+    KFP_USER_DOMAIN,
+    METAFLOW_USER,
+    from_conf,
+)
+from metaflow.mflog import BASH_SAVE_LOGS, bash_capture_logs, export_mflog_env_vars
 from metaflow.plugins import EnvironmentDecorator, KfpInternalDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
@@ -41,9 +52,16 @@ from ...plugins.resources_decorator import ResourcesDecorator
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from .accelerator_decorator import AcceleratorDecorator
-from .kfp_constants import (INPUT_PATHS_ENV_NAME, LOGS_DIR, RETRY_COUNT,
-                            SPLIT_INDEX_ENV_NAME, STDERR_PATH, STDOUT_PATH,
-                            STEP_ENVIRONMENT_VARIABLES, TASK_ID_ENV_NAME)
+from .kfp_constants import (
+    INPUT_PATHS_ENV_NAME,
+    LOGS_DIR,
+    RETRY_COUNT,
+    SPLIT_INDEX_ENV_NAME,
+    STDERR_PATH,
+    STDOUT_PATH,
+    STEP_ENVIRONMENT_VARIABLES,
+    TASK_ID_ENV_NAME,
+)
 from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import KfpForEachSplits, graph_to_task_ids
 from .kfp_get_workflow_uid import get_workflow_uid
@@ -545,7 +563,7 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _create_resource_based_node_type_toleration(
-            cpu: float, memory: float
+        cpu: float, memory: float
     ) -> Optional[V1Toleration]:
         """Allow large enough pod to use higher cost nodes
 

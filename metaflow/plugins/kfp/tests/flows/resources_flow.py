@@ -4,8 +4,12 @@ import subprocess
 import time
 from typing import Dict, List
 
-from kubernetes.client import (V1EnvVar, V1EnvVarSource, V1ObjectFieldSelector,
-                               V1ResourceFieldSelector)
+from kubernetes.client import (
+    V1EnvVar,
+    V1EnvVarSource,
+    V1ObjectFieldSelector,
+    V1ResourceFieldSelector,
+)
 from metaflow import FlowSpec, current, environment, resources, step
 
 
