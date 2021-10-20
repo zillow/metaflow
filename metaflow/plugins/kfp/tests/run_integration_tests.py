@@ -4,20 +4,14 @@ from subprocess_tee import run
 import json
 import re
 import requests
-from typing import List, Dict
-
-from .... import R
-
-from metaflow.exception import MetaflowException
+from typing import List
 
 import pytest
-
-import yaml
-import tempfile
-
 import time
-
 import uuid
+
+from metaflow.exception import MetaflowException
+from . import _python
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -43,15 +37,8 @@ KFP runs will be scheduled.
 """
 
 
-def _python():
-    if R.use_r():
-        return "python3"
-    else:
-        return "python"
-
-
 non_standard_test_flows = [
-    "accelerator_flow.py",
+    "toleration_and_affinity_flow.py",
     "check_error_handling_flow.py",
     "raise_error_flow.py",
     "s3_sensor_flow.py",
@@ -166,72 +153,6 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     exponential_backoff_from_platform_errors(test_cmd, 0)
 
     return
-
-
-def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
-    for affinity_match_expression in node_selector_term["matchExpressions"]:
-        if (
-            affinity_match_expression["key"] == "k8s.amazonaws.com/accelerator"
-            and affinity_match_expression["operator"] == "In"
-            and "nvidia-tesla-v100" in affinity_match_expression["values"]
-        ):
-            return True
-    return False
-
-
-def is_nvidia_accelerator_noschedule(toleration: Dict) -> bool:
-    if (
-        toleration["effect"] == "NoSchedule"
-        and toleration["key"] == "k8s.amazonaws.com/accelerator"
-        and toleration["operator"] == "Equal"
-        and toleration["value"] == "nvidia-tesla-v100"
-    ):
-        return True
-    return False
-
-
-def test_compile_only_accelerator_test() -> None:
-    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
-        yaml_file_path = join(yaml_tmp_dir, "accelerator_flow.yaml")
-
-        compile_to_yaml_cmd = (
-            f"{_python()} flows/accelerator_flow.py --datastore=s3 --with retry kfp run "
-            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
-        )
-
-        compile_to_yaml_process = run(
-            compile_to_yaml_cmd,
-            universal_newlines=True,
-            shell=True,
-        )
-        assert compile_to_yaml_process.returncode == 0
-
-        with open(f"{yaml_file_path}", "r") as stream:
-            try:
-                flow_yaml = yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                print(exc)
-
-        for step in flow_yaml["spec"]["templates"]:
-            if step["name"] == "start":
-                start_step = step
-                break
-
-    affinity_found = False
-    for node_selector_term in start_step["affinity"]["nodeAffinity"][
-        "requiredDuringSchedulingIgnoredDuringExecution"
-    ]["nodeSelectorTerms"]:
-        if exists_nvidia_accelerator(node_selector_term):
-            affinity_found = True
-            break
-    assert affinity_found
-
-    toleration_found = False
-    for toleration in start_step["tolerations"]:
-        if is_nvidia_accelerator_noschedule(toleration):
-            toleration_found = True
-            break
-    assert toleration_found
 
 
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))

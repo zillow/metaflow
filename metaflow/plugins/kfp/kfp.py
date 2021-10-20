@@ -566,6 +566,34 @@ class KubeflowPipelines(object):
         return " && ".join(cmds)
 
     @staticmethod
+    def _create_resource_based_node_type_toleration(
+            cpu: float, memory: float
+    ) -> Optional[V1Toleration]:
+        """Allow large enough pod to use higher cost nodes
+
+        The following node types are considered for setting the threshold:
+        c5.4xlarge: 16 vCPU, 32 GB
+        r5.12xlarge: 48 vCPU, 384 GB
+        Resource threshold are lower than machine resource boundary to take overheads into
+        account.
+
+        Toleration allows pods to utilize larger nodes without enforcement.
+        Setting a low threshold for using larger host allow more freedom for scheduler
+        and potentially higher utilization rate.
+        """
+        # No need to validate value - already done by set_<resource>_request above
+
+        if cpu >= 12 or memory >= 24:  # 80% of hard limit - c5.4xlarge: 16 vCPU, 32 GB
+            return V1Toleration(
+                effect="NoSchedule",
+                key="node.kubernetes.io/instance-type",
+                operator="Equal",
+                value="r5.12xlarge",
+            )
+        else:
+            return None
+
+    @staticmethod
     def _set_container_resources(
         container_op: ContainerOp,
         kfp_component: KfpComponent,
@@ -644,58 +672,16 @@ class KubeflowPipelines(object):
             container_op.add_affinity(affinity)
             container_op.add_toleration(toleration)
 
-        def _add_node_type_tolerations():
-            """Allow large enough pod to use higher cost nodes
-
-            The following node types are considered for setting the threshold:
-            c5.4xlarge: 16 vCPU, 32 GB
-            m5.8xlarge: 32 vCPU, 128 GB
-            r5.12xlarge: 48 vCPU, 384 GB
-            Resource threshold are lower than machine resource boundary to take overheads into
-            account.
-
-            Toleration allows pods to utilize larger nodes without enforcement.
-            Setting a low threshold for using larger host allow more freedom for scheduler
-            and potentially higher utilization rate.
-            """
-            # No need to validate value - already done by set_<resource>_request above
-            cpu: float = _get_cpu_number(resource_requirements.get("cpu", "0"))
-            memory: float = _get_resource_number(
-                resource_requirements.get("memory", "0")
-            )
-
-            if (
-                cpu >= 12 or memory >= 24
-            ):  # 80% of hard limit - c5.4xlarge: 16 vCPU, 32 GB
-                container_op.add_toleration(
-                    V1Toleration(
-                        effect="NoSchedule",
-                        key="node.kubernetes.io/instance-type",
-                        operator="Equal",
-                        value="m5.8xlarge",
-                    )
-                )
-
-            # Additionally allow larger node type.
-            # Some pods may have multiple node type tolerance and it is by design
-            # It allows pods right on boundary to be potentially scheduled in smaller nodes
-            if (
-                cpu >= 24 or memory >= 96
-            ):  # 80% of hard limit - m5.8xlarge: 32 vCPU, 128 GB
-                container_op.add_toleration(
-                    V1Toleration(
-                        effect="NoSchedule",
-                        key="node.kubernetes.io/instance-type",
-                        operator="Equal",
-                        value="r5.12xlarge",
-                    )
-                )
-
         if (
             not kfp_component.accelerator_decorator
             and "gpu" not in resource_requirements
         ):
-            _add_node_type_tolerations()
+            toleration = KubeflowPipelines._create_resource_based_node_type_toleration(
+                cpu=_get_cpu_number(resource_requirements.get("cpu", "0")),
+                memory=_get_resource_number(resource_requirements.get("memory", "0")),
+            )
+            if toleration:
+                container_op.add_toleration(toleration)
 
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
