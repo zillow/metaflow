@@ -33,10 +33,9 @@ stages:
   # Extract the open source Metaflow version as the basis for our forked library version.
   METAFLOW_VERSION=$(cat $METAFLOW_VERSION_PATH | sed -nr "s/^version = ['\"]([^'\"]*)['\"]$/\1/p")
 
-  if [ "${CI_COMMIT_BRANCH}" = "${CI_DEFAULT_BRANCH}" ]; then
-    PY_LIBRARY_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${CI_PIPELINE_IID}.${METAFLOW_VERSION}"
-  else
-    PY_LIBRARY_VERSION="0.0.${CI_PIPELINE_IID}.${METAFLOW_VERSION}"
+  PY_LIBRARY_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${CI_PIPELINE_IID}.${METAFLOW_VERSION}"
+  if [ "${CI_COMMIT_BRANCH}" != "${CI_DEFAULT_BRANCH}" ]; then
+    PY_LIBRARY_VERSION="${PY_LIBRARY_VERSION}.dev${CI_PIPELINE_IID}"
   fi
   IMAGE_TAG="${PY_LIBRARY_VERSION}"
 
