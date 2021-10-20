@@ -22,7 +22,6 @@ setup(name='zillow-metaflow',
         'pylint'
       ],
       tests_require = [
-        'PyYAML',
         'coverage'
       ],
       extras_require = {
