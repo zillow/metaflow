@@ -904,7 +904,7 @@ class KubeflowPipelines(object):
 
         s3_sensor_op = func_to_container_op(
             wait_for_s3_path,
-            base_image="hsezhiyan/metaflow-zillow:2.0",
+            base_image="hsezhiyan/metaflow-zillow:2.1",
         )(
             path=path,
             timeout_seconds=timeout_seconds,
