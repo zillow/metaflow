@@ -215,7 +215,6 @@ def exponential_backoff_from_platform_errors(
     for interval in backoff_intervals_in_seconds:
         time.sleep(interval)
 
-        print(kfp_run_cmd)
         run_and_wait_process = run(
             kfp_run_cmd,
             universal_newlines=True,
