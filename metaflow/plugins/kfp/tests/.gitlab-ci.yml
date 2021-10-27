@@ -38,7 +38,7 @@ stages:
     PY_LIBRARY_VERSION="${PY_LIBRARY_VERSION}-dev.${CI_PIPELINE_IID}"
     # Ensure the image tag is compliant with PEP-440,
     IMAGE_TAG="${PY_LIBRARY_VERSION}.dev${CI_PIPELINE_IID}"
-  else:
+  else
     IMAGE_TAG="${PY_LIBRARY_VERSION}"
   fi
   # Only apply the Metaflow version to the python library as Docker versions do not have the concept of
