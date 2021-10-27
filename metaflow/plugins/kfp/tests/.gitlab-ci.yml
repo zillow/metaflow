@@ -88,7 +88,7 @@ build:docker:
         image_repository_tag=$1
         image_repository_tag_path=$2
 
-        docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile --build-arg IMAGE_TAG=${image_repository_tag} -t ${image_repository_tag} .
+        DOCKER_BUILDKIT=1 docker build --no-cache -f metaflow/plugins/kfp/tests/Dockerfile --build-arg IMAGE_TAG=${image_repository_tag} -t ${image_repository_tag} .
         echo ${DOCKER_API_KEY} | docker login -u ${DOCKER_USERNAME} --password-stdin ${DOCKER_REPO_URL}
         STDERR=$(docker push ${image_repository_tag} 2>&1 >/dev/null) || true
         echo $STDERR
