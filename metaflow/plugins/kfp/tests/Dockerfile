@@ -2,6 +2,12 @@
 # kicks off KFP runs using the Metaflow KFP plugin as well as the base image of Kubeflow
 # pods running on the Kubeflow cluster.
 FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:4.0.1380
+
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
+    unzip -q awscliv2.zip; \
+    ./aws/install; \
+    rm -rf aws awscliv2.zip
+
 COPY . /home/zservice/metaflow
 RUN pip install --upgrade --force-reinstall \
     -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple \
