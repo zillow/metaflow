@@ -4,6 +4,9 @@
 # pods running on the Kubeflow cluster.
 FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:4.0.1380
 
+# Add in AWS CLI because when we run the integration tests against the AI Analytics ZGCP clusters
+# to authenticate with the Kubernetes API service we need to run "aws eks get-token" to generate the
+# temporary token.
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"; \
     unzip -q awscliv2.zip; \
     ./aws/install; \
