@@ -8,7 +8,8 @@ This test flow ensures that @s3_sensor properly waits for path to be written
 to in S3. In particular, this test ensures `path_formatter` works and users are
 able to format their S3 paths with runtime parameters. The test also tests the usage
 of @s3_sensor with volumes and shared volumes while using --notify.
-See https://zbrt.atl.zillow.net/browse/AIP-5283.
+See https://zbrt.atl.zillow.net/browse/AIP-5283 - Fixing @s3_sensor usage
+with @resources(volume=...) and --notify.
 """
 
 
