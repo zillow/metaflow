@@ -75,12 +75,9 @@ for annotation, env_name in annotations.items():
 
 class ResourcesFlow(FlowSpec):
     @resources(
-        local_storage="100",
-        local_storage_limit="242",
-        cpu="0.1",
-        cpu_limit="0.6",
-        memory="500",
-        memory_limit="1G",
+        local_storage="242",
+        cpu="0.6",
+        memory="1G",
     )
     @environment(  # pylint: disable=E1102
         vars={"MY_ENV": "value"}, kubernetes_vars=kubernetes_vars
