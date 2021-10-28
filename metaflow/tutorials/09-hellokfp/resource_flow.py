@@ -18,9 +18,9 @@ class ResourceFlow(FlowSpec):
         self.next(self.all_resource)
 
     @resources(
-        cpu=0.5, cpu_limit=5,
+        cpu=5, cpu_limit=5,
         gpu=3, gpu_vendor="amd",
-        memory=150, memory_limit="1G"
+        memory="1G", memory_limit="1G"
     )
     @step
     def all_resource(self):
