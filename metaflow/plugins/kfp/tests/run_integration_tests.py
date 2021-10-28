@@ -5,12 +5,19 @@ from os import listdir
 from os.path import isfile, join
 
 import yaml
-from subprocess_tee import run
 from typing import List, Dict
 
 import pytest
 
 from metaflow import R
+
+import pip
+try:
+    from subprocess_tee import run
+except ImportError:
+    pip.main(['install', "subprocess_tee"])
+    from subprocess_tee import run
+
 
 """
 To run these tests from your terminal, go to the tests directory and run: 

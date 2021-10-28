@@ -30,5 +30,6 @@ setup(name='metaflow',
         'kfp'
       ],
       tests_require = [
-        'coverage'
+        'coverage',
+        'subprocess-tee'
       ])
