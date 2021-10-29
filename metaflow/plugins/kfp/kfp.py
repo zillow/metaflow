@@ -83,6 +83,7 @@ class KfpComponent(object):
     def __init__(
         self,
         name: str,
+        code_package_template: str,
         cmd_template: str,
         total_retries: int,
         resource_requirements: Dict[str, str],
@@ -91,6 +92,7 @@ class KfpComponent(object):
         environment_decorator: EnvironmentDecorator,
     ):
         self.name = name
+        self.code_package_template = code_package_template
         self.cmd_template = cmd_template
         self.total_retries = total_retries
         self.resource_requirements = resource_requirements
@@ -214,6 +216,25 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
+    def _download_code_package_command(
+        self,
+        code_package_url: str,
+        environment: MetaflowEnvironment,
+    ):
+        if self.s3_code_package:
+            init_cmds = environment.get_package_commands(
+                code_package_url, is_kfp_plugin=True
+            )
+        else:
+            init_cmds = [
+                "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+            ]
+
+        init_expr = " && ".join(init_cmds)
+        print("init_expr: ", init_expr)
+
+        return init_expr
+
     def _command(
         self,
         code_package_url: str,
@@ -289,7 +310,7 @@ class KubeflowPipelines(object):
         cmd_str = (
             f"{clean_volume} "
             f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-            f"&& {init_expr} "
+            # f"&& {init_expr} "
             f"&& {step_expr};"
         )
 
@@ -300,7 +321,7 @@ class KubeflowPipelines(object):
         # Note that if step_expr OOMs, this tail expression is never executed.
         # We lose the last logs in this scenario.
         cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
-        print("Function exit of _command.")
+        print("cmd_str: ", cmd_str)
         return cmd_str
 
     @staticmethod
@@ -392,6 +413,10 @@ class KubeflowPipelines(object):
 
             return KfpComponent(
                 name=node.name,
+                code_package_template=self._download_code_package_command(
+                    self.code_package_url,
+                    self.environment
+                ),
                 cmd_template=self._command(
                     self.code_package_url,
                     self.environment,
@@ -1000,6 +1025,7 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
                 step_op_args = dict(
+                    code_package_template=kfp_component.code_package_template,
                     cmd_template=kfp_component.cmd_template,
                     metaflow_run_id=metaflow_run_id,
                     metaflow_configs=metaflow_configs,
