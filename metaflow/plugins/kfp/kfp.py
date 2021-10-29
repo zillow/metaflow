@@ -44,6 +44,7 @@ from metaflow.metaflow_config import (
 from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
+from metaflow.plugins.kfp.kfp_step_function_invoker import kfp_step_function_invoker
 from .accelerator_decorator import AcceleratorDecorator
 from .kfp_constants import (
     INPUT_PATHS_ENV_NAME,
@@ -299,7 +300,7 @@ class KubeflowPipelines(object):
         # Note that if step_expr OOMs, this tail expression is never executed.
         # We lose the last logs in this scenario.
         cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
-
+        print("Function exit of _command.")
         return cmd_str
 
     @staticmethod
@@ -789,7 +790,7 @@ class KubeflowPipelines(object):
         step_op_component: Dict = yaml.load(
             kfp.components.func_to_component_text(
                 KubeflowPipelines._update_step_op_func_signature(
-                    kfp_step_function,
+                    kfp_step_function_invoker,
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=preceding_component_outputs,
                 ),
@@ -843,7 +844,7 @@ class KubeflowPipelines(object):
             A func signature updated with preceding_component_inputs as return values
             and preceding_component_outputs as parameters.
         """
-        assert func.__name__ == kfp_step_function.__name__
+        assert func.__name__ == kfp_step_function_invoker.__name__
 
         # -- Update Parameter Binding
         # preceding_component_outputs are returned by the KFP component to
