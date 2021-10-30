@@ -18,7 +18,7 @@ def kfp_step_function_invoker(
 ) -> object:
     from subprocess import Popen
     print(code_package_template)
-    code_package_template = "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout && " + code_package_template
+    code_package_template = "mkdir -p /opt/metaflow_volume/metaflow_logs && export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout && " + code_package_template
     with Popen(
         code_package_template, shell=True, universal_newlines=True, executable="/bin/bash"
     ) as process:

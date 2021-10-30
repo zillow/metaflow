@@ -233,7 +233,7 @@ class KubeflowPipelines(object):
         init_expr = " && ".join(init_cmds)
         print("init_expr: ", init_expr)
 
-        return init_expr
+        return init_expr + ";c=$?; %s; exit $c"
 
     def _command(
         self,
