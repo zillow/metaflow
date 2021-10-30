@@ -17,19 +17,24 @@ def kfp_step_function_invoker(
     **kwargs,
 ) -> object:
     from subprocess import Popen
-    print(code_package_template)
+    # print(code_package_template)
     code_package_template = "mkdir -p /opt/metaflow_volume/metaflow_logs && export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout && " + code_package_template
     with Popen(
         code_package_template, shell=True, universal_newlines=True, executable="/bin/bash"
     ) as process:
         pass
     import os
-    print(os.listdir("./metaflow"))
-    print("stdout: ", process.stdout)
-    print("stderr: ", process.stderr)
-    # from .metaflow.metaflow.plugins.kfp.kfp_step_function import kfp_step_function
-    print("Called here!")
-    
+    # print(os.listdir("./metaflow"))
+    # os.chdir("./metaflow")
+    # print("stdout: ", process.stdout)
+    # print("stderr: ", process.stderr)
+    # from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
+    # kfp_step_function = "python -m metaflow.plugins.kfp.kfp_step_function"
+    # with Popen(
+    #     kfp_step_function, shell=True, universal_newlines=True, executable="/bin/bash"
+    # ) as process:
+    #     pass
+
     def kfp_step_function(
         cmd_template: str,
         metaflow_run_id: str,
@@ -92,6 +97,9 @@ def kfp_step_function_invoker(
         }
         if flow_parameters_json is not None:
             env["METAFLOW_PARAMETERS"] = flow_parameters_json
+
+        print("cmd: ", cmd)
+        cmd = "cd metaflow && " + cmd
 
         # TODO: Map username to KFP specific user/profile/namespace
         # Running Metaflow

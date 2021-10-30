@@ -33,7 +33,7 @@ LOG_SOURCES = [
 BASH_MFLOG =\
     'mflog(){ '\
         'T=$(date -u -Ins|tr , .); '\
-        'echo \\"[MFLOG|0|${T:0:26}Z|%s|$T]$1\\"'\
+        'echo \"[MFLOG|0|${T:0:26}Z|%s|$T]$1\"'\
             ' >> $MFLOG_STDOUT; echo $1; '\
      ' }' % TASK_LOG_SOURCE
 
@@ -41,11 +41,11 @@ BASH_MFLOG =\
 #   - python formatting: double bracket to prevent unwanted formatting
 #   - quotation marks escape adjustment for proper concatanation
 BASH_MFLOG_KFP =\
-    'mflog(){{ '\
+    'mflog(){ '\
         'T=$(date -u -Ins|tr , .); '\
-        'echo \"[MFLOG|0|${{T:0:26}}Z|%s|$T]$1\"'\
+        'echo \"[MFLOG|0|${T:0:26}Z|%s|$T]$1\"'\
             ' >> $MFLOG_STDOUT; echo $1; '\
-     ' }}' % TASK_LOG_SOURCE
+     ' }' % TASK_LOG_SOURCE
 
 BASH_SAVE_LOGS_ARGS = ['python', '-m', 'metaflow.mflog.save_logs']
 BASH_SAVE_LOGS = ' '.join(BASH_SAVE_LOGS_ARGS)

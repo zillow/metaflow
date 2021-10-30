@@ -216,7 +216,7 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
-    def _download_code_package_command(
+    def _init_command(
         self,
         code_package_url: str,
         environment: MetaflowEnvironment,
@@ -231,9 +231,9 @@ class KubeflowPipelines(object):
             ]
 
         init_expr = " && ".join(init_cmds)
-        print("init_expr: ", init_expr)
+        # print("init_expr: ", init_expr)
 
-        return init_expr + ";c=$?; %s; exit $c"
+        return init_expr + ";c=$?; exit $c"
 
     def _command(
         self,
@@ -321,7 +321,7 @@ class KubeflowPipelines(object):
         # Note that if step_expr OOMs, this tail expression is never executed.
         # We lose the last logs in this scenario.
         cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
-        print("cmd_str: ", cmd_str)
+        # print("cmd_str: ", cmd_str)
         return cmd_str
 
     @staticmethod
@@ -413,7 +413,7 @@ class KubeflowPipelines(object):
 
             return KfpComponent(
                 name=node.name,
-                code_package_template=self._download_code_package_command(
+                code_package_template=self._init_command(
                     self.code_package_url,
                     self.environment
                 ),
