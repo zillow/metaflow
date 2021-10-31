@@ -63,6 +63,8 @@ def kfp_step_function(
     }
     if flow_parameters_json is not None:
         env["METAFLOW_PARAMETERS"] = flow_parameters_json
+    
+    cmd = "cd metaflow && " + cmd
 
     # TODO: Map username to KFP specific user/profile/namespace
     # Running Metaflow

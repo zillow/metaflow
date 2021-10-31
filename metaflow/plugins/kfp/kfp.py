@@ -83,7 +83,7 @@ class KfpComponent(object):
     def __init__(
         self,
         name: str,
-        code_package_template: str,
+        init_cmd: str,
         cmd_template: str,
         total_retries: int,
         resource_requirements: Dict[str, str],
@@ -92,7 +92,7 @@ class KfpComponent(object):
         environment_decorator: EnvironmentDecorator,
     ):
         self.name = name
-        self.code_package_template = code_package_template
+        self.init_cmd = init_cmd
         self.cmd_template = cmd_template
         self.total_retries = total_retries
         self.resource_requirements = resource_requirements
@@ -413,7 +413,7 @@ class KubeflowPipelines(object):
 
             return KfpComponent(
                 name=node.name,
-                code_package_template=self._init_command(
+                init_cmd=self._init_command(
                     self.code_package_url,
                     self.environment
                 ),
@@ -1025,7 +1025,7 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
                 step_op_args = dict(
-                    code_package_template=kfp_component.code_package_template,
+                    init_cmd=kfp_component.init_cmd,
                     cmd_template=kfp_component.cmd_template,
                     metaflow_run_id=metaflow_run_id,
                     metaflow_configs=metaflow_configs,
