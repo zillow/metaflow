@@ -286,6 +286,13 @@ class KubeflowPipelines(object):
 
         init_expr = " && ".join(init_cmds)
 
+        if self.s3_code_package:
+            cd_cmd = "cd metaflow"
+        else:
+            cd_cmd = (
+                "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+            )
+
         step_cmds = []
         step_cmds.extend(environment.bootstrap_commands(step_name))
         step_cmds.append("echo 'Task is starting.'")
@@ -310,7 +317,7 @@ class KubeflowPipelines(object):
         cmd_str = (
             f"{clean_volume} "
             f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-            # f"&& {init_expr} "
+            f"&& {cd_cmd} "
             f"&& {step_expr};"
         )
 

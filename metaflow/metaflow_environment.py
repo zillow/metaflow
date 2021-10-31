@@ -107,7 +107,9 @@ class MetaflowEnvironment(object):
             is_kfp_plugin=False,
     ):
         mflog_bash_cmd = BASH_MFLOG if not is_kfp_plugin else BASH_MFLOG_KFP
-        cmds = [mflog_bash_cmd,
+        cmds = ["mkdir -p /opt/metaflow_volume/metaflow_logs",
+                "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
+                mflog_bash_cmd,
                 "mflog \'Setting up task environment.\'",
                 "%s -m pip install click requests boto3 -qqq" % self._python(),
                 "mkdir metaflow",

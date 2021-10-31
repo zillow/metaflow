@@ -18,9 +18,10 @@ def kfp_step_function_invoker(
 ) -> object:
     import os, subprocess, sys
     sys.path.append(os.path.join(os.getcwd(), 'metaflow'))
+    print(init_cmd)
     # print(sys.path)
     # print(code_package_template)
-    init_cmd = "mkdir -p /opt/metaflow_volume/metaflow_logs && export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout && " + init_cmd
+    # init_cmd = "mkdir -p /opt/metaflow_volume/metaflow_logs && export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout && " + init_cmd
     with subprocess.Popen(
         init_cmd, shell=True, universal_newlines=True, executable="/bin/bash"
     ) as process:
