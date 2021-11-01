@@ -2,8 +2,7 @@
 from typing import Dict, List
 
 def kfp_step_function_invoker(
-    init_cmd: str,
-    cmd_template: str,
+    init_cmd: str, # s3 code package download
     metaflow_run_id: str,
     metaflow_configs: Dict[str, str],
     cd_cmd: str,
@@ -31,7 +30,6 @@ def kfp_step_function_invoker(
     from metaflow.plugins.kfp.kfp_step_function import kfp_step_function 
     
     return kfp_step_function(
-        cmd_template,
         metaflow_run_id,
         metaflow_configs,
         cd_cmd,

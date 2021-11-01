@@ -84,7 +84,6 @@ class KfpComponent(object):
         self,
         name: str,
         init_cmd: str,
-        cmd_template: str,
         cd_cmd: str,
         clean_volume_cmd: str,
         step_cli: List[str],
@@ -99,7 +98,6 @@ class KfpComponent(object):
     ):
         self.name = name
         self.init_cmd = init_cmd
-        self.cmd_template = cmd_template
         self.cd_cmd = cd_cmd
         self.clean_volume_cmd= clean_volume_cmd
         self.step_cli = step_cli
@@ -233,7 +231,6 @@ class KubeflowPipelines(object):
             cd_cmd = "cd metaflow"
         else:
             cd_cmd = "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
-        print("cd_cmd type here: ", type(cd_cmd))
         return cd_cmd
     
     def _get_clean_volume_cmd(self, resource_requirements: Dict[str, str]) -> str:
@@ -272,7 +269,6 @@ class KubeflowPipelines(object):
             ]
 
         init_expr = " && ".join(init_cmds)
-        # print("init_expr: ", init_expr)
 
         return init_expr + ";c=$?; exit $c"
 
@@ -325,7 +321,6 @@ class KubeflowPipelines(object):
 
         step_cmds = []
         step_cmds.extend(environment.bootstrap_commands(step_name))
-        # print("bootstrap: ", environment.bootstrap_commands(step_name))
         step_cmds.append("echo 'Task is starting.'")
         step_cmds.extend(step_cli)
 
@@ -359,7 +354,6 @@ class KubeflowPipelines(object):
         # Note that if step_expr OOMs, this tail expression is never executed.
         # We lose the last logs in this scenario.
         cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
-        # print("cmd_str: ", cmd_str)
         return cmd_str
 
     @staticmethod
@@ -449,21 +443,11 @@ class KubeflowPipelines(object):
             step_cli = self._step_cli(node, task_id, user_code_retries)
             resource_requirements = self._get_resource_requirements(node)
 
-            print("Type last loc: ", type(self._get_cd_cmd()))
-
             return KfpComponent(
                 name=node.name,
                 init_cmd=self._init_command(
                     self.code_package_url,
                     self.environment
-                ),
-                cmd_template=self._command(
-                    self.code_package_url,
-                    self.environment,
-                    node.name,
-                    [step_cli],
-                    resource_requirements,
-                    task_id,
                 ),
                 cd_cmd=self._get_cd_cmd(),
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
@@ -636,7 +620,6 @@ class KubeflowPipelines(object):
 
         cmds.append(" ".join(entrypoint + top_level + step))
         step_cli_string =  " && ".join(cmds)
-        print(step_cli_string)
         return step_cli_string
 
     @staticmethod
@@ -1073,11 +1056,8 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
 
-                print("Type: ", type(kfp_component.cd_cmd))
-
                 step_op_args = dict(
                     init_cmd=kfp_component.init_cmd,
-                    cmd_template=kfp_component.cmd_template,
                     metaflow_run_id=metaflow_run_id,
                     metaflow_configs=metaflow_configs,
                     cd_cmd=kfp_component.cd_cmd,
@@ -1099,6 +1079,16 @@ class KubeflowPipelines(object):
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
                 )(**{**step_op_args, **preceding_component_outputs_dict})
+
+                print(container_op.name)
+                print(container_op.image)
+                print(container_op.command)
+                print(container_op.arguments)
+                print(container_op.init_containers)
+                print(container_op.sidecars)
+                print(container_op.file_outputs)
+                print(container_op.output_artifact_paths)
+                print(container_op.pvolumes)
 
                 visited[node.name] = container_op
 

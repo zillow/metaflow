@@ -4,55 +4,8 @@ from pathlib import Path
 
 from typing import List, Dict
 
-TASK_LOG_SOURCE = 'task'
-# Log Arguments
-LOGS_DIR = "/opt/metaflow_volume/metaflow_logs"
-STDOUT_FILE = "mflog_stdout"
-STDERR_FILE = "mflog_stderr"
-STDOUT_PATH = os.path.join(LOGS_DIR, STDOUT_FILE)
-STDERR_PATH = os.path.join(LOGS_DIR, STDERR_FILE)
-
-BASH_SAVE_LOGS_ARGS = ['python', '-m', 'metaflow.mflog.save_logs']
-BASH_SAVE_LOGS = ' '.join(BASH_SAVE_LOGS_ARGS)
-
-STEP_ENVIRONMENT_VARIABLES = "/tmp/step-environment-variables.sh"
-
-# this function returns a bash expression that redirects stdout
-# and stderr of the given bash expression to mflog.tee
-def bash_capture_logs(bash_expr):
-    cmd = 'python -m metaflow.mflog.tee %s %s'
-    parts = (bash_expr,
-             cmd % (TASK_LOG_SOURCE, '$MFLOG_STDOUT'),
-             cmd % (TASK_LOG_SOURCE, '$MFLOG_STDERR'))
-    return '(%s) 1>> >(%s) 2>> >(%s >&2)' % parts
-
-# this function is used to generate a Bash 'export' expression that
-# sets environment variables that are used by 'tee' and 'save_logs'.
-# Note that we can't set the env vars statically, as some of them
-# may need to be evaluated during runtime
-def export_mflog_env_vars(flow_name=None,
-                          run_id=None,
-                          step_name=None,
-                          task_id=None,
-                          retry_count=None,
-                          datastore_type=None,
-                          datastore_root=None,
-                          stdout_path=None,
-                          stderr_path=None):
-
-    pathspec = '/'.join((flow_name, str(run_id), step_name, str(task_id)))
-    env_vars = {
-        'PYTHONUNBUFFERED': 'x',
-        'MF_PATHSPEC': pathspec,
-        'MF_DATASTORE': datastore_type,
-        'MF_ATTEMPT': retry_count,
-        'MFLOG_STDOUT': stdout_path,
-        'MFLOG_STDERR': stderr_path
-    }
-    if datastore_root is not None:
-        env_vars['MF_DATASTORE_ROOT'] = datastore_root
-
-    return 'export ' + ' '.join('%s=%s' % kv for kv in env_vars.items())
+from metaflow.plugins.kfp.kfp_constants import STEP_ENVIRONMENT_VARIABLES, LOGS_DIR, STDOUT_PATH, STDERR_PATH
+from metaflow.mflog import bash_capture_logs, export_mflog_env_vars, BASH_SAVE_LOGS
 
 def _command(
     cd_cmd: str,
@@ -132,7 +85,6 @@ def _command(
     return cmd_str
 
 def kfp_step_function(
-    cmd_template: str,
     metaflow_run_id: str,
     metaflow_configs: Dict[str, str],
     cd_cmd: str,
