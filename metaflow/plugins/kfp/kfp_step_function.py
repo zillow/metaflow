@@ -1,10 +1,146 @@
+import inspect
+import os
+from pathlib import Path
+
 from typing import List, Dict
 
+TASK_LOG_SOURCE = 'task'
+# Log Arguments
+LOGS_DIR = "/opt/metaflow_volume/metaflow_logs"
+STDOUT_FILE = "mflog_stdout"
+STDERR_FILE = "mflog_stderr"
+STDOUT_PATH = os.path.join(LOGS_DIR, STDOUT_FILE)
+STDERR_PATH = os.path.join(LOGS_DIR, STDERR_FILE)
+
+BASH_SAVE_LOGS_ARGS = ['python', '-m', 'metaflow.mflog.save_logs']
+BASH_SAVE_LOGS = ' '.join(BASH_SAVE_LOGS_ARGS)
+
+STEP_ENVIRONMENT_VARIABLES = "/tmp/step-environment-variables.sh"
+
+# this function returns a bash expression that redirects stdout
+# and stderr of the given bash expression to mflog.tee
+def bash_capture_logs(bash_expr):
+    cmd = 'python -m metaflow.mflog.tee %s %s'
+    parts = (bash_expr,
+             cmd % (TASK_LOG_SOURCE, '$MFLOG_STDOUT'),
+             cmd % (TASK_LOG_SOURCE, '$MFLOG_STDERR'))
+    return '(%s) 1>> >(%s) 2>> >(%s >&2)' % parts
+
+# this function is used to generate a Bash 'export' expression that
+# sets environment variables that are used by 'tee' and 'save_logs'.
+# Note that we can't set the env vars statically, as some of them
+# may need to be evaluated during runtime
+def export_mflog_env_vars(flow_name=None,
+                          run_id=None,
+                          step_name=None,
+                          task_id=None,
+                          retry_count=None,
+                          datastore_type=None,
+                          datastore_root=None,
+                          stdout_path=None,
+                          stderr_path=None):
+
+    pathspec = '/'.join((flow_name, str(run_id), step_name, str(task_id)))
+    env_vars = {
+        'PYTHONUNBUFFERED': 'x',
+        'MF_PATHSPEC': pathspec,
+        'MF_DATASTORE': datastore_type,
+        'MF_ATTEMPT': retry_count,
+        'MFLOG_STDOUT': stdout_path,
+        'MFLOG_STDERR': stderr_path
+    }
+    if datastore_root is not None:
+        env_vars['MF_DATASTORE_ROOT'] = datastore_root
+
+    return 'export ' + ' '.join('%s=%s' % kv for kv in env_vars.items())
+
+def _command(
+    cd_cmd: str,
+    clean_volume_cmd: str,
+    step_cli: List[str],
+    task_id_template: str,
+    step_name: str,
+    flow_name: str,
+) -> str:
+    """
+    Analogous to batch.py
+    """
+    retry_count_python = (
+        "import os;"
+        'name = os.environ.get("MF_ARGO_NODE_NAME");'
+        'index = name.rfind("(");'
+        'retry_count = (0 if index == -1 else name[index + 1: -1]) if name.endswith(")") else 0;'
+        "print(str(retry_count))"
+    )
+
+    mflog_expr = export_mflog_env_vars(
+        flow_name=flow_name,
+        run_id="{run_id}",
+        step_name=step_name,
+        task_id=task_id_template,
+        retry_count=f"`python -c '{retry_count_python}'`",
+        datastore_type="s3",
+        datastore_root="$METAFLOW_DATASTORE_SYSROOT_S3",
+        stdout_path=STDOUT_PATH,
+        stderr_path=STDERR_PATH,
+    )
+
+    # if self.s3_code_package:
+    #     cd_cmd = "cd metaflow"
+    # else:
+    #     cd_cmd = (
+    #         "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+    #     )
+
+
+    step_cmds = []
+    # step_cmds.extend(environment.bootstrap_commands(step_name))
+    step_cmds.append("echo 'Task is starting.'")
+    step_cmds.extend(step_cli)
+
+    step_expr = bash_capture_logs(" && ".join(step_cmds))
+
+    # if "volume" in resource_requirements:
+    #     volume_dir = resource_requirements["volume_dir"]
+    #     clean_volume = f"rm -rf {os.path.join(volume_dir, '*')}"
+    # else:
+    #     # the `true` command is to make sure that the generated command
+    #     # plays well with docker containers which have entrypoint set as
+    #     # eval $@
+    #     clean_volume = "true"
+
+    # construct an entry point that
+    # 1) Clean attached volume if any
+    # 2) Initializes the mflog environment (mflog_expr)
+    # 3) Bootstraps a metaflow environment (init_expr)
+    # 4) Executes a task (step_expr)
+    cmd_str = (
+        f"{clean_volume_cmd} "
+        f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
+        f"&& {cd_cmd} "
+        f"&& {step_expr};"
+    )
+
+    # after the task has finished, we save its exit code (fail/success)
+    # and persist the final logs. The whole entrypoint should exit
+    # with the exit code (c) of the task.
+    #
+    # Note that if step_expr OOMs, this tail expression is never executed.
+    # We lose the last logs in this scenario.
+    cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
+    # print("cmd_str: ", cmd_str)
+    return cmd_str
 
 def kfp_step_function(
     cmd_template: str,
     metaflow_run_id: str,
     metaflow_configs: Dict[str, str],
+    cd_cmd: str,
+    clean_volume_cmd: str,
+    step_cli: List[str],
+    task_id_template: str,
+    step_name: str,
+    flow_name: str,
     passed_in_split_indexes: str = "",  # only if is_inside_foreach
     preceding_component_inputs: List[
         str
@@ -38,7 +174,14 @@ def kfp_step_function(
     preceding_component_outputs_env: Dict[str, str] = {
         field: kwargs[field] for field in preceding_component_outputs
     }
-
+    cmd_template = _command(
+        cd_cmd,
+        clean_volume_cmd,
+        step_cli,
+        task_id_template,
+        step_name,
+        flow_name,
+    )
     cmd = cmd_template.format(
         run_id=metaflow_run_id,
         passed_in_split_indexes=passed_in_split_indexes,
@@ -64,8 +207,6 @@ def kfp_step_function(
     if flow_parameters_json is not None:
         env["METAFLOW_PARAMETERS"] = flow_parameters_json
     
-    # cmd = "cd metaflow && " + cmd
-
     # TODO: Map username to KFP specific user/profile/namespace
     # Running Metaflow
     # KFP orchestrator -> running MF runtime (runs user code, handles state)

@@ -85,6 +85,12 @@ class KfpComponent(object):
         name: str,
         init_cmd: str,
         cmd_template: str,
+        cd_cmd: str,
+        clean_volume_cmd: str,
+        step_cli: List[str],
+        task_id_template: str,
+        step_name: str,
+        flow_name: str,
         total_retries: int,
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
@@ -94,6 +100,12 @@ class KfpComponent(object):
         self.name = name
         self.init_cmd = init_cmd
         self.cmd_template = cmd_template
+        self.cd_cmd = cd_cmd
+        self.clean_volume_cmd= clean_volume_cmd
+        self.step_cli = step_cli
+        self.task_id_template = task_id_template
+        self.step_name = step_name
+        self.flow_name = flow_name
         self.total_retries = total_retries
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
@@ -216,6 +228,35 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
+    def _get_cd_cmd(self) -> str:
+        if self.s3_code_package:
+            cd_cmd = "cd metaflow"
+        else:
+            cd_cmd = "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+        print("cd_cmd type here: ", type(cd_cmd))
+        return cd_cmd
+    
+    def _get_clean_volume_cmd(self, resource_requirements: Dict[str, str]) -> str:
+        if "volume" in resource_requirements:
+            volume_dir = resource_requirements["volume_dir"]
+            clean_volume_cmd = f"rm -rf {os.path.join(volume_dir, '*')}"
+        else:
+            # the `true` command is to make sure that the generated command
+            # plays well with docker containers which have entrypoint set as
+            # eval $@
+            clean_volume_cmd = "true"
+        return clean_volume_cmd
+
+    def _get_task_id_template(self, step_name, task_id):
+        if self.graph[step_name].is_inside_foreach:
+            task_id_template = KfpForEachSplits.get_step_task_id(
+                task_id=task_id,
+                passed_in_split_indexes="{passed_in_split_indexes}",
+            )
+        else:
+            task_id_template = task_id
+        return task_id_template
+
     def _init_command(
         self,
         code_package_url: str,
@@ -276,17 +317,6 @@ class KubeflowPipelines(object):
         )
 
         if self.s3_code_package:
-            init_cmds = environment.get_package_commands(
-                code_package_url, is_kfp_plugin=True
-            )
-        else:
-            init_cmds = [
-                "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
-            ]
-
-        init_expr = " && ".join(init_cmds)
-
-        if self.s3_code_package:
             cd_cmd = "cd metaflow"
         else:
             cd_cmd = (
@@ -295,6 +325,7 @@ class KubeflowPipelines(object):
 
         step_cmds = []
         step_cmds.extend(environment.bootstrap_commands(step_name))
+        # print("bootstrap: ", environment.bootstrap_commands(step_name))
         step_cmds.append("echo 'Task is starting.'")
         step_cmds.extend(step_cli)
 
@@ -418,6 +449,8 @@ class KubeflowPipelines(object):
             step_cli = self._step_cli(node, task_id, user_code_retries)
             resource_requirements = self._get_resource_requirements(node)
 
+            print("Type last loc: ", type(self._get_cd_cmd()))
+
             return KfpComponent(
                 name=node.name,
                 init_cmd=self._init_command(
@@ -432,6 +465,12 @@ class KubeflowPipelines(object):
                     resource_requirements,
                     task_id,
                 ),
+                cd_cmd=self._get_cd_cmd(),
+                clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
+                step_cli=[step_cli],
+                task_id_template=self._get_task_id_template(node.name, task_id),
+                step_name=node.name,
+                flow_name=self.flow.name,
                 total_retries=total_retries,
                 resource_requirements=resource_requirements,
                 kfp_decorator=next(
@@ -596,7 +635,9 @@ class KubeflowPipelines(object):
             step.append("--namespace %s" % self.namespace)
 
         cmds.append(" ".join(entrypoint + top_level + step))
-        return " && ".join(cmds)
+        step_cli_string =  " && ".join(cmds)
+        print(step_cli_string)
+        return step_cli_string
 
     @staticmethod
     def _create_resource_based_node_type_toleration(
@@ -1031,11 +1072,20 @@ class KubeflowPipelines(object):
                     METAFLOW_USER=METAFLOW_USER,
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
+
+                print("Type: ", type(kfp_component.cd_cmd))
+
                 step_op_args = dict(
                     init_cmd=kfp_component.init_cmd,
                     cmd_template=kfp_component.cmd_template,
                     metaflow_run_id=metaflow_run_id,
                     metaflow_configs=metaflow_configs,
+                    cd_cmd=kfp_component.cd_cmd,
+                    clean_volume_cmd=kfp_component.clean_volume_cmd,
+                    step_cli=kfp_component.step_cli,
+                    task_id_template=kfp_component.task_id_template,
+                    step_name=kfp_component.step_name,
+                    flow_name=kfp_component.flow_name,
                     passed_in_split_indexes=passed_in_split_indexes,
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
