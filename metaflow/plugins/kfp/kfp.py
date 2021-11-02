@@ -87,10 +87,18 @@ class KfpComponent(object):
         cd_cmd: str,
         clean_volume_cmd: str,
         step_cli: List[str],
+        task_id: str,
         task_id_template: str,
         step_name: str,
         flow_name: str,
         total_retries: int,
+        namespace: str,
+        tags: List[str],
+        need_split_index: bool,
+        environment_type: str,
+        logger_type: str,
+        monitor_type: str,
+        user_code_retries: int,
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
@@ -101,10 +109,18 @@ class KfpComponent(object):
         self.cd_cmd = cd_cmd
         self.clean_volume_cmd= clean_volume_cmd
         self.step_cli = step_cli
+        self.task_id = task_id
         self.task_id_template = task_id_template
         self.step_name = step_name
         self.flow_name = flow_name
         self.total_retries = total_retries
+        self.namespace = namespace
+        self.tags = tags
+        self.need_split_index = need_split_index
+        self.environment_type = environment_type
+        self.logger_type = logger_type
+        self.monitor_type = monitor_type
+        self.user_code_retries = user_code_retries
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
         self.preceding_kfp_func: Callable = (
@@ -443,6 +459,8 @@ class KubeflowPipelines(object):
             step_cli = self._step_cli(node, task_id, user_code_retries)
             resource_requirements = self._get_resource_requirements(node)
 
+            print(type(list(self.tags)))
+
             return KfpComponent(
                 name=node.name,
                 init_cmd=self._init_command(
@@ -452,10 +470,18 @@ class KubeflowPipelines(object):
                 cd_cmd=self._get_cd_cmd(),
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
                 step_cli=[step_cli],
+                task_id=task_id,
                 task_id_template=self._get_task_id_template(node.name, task_id),
                 step_name=node.name,
                 flow_name=self.flow.name,
                 total_retries=total_retries,
+                namespace=self.namespace,
+                tags=list(self.tags),
+                need_split_index=True if any(self.graph[n].type == "foreach" for n in node.in_funcs) else False,
+                environment_type=self.environment.TYPE,
+                logger_type=self.event_logger.logger_type,
+                monitor_type=self.monitor.monitor_type,
+                user_code_retries=user_code_retries,
                 resource_requirements=resource_requirements,
                 kfp_decorator=next(
                     (
@@ -594,6 +620,7 @@ class KubeflowPipelines(object):
 
         # load environment variables set in STEP_ENVIRONMENT_VARIABLES
         cmds.append(f". {STEP_ENVIRONMENT_VARIABLES}")
+        print("kfp_run_id here: ", kfp_run_id)
 
         step = [
             "--with=kfp",
@@ -1056,6 +1083,8 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
 
+                print("namespace: ", kfp_component.namespace)
+
                 step_op_args = dict(
                     init_cmd=kfp_component.init_cmd,
                     metaflow_run_id=metaflow_run_id,
@@ -1063,9 +1092,19 @@ class KubeflowPipelines(object):
                     cd_cmd=kfp_component.cd_cmd,
                     clean_volume_cmd=kfp_component.clean_volume_cmd,
                     step_cli=kfp_component.step_cli,
+                    task_id=kfp_component.task_id,
                     task_id_template=kfp_component.task_id_template,
                     step_name=kfp_component.step_name,
                     flow_name=kfp_component.flow_name,
+                    namespace="" if not kfp_component.namespace else kfp_component.namespace,
+                    tags=kfp_component.tags,
+                    need_split_index=kfp_component.need_split_index,
+                    environment_type=kfp_component.environment_type,
+                    logger_type=kfp_component.logger_type,
+                    monitor_type=kfp_component.monitor_type,
+                    user_code_retries=kfp_component.user_code_retries,
+                    workflow_name="{{workflow.name}}",
+                    script_name=os.path.basename(sys.argv[0]),
                     passed_in_split_indexes=passed_in_split_indexes,
                     preceding_component_inputs=preceding_component_inputs,
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
@@ -1080,15 +1119,15 @@ class KubeflowPipelines(object):
                     preceding_component_outputs=kfp_component.preceding_component_outputs,
                 )(**{**step_op_args, **preceding_component_outputs_dict})
 
-                print(container_op.name)
-                print(container_op.image)
-                print(container_op.command)
-                print(container_op.arguments)
-                print(container_op.init_containers)
-                print(container_op.sidecars)
-                print(container_op.file_outputs)
-                print(container_op.output_artifact_paths)
-                print(container_op.pvolumes)
+                # print(container_op.name)
+                # print(container_op.image)
+                # print(container_op.command)
+                # print(container_op.arguments)
+                # print(container_op.init_containers)
+                # print(container_op.sidecars)
+                # print(container_op.file_outputs)
+                # print(container_op.output_artifact_paths)
+                # print(container_op.pvolumes)
 
                 visited[node.name] = container_op
 
@@ -1135,6 +1174,7 @@ class KubeflowPipelines(object):
                 KubeflowPipelines._set_container_resources(
                     container_op, kfp_component, workflow_uid, shared_volumes
                 )
+                print("metaflow_run_id: ", metaflow_run_id)
                 self._set_container_labels(container_op, node, metaflow_run_id)
 
                 if node.type == "foreach":
@@ -1317,7 +1357,7 @@ class KubeflowPipelines(object):
 
         if self.notify_on_success:
             notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
-
+        print("kfp_run_id: ", dsl.RUN_ID_PLACEHOLDER)
         return exit_handler(
             flow_name=self.name,
             status="{{workflow.status}}",
