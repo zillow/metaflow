@@ -86,7 +86,6 @@ class KfpComponent(object):
         init_cmd: str,
         cd_cmd: str,
         clean_volume_cmd: str,
-        step_cli: List[str],
         task_id: str,
         task_id_template: str,
         step_name: str,
@@ -108,7 +107,6 @@ class KfpComponent(object):
         self.init_cmd = init_cmd
         self.cd_cmd = cd_cmd
         self.clean_volume_cmd= clean_volume_cmd
-        self.step_cli = step_cli
         self.task_id = task_id
         self.task_id_template = task_id_template
         self.step_name = step_name
@@ -286,7 +284,9 @@ class KubeflowPipelines(object):
 
         init_expr = " && ".join(init_cmds)
 
-        return init_expr + ";c=$?; exit $c"
+        return init_expr# + ";c=$?; exit $c"
+
+        # return init_cmds + [';c=$?', '; exit $c']
 
     def _command(
         self,
@@ -467,11 +467,13 @@ class KubeflowPipelines(object):
                     self.code_package_url,
                     self.environment
                 ),
-                cd_cmd=self._get_cd_cmd(),
+                cd_cmd=self._get_cd_cmd(), # TODO rename to cd_into_metaflow_package_cmd
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
-                step_cli=[step_cli],
                 task_id=task_id,
-                task_id_template=self._get_task_id_template(node.name, task_id),
+                task_id_template=self._get_task_id_template(
+                    node.name,
+                    task_id
+                ),
                 step_name=node.name,
                 flow_name=self.flow.name,
                 total_retries=total_retries,
@@ -1083,15 +1085,12 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
 
-                print("namespace: ", kfp_component.namespace)
-
                 step_op_args = dict(
                     init_cmd=kfp_component.init_cmd,
                     metaflow_run_id=metaflow_run_id,
                     metaflow_configs=metaflow_configs,
                     cd_cmd=kfp_component.cd_cmd,
                     clean_volume_cmd=kfp_component.clean_volume_cmd,
-                    step_cli=kfp_component.step_cli,
                     task_id=kfp_component.task_id,
                     task_id_template=kfp_component.task_id_template,
                     step_name=kfp_component.step_name,
@@ -1112,22 +1111,60 @@ class KubeflowPipelines(object):
                     if node.name == "start"
                     else None,
                 )
-                container_op: ContainerOp = self.step_op(
-                    node.name,
-                    kfp_component,
-                    preceding_component_inputs=preceding_component_inputs,
-                    preceding_component_outputs=kfp_component.preceding_component_outputs,
-                )(**{**step_op_args, **preceding_component_outputs_dict})
+                # container_op: ContainerOp = self.step_op(
+                #     node.name,
+                #     kfp_component,
+                #     preceding_component_inputs=preceding_component_inputs,
+                #     preceding_component_outputs=kfp_component.preceding_component_outputs,
+                # )(**{**step_op_args, **preceding_component_outputs_dict})
 
-                # print(container_op.name)
-                # print(container_op.image)
-                # print(container_op.command)
-                # print(container_op.arguments)
-                # print(container_op.init_containers)
-                # print(container_op.sidecars)
-                # print(container_op.file_outputs)
-                # print(container_op.output_artifact_paths)
-                # print(container_op.pvolumes)
+                # print("init_cmd: ", kfp_component.init_cmd.split(" "))
+
+                # print("init_cmd: ", kfp_component.init_cmd)
+
+                print(kfp_component.init_cmd)
+                command = [
+                    "bash",
+                    "-ec",
+                    "python3 -c 'import subprocess, os, sys; sys.path.append(os.path.join(os.getcwd(), \"metaflow\")); print(sys.path)' && " 
+                    + kfp_component.init_cmd 
+                    + " && python -m metaflow.plugins.kfp.kfp_step_function"
+                ]
+                # print(command)
+
+                # ["python", "-c", "print(\"hello world\")"]
+                # command = [
+                #     "cat", "hello.py",
+                #     "touch", "hello.py",
+                #     "echo", "import os; print(os.listdir('.'))", ">", "hello.py",
+                #     "python", "hello.py"
+                # ]
+                container_op = dsl.ContainerOp(
+                    name=node.name,
+                    image="hsezhiyan/metaflow-zillow:2.1", # TODO change to passed in image
+                    command=command,
+                    # file_outputs={'foreach_splits': '/tmp/outputs/foreach_splits/data'},
+                )
+                # container_op.inputs = [dsl.PipelineParam(name="flow_parameters_json")] if node.name == "start" else None
+                # container_op.input_artifact_paths = {} if node.name == "start" else {'flow_parameters_json': '/tmp/inputs/flow_parameters_json/data'}
+                # container_op.artifact_arguments = {} if node.name == "start" else {'flow_parameters_json': 'None'}
+                # container_op.output_artifact_paths = {}
+                # container_op.outputs = {'foreach_splits': dsl.PipelineParam(name="foreach_splits", op_name=node.name)}
+
+                # print(container_op.inputs)
+
+                # print(f"Name: {container_op.name}")
+                # print(f"Image: {container_op.image}")
+                # print(f"Command: {container_op.command}")
+                # print(f"Arguments: {container_op.arguments}")
+                # print(f"init_containers: {container_op.init_containers}")
+                # print(f"input_artifact_paths: {container_op.input_artifact_paths}")
+                # print(f"artifact_arguments: {container_op.artifact_arguments}")
+                # print(f"sidecars : {container_op.sidecars}")
+                # print(f"file_outputs: {container_op.file_outputs}")
+                # print(f"output_artifacts_paths: {container_op.output_artifact_paths}")
+                # print(f"pvolumes: {container_op.pvolumes}")
+                # print(f"Outputs: {container_op.outputs}")
 
                 visited[node.name] = container_op
 
@@ -1174,7 +1211,6 @@ class KubeflowPipelines(object):
                 KubeflowPipelines._set_container_resources(
                     container_op, kfp_component, workflow_uid, shared_volumes
                 )
-                print("metaflow_run_id: ", metaflow_run_id)
                 self._set_container_labels(container_op, node, metaflow_run_id)
 
                 if node.type == "foreach":

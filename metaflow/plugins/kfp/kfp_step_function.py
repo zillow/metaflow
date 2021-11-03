@@ -232,7 +232,6 @@ def kfp_step_function(
     metaflow_configs: Dict[str, str],
     cd_cmd: str,
     clean_volume_cmd: str,
-    step_cli: List[str],
     task_id: str,
     task_id_template: str,
     step_name: str,
@@ -275,7 +274,7 @@ def kfp_step_function(
     if preceding_component_outputs is None:
         preceding_component_outputs = []
 
-    new_step_cli = _step_cli(
+    step_cli = _step_cli(
         step_name,
         task_id,
         metaflow_run_id,
@@ -290,9 +289,6 @@ def kfp_step_function(
         script_name,
     )
 
-    print(f"new_step_cli: {new_step_cli}\n")
-    print(f"step_cli: {step_cli}\n")
-
     # expose passed KFP passed in arguments as environment variables to
     # the bash command
     preceding_component_outputs_env: Dict[str, str] = {
@@ -301,8 +297,7 @@ def kfp_step_function(
     cmd_template = _command(
         cd_cmd,
         clean_volume_cmd,
-        # step_cli,
-        [new_step_cli],
+        [step_cli],
         task_id_template,
         step_name,
         flow_name,
@@ -370,3 +365,6 @@ def kfp_step_function(
         "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
     )(*values)
     return ret
+
+if __name__ == "__main__":
+    print("Reached main!")
