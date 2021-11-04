@@ -185,29 +185,12 @@ def _command(
         stderr_path=STDERR_PATH,
     )
 
-    # if self.s3_code_package:
-    #     cd_cmd = "cd metaflow"
-    # else:
-    #     cd_cmd = (
-    #         "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
-    #     )
-
-
     step_cmds = []
     # step_cmds.extend(environment.bootstrap_commands(step_name))
     step_cmds.append("echo 'Task is starting.'")
     step_cmds.extend(step_cli)
 
     step_expr = bash_capture_logs(" && ".join(step_cmds))
-
-    # if "volume" in resource_requirements:
-    #     volume_dir = resource_requirements["volume_dir"]
-    #     clean_volume = f"rm -rf {os.path.join(volume_dir, '*')}"
-    # else:
-    #     # the `true` command is to make sure that the generated command
-    #     # plays well with docker containers which have entrypoint set as
-    #     # eval $@
-    #     clean_volume = "true"
 
     # construct an entry point that
     # 1) Clean attached volume if any

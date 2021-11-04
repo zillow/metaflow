@@ -245,6 +245,8 @@ class KubeflowPipelines(object):
             cd_cmd = ""#" && cd metaflow " # "" CHANGE
         else:
             cd_cmd = " && cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+
+        print("flow class: ", self.flow.__class__)
         return cd_cmd
     
     def _get_clean_volume_cmd(self, resource_requirements: Dict[str, str]) -> str:
@@ -286,90 +288,6 @@ class KubeflowPipelines(object):
         init_expr = " && ".join(init_cmds)
 
         return init_expr# + ";c=$?; exit $c" #CHANGE
-
-    def _command(
-        self,
-        code_package_url: str,
-        environment: MetaflowEnvironment,
-        step_name: str,
-        step_cli: List[str],
-        resource_requirements: Dict[str, str],
-        task_id: str,
-    ) -> str:
-        """
-        Analogous to batch.py
-        """
-        retry_count_python = (
-            "import os;"
-            'name = os.environ.get("MF_ARGO_NODE_NAME");'
-            'index = name.rfind("(");'
-            'retry_count = (0 if index == -1 else name[index + 1: -1]) if name.endswith(")") else 0;'
-            "print(str(retry_count))"
-        )
-
-        if self.graph[step_name].is_inside_foreach:
-            task_id_template = KfpForEachSplits.get_step_task_id(
-                task_id=task_id,
-                passed_in_split_indexes="{passed_in_split_indexes}",
-            )
-        else:
-            task_id_template = task_id
-
-        mflog_expr = export_mflog_env_vars(
-            flow_name=self.flow.name,
-            run_id="{run_id}",
-            step_name=step_name,
-            task_id=task_id_template,
-            retry_count=f"`python -c '{retry_count_python}'`",
-            datastore_type="s3",
-            datastore_root="$METAFLOW_DATASTORE_SYSROOT_S3",
-            stdout_path=STDOUT_PATH,
-            stderr_path=STDERR_PATH,
-        )
-
-        if self.s3_code_package:
-            cd_cmd = "cd metaflow"
-        else:
-            cd_cmd = (
-                "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
-            )
-
-        step_cmds = []
-        step_cmds.extend(environment.bootstrap_commands(step_name))
-        step_cmds.append("echo 'Task is starting.'")
-        step_cmds.extend(step_cli)
-
-        step_expr = bash_capture_logs(" && ".join(step_cmds))
-
-        if "volume" in resource_requirements:
-            volume_dir = resource_requirements["volume_dir"]
-            clean_volume = f"rm -rf {os.path.join(volume_dir, '*')}"
-        else:
-            # the `true` command is to make sure that the generated command
-            # plays well with docker containers which have entrypoint set as
-            # eval $@
-            clean_volume = "true"
-
-        # construct an entry point that
-        # 1) Clean attached volume if any
-        # 2) Initializes the mflog environment (mflog_expr)
-        # 3) Bootstraps a metaflow environment (init_expr)
-        # 4) Executes a task (step_expr)
-        cmd_str = (
-            f"{clean_volume} "
-            f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-            f"&& {cd_cmd} "
-            f"&& {step_expr};"
-        )
-
-        # after the task has finished, we save its exit code (fail/success)
-        # and persist the final logs. The whole entrypoint should exit
-        # with the exit code (c) of the task.
-        #
-        # Note that if step_expr OOMs, this tail expression is never executed.
-        # We lose the last logs in this scenario.
-        cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
-        return cmd_str
 
     @staticmethod
     def _get_retries(node: DAGNode) -> Tuple[int, int]:
@@ -455,7 +373,6 @@ class KubeflowPipelines(object):
 
             user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
 
-            step_cli = self._step_cli(node, task_id, user_code_retries)
             resource_requirements = self._get_resource_requirements(node)
 
             return KfpComponent(
@@ -516,137 +433,6 @@ class KubeflowPipelines(object):
             step_to_kfp_component_map[step_name] = build_kfp_component(node, task_id)
 
         return step_to_kfp_component_map
-
-    def _step_cli(self, node: DAGNode, task_id: str, user_code_retries: int) -> str:
-        """
-        Analogous to step_functions_cli.py
-        This returns the command line to run the internal Metaflow step click entrypiont.
-        """
-        cmds = []
-
-        script_name = os.path.basename(sys.argv[0])
-        executable = self.environment.executable(node.name)
-
-        if R.use_r():
-            entrypoint = [R.entrypoint()]
-        else:
-            entrypoint = [executable, script_name]
-
-        kfp_run_id = "kfp-" + dsl.RUN_ID_PLACEHOLDER
-        start_task_id_params_path = None
-
-        tags_extended = [
-            "--tag argo_workflow:{{workflow.name}}",
-            "--tag pod_name:$MF_POD_NAME",
-            "--tag pod_namespace:$MF_POD_NAMESPACE",
-            # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
-            "--tag zodiac_service:$ZODIAC_SERVICE",
-            "--tag zodiac_team:$ZODIAC_TEAM",
-        ]
-        if self.tags:
-            tags_extended.extend("--tag %s" % tag for tag in self.tags)
-
-        if node.name == "start":
-            # We need a separate unique ID for the special _parameters task
-            task_id_params = "1-params"
-
-            # Export user-defined parameters into runtime environment
-            param_file = "parameters.sh"
-            # TODO: move to KFP plugin
-            export_params = (
-                "python -m "
-                "metaflow.plugins.aws.step_functions.set_batch_environment "
-                "parameters %s && . `pwd`/%s" % (param_file, param_file)
-            )
-            params = entrypoint + [
-                "--quiet",
-                "--environment=%s" % self.environment.TYPE,
-                "--datastore=s3",
-                "--datastore-root=$METAFLOW_DATASTORE_SYSROOT_S3",
-                "--event-logger=%s" % self.event_logger.logger_type,
-                "--monitor=%s" % self.monitor.monitor_type,
-                "--no-pylint",
-                "init",
-                "--run-id %s" % kfp_run_id,
-                "--task-id %s" % task_id_params,
-            ]
-
-            params.extend(tags_extended)
-
-            # If the start step gets retried, we must be careful not to
-            # regenerate multiple parameters tasks. Hence we check first if
-            # _parameters exists already.
-            start_task_id_params_path = (
-                "{kfp_run_id}/_parameters/{task_id_params}".format(
-                    kfp_run_id=kfp_run_id, task_id_params=task_id_params
-                )
-            )
-            exists = entrypoint + [
-                "dump",
-                "--max-value-size=0",
-                start_task_id_params_path,
-            ]
-            cmd = "if ! %s >/dev/null 2>/dev/null; then %s && %s; fi" % (
-                " ".join(exists),
-                export_params,
-                " ".join(params),
-            )
-            cmds.append(cmd)
-
-        top_level = [
-            "--quiet",
-            "--environment=%s" % self.environment.TYPE,
-            "--datastore=s3",
-            "--datastore-root=$METAFLOW_DATASTORE_SYSROOT_S3",
-            "--event-logger=%s" % self.event_logger.logger_type,
-            "--monitor=%s" % self.monitor.monitor_type,
-            "--no-pylint",
-        ]
-
-        cmds.append(
-            " ".join(
-                entrypoint
-                + top_level
-                + [
-                    "kfp step-init",
-                    "--run-id %s" % kfp_run_id,
-                    "--step_name %s" % node.name,
-                    '--passed_in_split_indexes "{passed_in_split_indexes}"',
-                    "--task_id %s" % task_id,  # the assigned task_id from Flow graph
-                ]
-            )
-        )
-
-        # load environment variables set in STEP_ENVIRONMENT_VARIABLES
-        cmds.append(f". {STEP_ENVIRONMENT_VARIABLES}")
-        print("kfp_run_id here: ", kfp_run_id)
-
-        step = [
-            "--with=kfp",
-            "step",
-            node.name,
-            "--run-id %s" % kfp_run_id,
-            f"--task-id ${TASK_ID_ENV_NAME}",
-            f"--retry-count ${RETRY_COUNT}",
-            "--max-user-code-retries %d" % user_code_retries,
-            (
-                "--input-paths %s" % start_task_id_params_path
-                if node.name == "start"
-                else f"--input-paths ${INPUT_PATHS_ENV_NAME}"
-            ),
-        ]
-
-        if any(self.graph[n].type == "foreach" for n in node.in_funcs):
-            step.append(f"--split-index ${SPLIT_INDEX_ENV_NAME}")
-
-        step.extend(tags_extended)
-
-        if self.namespace:
-            step.append("--namespace %s" % self.namespace)
-
-        cmds.append(" ".join(entrypoint + top_level + step))
-        step_cli_string =  " && ".join(cmds)
-        return step_cli_string
 
     @staticmethod
     def _create_resource_based_node_type_toleration(
@@ -1116,11 +902,12 @@ class KubeflowPipelines(object):
                 #     preceding_component_outputs=kfp_component.preceding_component_outputs,
                 # )(**{**step_op_args, **preceding_component_outputs_dict})
 
+                # "python3 -c 'import subprocess, os, sys; sys.path.append(os.path.join(os.getcwd(), \"metaflow\")); ' && " 
+
                 command = [
                     "bash",
                     "-ec",
-                    "python3 -c 'import subprocess, os, sys; sys.path.append(os.path.join(os.getcwd(), \"metaflow\")); ' && " 
-                    + kfp_component.init_cmd 
+                    kfp_component.init_cmd 
                     + " && python -m metaflow.plugins.kfp.kfp_step_function"
                     + f" --metaflow_run_id {metaflow_run_id}"
                     + f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
@@ -1158,7 +945,7 @@ class KubeflowPipelines(object):
 
                 container_op = dsl.ContainerOp(
                     name=node.name,
-                    image=base_image, # TODO change to passed in image
+                    image=base_image,
                     command=command,
                     file_outputs={'foreach_splits': '/tmp/outputs/foreach_splits/data'}
                 )
