@@ -310,6 +310,9 @@ def kfp_step_function(
         passed_in_split_indexes=passed_in_split_indexes,
     )
 
+    print("passed_in_split_indexes: ", passed_in_split_indexes)
+    print("cmd: ", cmd)
+
     metaflow_configs_new = {
         name: value for name, value in metaflow_configs.items() if value
     }
@@ -368,6 +371,7 @@ def kfp_step_function(
     ret = namedtuple(
         "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
     )(*values)
+    print("ret: ", ret)
     return ret
 
 if __name__ == "__main__":
@@ -390,12 +394,15 @@ if __name__ == "__main__":
     parser.add_argument("--workflow_name", type=str, required=True)
     parser.add_argument("--script_name", type=str, required=True)
     parser.add_argument("--passed_in_split_indexes", type=str, required=False)
+    parser.add_argument("--preceding_component_inputs", type=json.loads, required=False)
+    parser.add_argument("--preceding_component_outputs", type=json.loads, required=False)
     parser.add_argument("--flow_parameters_json", type=str, required=False)
     args = parser.parse_args()
 
-    print("Entered main!")
-
-    kfp_step_function(
+    _parsed_args = vars(args)
+    #_output_files = _parsed_args.pop("_output_paths", [])
+    _output_files = ["/tmp/outputs/foreach_splits/data"]
+    _outputs = kfp_step_function(
         args.metaflow_run_id,
         args.metaflow_configs,
         args.cd_cmd,
@@ -416,3 +423,13 @@ if __name__ == "__main__":
         args.passed_in_split_indexes,
         flow_parameters_json=args.flow_parameters_json,
     )
+
+    _output_serializers = [str]
+    import os
+    for idx, output_file in enumerate(_output_files):
+        try:
+            os.makedirs(os.path.dirname(output_file))
+        except OSError:
+            pass
+        with open(output_file, 'w') as f:
+            f.write(_output_serializers[idx](_outputs[idx]))
