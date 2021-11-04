@@ -1,4 +1,6 @@
+import argparse
 import inspect
+import json
 import os
 from pathlib import Path
 import sys
@@ -8,6 +10,8 @@ from typing import List, Dict
 from ... import R
 from metaflow.plugins.kfp.kfp_constants import STEP_ENVIRONMENT_VARIABLES, LOGS_DIR, STDOUT_PATH, STDERR_PATH, TASK_ID_ENV_NAME, SPLIT_INDEX_ENV_NAME, INPUT_PATHS_ENV_NAME, RETRY_COUNT
 from metaflow.mflog import bash_capture_logs, export_mflog_env_vars, BASH_SAVE_LOGS
+
+import metaflow
 
 def _step_cli(
     node_name: str,
@@ -213,7 +217,7 @@ def _command(
     cmd_str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f"&& {cd_cmd} "
+        f" {cd_cmd} " 
         f"&& {step_expr};"
     )
 
@@ -229,7 +233,7 @@ def _command(
 
 def kfp_step_function(
     metaflow_run_id: str,
-    metaflow_configs: Dict[str, str],
+    metaflow_configs: Dict[str, str],#str,#Dict[str, str],
     cd_cmd: str,
     clean_volume_cmd: str,
     task_id: str,
@@ -237,7 +241,7 @@ def kfp_step_function(
     step_name: str,
     flow_name: str,
     namespace: str,
-    tags: List[str],
+    tags: List[str],#str,#List[str],
     need_split_index: bool,
     environment_type: str,
     logger_type: str,
@@ -261,7 +265,6 @@ def kfp_step_function(
 
     Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
     """
-
     import os
     import json
     import logging
@@ -325,6 +328,7 @@ def kfp_step_function(
         **preceding_component_outputs_env,
     }
     if flow_parameters_json is not None:
+        print(flow_parameters_json, type(flow_parameters_json))
         env["METAFLOW_PARAMETERS"] = flow_parameters_json
     
     # TODO: Map username to KFP specific user/profile/namespace
@@ -367,4 +371,48 @@ def kfp_step_function(
     return ret
 
 if __name__ == "__main__":
-    print("Reached main!")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--metaflow_run_id", type=str, required=True)
+    parser.add_argument("--metaflow_configs", type=json.loads, required=True)
+    parser.add_argument("--cd_cmd", type=str, required=True)
+    parser.add_argument("--clean_volume_cmd", type=str, required=True)
+    parser.add_argument("--task_id", type=str, required=True)
+    parser.add_argument("--task_id_template", type=str, required=True)
+    parser.add_argument("--step_name", type=str, required=True)
+    parser.add_argument("--flow_name", type=str, required=True)
+    parser.add_argument("--namespace", action='store_true')
+    parser.add_argument("--tags", type=json.loads, required=True)
+    parser.add_argument("--need_split_index", action='store_true')
+    parser.add_argument("--environment_type", type=str, required=True)
+    parser.add_argument("--logger_type", type=str, required=True)
+    parser.add_argument("--monitor_type", type=str, required=True)
+    parser.add_argument("--user_code_retries", type=int, required=True)
+    parser.add_argument("--workflow_name", type=str, required=True)
+    parser.add_argument("--script_name", type=str, required=True)
+    parser.add_argument("--passed_in_split_indexes", type=str, required=False)
+    parser.add_argument("--flow_parameters_json", type=str, required=False)
+    args = parser.parse_args()
+
+    print("Entered main!")
+
+    kfp_step_function(
+        args.metaflow_run_id,
+        args.metaflow_configs,
+        args.cd_cmd,
+        args.clean_volume_cmd,
+        args.task_id,
+        args.task_id_template,
+        args.step_name,
+        args.flow_name,
+        args.namespace,
+        args.tags,
+        args.need_split_index,
+        args.environment_type,
+        args.logger_type,
+        args.monitor_type,
+        args.user_code_retries,
+        args.workflow_name,
+        args.script_name,
+        args.passed_in_split_indexes,
+        flow_parameters_json=args.flow_parameters_json,
+    )

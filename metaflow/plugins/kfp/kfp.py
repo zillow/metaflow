@@ -238,13 +238,13 @@ class KubeflowPipelines(object):
             pipeline_file_path,
             pipeline_conf=pipeline_conf,
         )
-        return os.path.abspath(pipeline_file_path)
+        return os.path.abspath(pipeline_file_path)        
 
     def _get_cd_cmd(self) -> str:
         if self.s3_code_package:
-            cd_cmd = "cd metaflow"
+            cd_cmd = "" #" && cd metaflow " # "" CHANGE
         else:
-            cd_cmd = "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+            cd_cmd = " && cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
         return cd_cmd
     
     def _get_clean_volume_cmd(self, resource_requirements: Dict[str, str]) -> str:
@@ -277,6 +277,7 @@ class KubeflowPipelines(object):
             init_cmds = environment.get_package_commands(
                 code_package_url, is_kfp_plugin=True
             )
+        # TODO get this at runtime
         else:
             init_cmds = [
                 "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
@@ -284,9 +285,7 @@ class KubeflowPipelines(object):
 
         init_expr = " && ".join(init_cmds)
 
-        return init_expr# + ";c=$?; exit $c"
-
-        # return init_cmds + [';c=$?', '; exit $c']
+        return init_expr#+ ";c=$?; exit $c" #CHANGE
 
     def _command(
         self,
@@ -458,8 +457,6 @@ class KubeflowPipelines(object):
 
             step_cli = self._step_cli(node, task_id, user_code_retries)
             resource_requirements = self._get_resource_requirements(node)
-
-            print(type(list(self.tags)))
 
             return KfpComponent(
                 name=node.name,
@@ -1083,6 +1080,7 @@ class KubeflowPipelines(object):
                     METAFLOW_DATASTORE_SYSROOT_S3=DATASTORE_SYSROOT_S3,
                     METAFLOW_USER=METAFLOW_USER,
                 )
+                metaflow_configs = '{\"METAFLOW_DATASTORE_SYSROOT_S3\": \"%s\", \"METAFLOW_USER\": \"%s\"}' % (DATASTORE_SYSROOT_S3, METAFLOW_USER) #CHANGE
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
 
                 step_op_args = dict(
@@ -1118,32 +1116,42 @@ class KubeflowPipelines(object):
                 #     preceding_component_outputs=kfp_component.preceding_component_outputs,
                 # )(**{**step_op_args, **preceding_component_outputs_dict})
 
-                # print("init_cmd: ", kfp_component.init_cmd.split(" "))
+                # print("flow_parameters_json: ", flow_parameters_json)
 
-                # print("init_cmd: ", kfp_component.init_cmd)
-
-                print(kfp_component.init_cmd)
                 command = [
                     "bash",
                     "-ec",
                     "python3 -c 'import subprocess, os, sys; sys.path.append(os.path.join(os.getcwd(), \"metaflow\")); print(sys.path)' && " 
                     + kfp_component.init_cmd 
                     + " && python -m metaflow.plugins.kfp.kfp_step_function"
+                    + f" --metaflow_run_id {metaflow_run_id}"
+                    + f" --metaflow_configs {json.dumps(metaflow_configs)}"
+                    + f" --cd_cmd \"{kfp_component.cd_cmd}\""
+                    + f" --clean_volume_cmd \"{kfp_component.clean_volume_cmd}\""
+                    + f" --task_id {kfp_component.task_id}"
+                    + f" --task_id_template \"{kfp_component.task_id_template}\""
+                    + f" --step_name {kfp_component.step_name}"
+                    + f" --flow_name {kfp_component.flow_name}"
+                    + f" --tags \"{json.dumps(kfp_component.tags)}\""
+                    + f" --environment_type {kfp_component.environment_type}"
+                    + f" --logger_type {kfp_component.logger_type}"
+                    + f" --monitor_type {kfp_component.monitor_type}"
+                    + f" --user_code_retries {kfp_component.user_code_retries}"
+                    + " --workflow_name {{workflow.name}}"
+                    + f" --script_name {os.path.basename(sys.argv[0])}"
+                    + f" --passed_in_split_indexes={passed_in_split_indexes}"
+                    + f" --flow_parameters_json=\'{flow_parameters_json}\'"
                 ]
-                # print(command)
 
-                # ["python", "-c", "print(\"hello world\")"]
-                # command = [
-                #     "cat", "hello.py",
-                #     "touch", "hello.py",
-                #     "echo", "import os; print(os.listdir('.'))", ">", "hello.py",
-                #     "python", "hello.py"
-                # ]
+                if kfp_component.namespace:
+                    command = command + f" --namespace {kfp_component.namespace}"
+                if kfp_component.need_split_index:
+                    command = command + f" --need_split_index {kfp_component.namespace}"
+
                 container_op = dsl.ContainerOp(
                     name=node.name,
                     image="hsezhiyan/metaflow-zillow:2.1", # TODO change to passed in image
                     command=command,
-                    # file_outputs={'foreach_splits': '/tmp/outputs/foreach_splits/data'},
                 )
                 # container_op.inputs = [dsl.PipelineParam(name="flow_parameters_json")] if node.name == "start" else None
                 # container_op.input_artifact_paths = {} if node.name == "start" else {'flow_parameters_json': '/tmp/inputs/flow_parameters_json/data'}
