@@ -933,9 +933,10 @@ class KubeflowPipelines(object):
                     + f" --passed_in_split_indexes={passed_in_split_indexes}"
                     + f" --preceding_component_inputs={json.dumps(json.dumps(preceding_component_inputs))}"
                     + f" --preceding_component_outputs={json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
-                    + f" --flow_parameters_json=\'{flow_parameters_json}\'"
                 ]
 
+                if node.name == "start":
+                    command[-1] += f" --flow_parameters_json=\'{flow_parameters_json}\'"
                 if kfp_component.namespace:
                     command[-1] += f" --namespace {kfp_component.namespace}"
                 if kfp_component.need_split_index:
@@ -951,6 +952,8 @@ class KubeflowPipelines(object):
                 else: 
                     base_image = self.base_image
 
+                artifact_argument_paths=None if node.name == "start" else {'flow_parameters_json': 'None'}
+
                 file_outputs = {'foreach_splits': '/tmp/outputs/foreach_splits/data'}
                 for preceding_component_input in preceding_component_inputs:
                     file_outputs[preceding_component_input] = f"/tmp/outputs/{preceding_component_input}/data"
@@ -959,6 +962,7 @@ class KubeflowPipelines(object):
                     name=node.name,
                     image=base_image,
                     command=command,
+                    artifact_argument_paths=artifact_argument_paths,
                     file_outputs=file_outputs
                 )
                 # container_op.inputs = [dsl.PipelineParam(name="flow_parameters_json")] if node.name == "start" else None

@@ -313,7 +313,6 @@ def kfp_step_function(
         **preceding_component_outputs_env,
     }
     if flow_parameters_json is not None:
-        print(flow_parameters_json, type(flow_parameters_json))
         env["METAFLOW_PARAMETERS"] = flow_parameters_json
     
     # TODO: Map username to KFP specific user/profile/namespace
