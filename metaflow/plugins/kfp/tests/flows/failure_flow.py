@@ -18,7 +18,6 @@ from metaflow.exception import MetaflowExceptionWrapper
 
 class FailureFlow(FlowSpec):
     retry_log = "Retry count = {retry_count}"
-    start_sleep = Parameter("start_sleep", default=60)
 
     @retry
     @step
