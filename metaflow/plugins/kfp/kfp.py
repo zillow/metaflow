@@ -904,6 +904,12 @@ class KubeflowPipelines(object):
 
                 # "python3 -c 'import subprocess, os, sys; sys.path.append(os.path.join(os.getcwd(), \"metaflow\")); ' && " 
 
+                # for key in preceding_component_outputs_dict.keys():
+                #     preceding_component_outputs_dict[key] = f"\"{preceding_component_outputs_dict[key]}\""
+                #     preceding_component_outputs_dict[f"\"{key}\""] = preceding_component_outputs_dict.pop(key)
+
+                # print("preceding_component_outputs_dict: ", preceding_component_outputs_dict)
+
                 command = [
                     "bash",
                     "-ec",
@@ -925,15 +931,21 @@ class KubeflowPipelines(object):
                     + " --workflow_name {{workflow.name}}"
                     + f" --script_name {os.path.basename(sys.argv[0])}"
                     + f" --passed_in_split_indexes={passed_in_split_indexes}"
-                    + f" --preceding_component_inputs={json.dumps(json.dumps(kfp_component.preceding_component_inputs))}"
+                    + f" --preceding_component_inputs={json.dumps(json.dumps(preceding_component_inputs))}"
                     + f" --preceding_component_outputs={json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
                     + f" --flow_parameters_json=\'{flow_parameters_json}\'"
+                    # + f" --preceding_component_outputs_dict=\'{preceding_component_outputs_dict}\'"
                 ]
 
                 if kfp_component.namespace:
                     command[-1] += f" --namespace {kfp_component.namespace}"
                 if kfp_component.need_split_index:
                     command[-1] += " --need_split_index"
+
+                print("preceding_component_outputs_dict: ", preceding_component_outputs_dict)
+
+                for key in preceding_component_outputs_dict:
+                    command[-1] += f" {key}={preceding_component_outputs_dict[key]}"
                 
                 if (
                     kfp_component.kfp_decorator
@@ -943,11 +955,15 @@ class KubeflowPipelines(object):
                 else: 
                     base_image = self.base_image
 
+                file_outputs = {'foreach_splits': '/tmp/outputs/foreach_splits/data'}
+                for preceding_component_input in preceding_component_inputs:
+                    file_outputs[preceding_component_input] = f"/tmp/outputs/{preceding_component_input}/data"
+
                 container_op = dsl.ContainerOp(
                     name=node.name,
                     image=base_image,
                     command=command,
-                    file_outputs={'foreach_splits': '/tmp/outputs/foreach_splits/data'}
+                    file_outputs=file_outputs
                 )
                 # container_op.inputs = [dsl.PipelineParam(name="flow_parameters_json")] if node.name == "start" else None
                 # container_op.input_artifact_paths = {} if node.name == "start" else {'flow_parameters_json': '/tmp/inputs/flow_parameters_json/data'}

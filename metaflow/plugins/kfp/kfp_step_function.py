@@ -1,5 +1,5 @@
 import argparse
-import inspect
+import ast
 import json
 import os
 from pathlib import Path
@@ -380,11 +380,21 @@ if __name__ == "__main__":
     parser.add_argument("--preceding_component_inputs", type=json.loads, required=False)
     parser.add_argument("--preceding_component_outputs", type=json.loads, required=False)
     parser.add_argument("--flow_parameters_json", type=str, required=False)
-    args = parser.parse_args()
+    # parser.add_argument("--preceding_component_outputs_dict", type=json.loads, required=False)
+    
+    args, preceding_component_outputs_dict_args = parser.parse_known_args()
+    
+    kwargs = {}
+    for arg in preceding_component_outputs_dict_args:
+        key, value = arg.split('=')
+        kwargs[key] = value
 
-    _parsed_args = vars(args)
-    #_output_files = _parsed_args.pop("_output_paths", [])
+    print("preceding_component_outputs_dict_args: ", preceding_component_outputs_dict_args)
+    print("kwargs: ", kwargs)
+
     _output_files = ["/tmp/outputs/foreach_splits/data"]
+    for preceding_component_input in args.preceding_component_inputs:
+        _output_files.append(f"/tmp/outputs/{preceding_component_input}/data")
     _outputs = kfp_step_function(
         args.metaflow_run_id,
         args.metaflow_configs,
@@ -404,10 +414,15 @@ if __name__ == "__main__":
         args.workflow_name,
         args.script_name,
         args.passed_in_split_indexes,
+        preceding_component_inputs=args.preceding_component_inputs,
+        preceding_component_outputs=args.preceding_component_outputs,
         flow_parameters_json=args.flow_parameters_json,
+        **kwargs,
     )
 
-    _output_serializers = [str]
+    print("outputs: ", _outputs)
+
+    # _output_serializers = [str]
     import os
     for idx, output_file in enumerate(_output_files):
         try:
@@ -415,4 +430,4 @@ if __name__ == "__main__":
         except OSError:
             pass
         with open(output_file, 'w') as f:
-            f.write(_output_serializers[idx](_outputs[idx]))
+            f.write(str(_outputs[idx]))
