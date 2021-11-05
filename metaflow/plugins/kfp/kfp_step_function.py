@@ -11,7 +11,6 @@ from ... import R
 from metaflow.plugins.kfp.kfp_constants import STEP_ENVIRONMENT_VARIABLES, LOGS_DIR, STDOUT_PATH, STDERR_PATH, TASK_ID_ENV_NAME, SPLIT_INDEX_ENV_NAME, INPUT_PATHS_ENV_NAME, RETRY_COUNT
 from metaflow.mflog import bash_capture_logs, export_mflog_env_vars, BASH_SAVE_LOGS
 
-import metaflow
 
 def _step_cli(
     node_name: str,
@@ -216,7 +215,7 @@ def _command(
 
 def kfp_step_function(
     metaflow_run_id: str,
-    metaflow_configs: Dict[str, str],#str,#Dict[str, str],
+    metaflow_configs: Dict[str, str],
     cd_cmd: str,
     clean_volume_cmd: str,
     task_id: str,
@@ -224,7 +223,7 @@ def kfp_step_function(
     step_name: str,
     flow_name: str,
     namespace: str,
-    tags: List[str],#str,#List[str],
+    tags: List[str],
     need_split_index: bool,
     environment_type: str,
     logger_type: str,
@@ -420,10 +419,6 @@ if __name__ == "__main__":
         **kwargs,
     )
 
-    print("outputs: ", _outputs)
-
-    # _output_serializers = [str]
-    import os
     for idx, output_file in enumerate(_output_files):
         try:
             os.makedirs(os.path.dirname(output_file))

@@ -934,16 +934,12 @@ class KubeflowPipelines(object):
                     + f" --preceding_component_inputs={json.dumps(json.dumps(preceding_component_inputs))}"
                     + f" --preceding_component_outputs={json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
                     + f" --flow_parameters_json=\'{flow_parameters_json}\'"
-                    # + f" --preceding_component_outputs_dict=\'{preceding_component_outputs_dict}\'"
                 ]
 
                 if kfp_component.namespace:
                     command[-1] += f" --namespace {kfp_component.namespace}"
                 if kfp_component.need_split_index:
                     command[-1] += " --need_split_index"
-
-                print("preceding_component_outputs_dict: ", preceding_component_outputs_dict)
-
                 for key in preceding_component_outputs_dict:
                     command[-1] += f" {key}={preceding_component_outputs_dict[key]}"
                 
