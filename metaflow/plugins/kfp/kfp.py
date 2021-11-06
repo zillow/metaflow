@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union, Any
 
 import kfp
-import yaml
 from kfp import dsl
 from kfp.components import func_to_container_op
 from kfp.dsl import ContainerOp, PipelineConf
