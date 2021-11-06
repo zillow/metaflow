@@ -1,9 +1,7 @@
 import argparse
-import ast
 import json
 import os
 from pathlib import Path
-import sys
 
 from typing import List, Dict
 
@@ -194,12 +192,12 @@ def _command(
     # construct an entry point that
     # 1) Clean attached volume if any
     # 2) Initializes the mflog environment (mflog_expr)
-    # 3) Bootstraps a metaflow environment (init_expr)
+    # 3) Bootstraps a metaflow environment (cd_cmd)
     # 4) Executes a task (step_expr)
     cmd_str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f" {cd_cmd} " 
+        f" {cd_cmd} " # no need for `&&` because it is included in `cd_cmd`
         f"&& {step_expr};"
     )
 
@@ -210,7 +208,6 @@ def _command(
     # Note that if step_expr OOMs, this tail expression is never executed.
     # We lose the last logs in this scenario.
     cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
-    # print("cmd_str: ", cmd_str)
     return cmd_str
 
 def kfp_step_function(
@@ -378,46 +375,55 @@ if __name__ == "__main__":
     parser.add_argument("--preceding_component_inputs", type=json.loads, required=False)
     parser.add_argument("--preceding_component_outputs", type=json.loads, required=False)
     parser.add_argument("--flow_parameters_json", type=str, required=False)
-    # parser.add_argument("--preceding_component_outputs_dict", type=json.loads, required=False)
     
+    # parse_known_args parses arguments specified above into args, and returns
+    # the rest as a list, preceding_component_outputs_dict_args. This allows us
+    # to pass a dictionary of type [str, dsl.PipelineParam] without serialization issues.
     args, preceding_component_outputs_dict_args = parser.parse_known_args()
     
+    # Obtain the variable names and values from preceding_component_outputs_dict.
+    # We pass a string in kfp.py with the keys and values in preceding_component_outputs_dict
+    # separated by `=`, e.g. `--divident=3 --divisor=4`.
     kwargs = {}
     for arg in preceding_component_outputs_dict_args:
         key, value = arg.split('=')
         kwargs[key] = value
 
-    print("preceding_component_outputs_dict_args: ", preceding_component_outputs_dict_args)
-    print("kwargs: ", kwargs)
-
+    # We replicate what is done in the KFP SDK _container_op.py,
+    # see: https://github.com/kubeflow/pipelines/blob/master/sdk/python/kfp/dsl/_container_op.py
+    # We write outputs to a tmp file, which KFP internally uses to produces the output
+    # of the container op.
     _output_files = ["/tmp/outputs/foreach_splits/data"]
     for preceding_component_input in args.preceding_component_inputs:
         _output_files.append(f"/tmp/outputs/{preceding_component_input}/data")
+
     _outputs = kfp_step_function(
-        args.metaflow_run_id,
-        args.metaflow_configs,
-        args.cd_cmd,
-        args.clean_volume_cmd,
-        args.task_id,
-        args.task_id_template,
-        args.step_name,
-        args.flow_name,
-        args.namespace,
-        args.tags,
-        args.need_split_index,
-        args.environment_type,
-        args.logger_type,
-        args.monitor_type,
-        args.user_code_retries,
-        args.workflow_name,
-        args.script_name,
-        args.passed_in_split_indexes,
+        metaflow_run_id=args.metaflow_run_id,
+        metaflow_configs=args.metaflow_configs,
+        cd_cmd=args.cd_cmd,
+        clean_volume_cmd=args.clean_volume_cmd,
+        task_id=args.task_id,
+        task_id_template=args.task_id_template,
+        step_name=args.step_name,
+        flow_name=args.flow_name,
+        namespace=args.namespace,
+        tags=args.tags,
+        need_split_index=args.need_split_index,
+        environment_type=args.environment_type,
+        logger_type=args.logger_type,
+        monitor_type=args.monitor_type,
+        user_code_retries=args.user_code_retries,
+        workflow_name=args.workflow_name,
+        script_name=args.script_name,
+        passed_in_split_indexes=args.passed_in_split_indexes,
         preceding_component_inputs=args.preceding_component_inputs,
         preceding_component_outputs=args.preceding_component_outputs,
         flow_parameters_json=args.flow_parameters_json,
         **kwargs,
     )
 
+    # Write all the outputs of the kfp_step_function into the appropriate
+    # output files for KFP produces outputs for the container op.
     for idx, output_file in enumerate(_output_files):
         try:
             os.makedirs(os.path.dirname(output_file))

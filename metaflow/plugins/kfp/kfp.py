@@ -279,7 +279,6 @@ class KubeflowPipelines(object):
             init_cmds = environment.get_package_commands(
                 code_package_url, is_kfp_plugin=True
             )
-        # TODO get this at runtime
         else:
             init_cmds = [
                 "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
@@ -986,10 +985,6 @@ class KubeflowPipelines(object):
                 print(f"Outputs: {container_op.outputs}")
                 print(f"need_split_index: {kfp_component.need_split_index}")
 
-                print(command)
-
-                print("\n\n\n")
-
                 visited[node.name] = container_op
 
                 if kfp_component.environment_decorator:
@@ -1217,7 +1212,7 @@ class KubeflowPipelines(object):
 
         if self.notify_on_success:
             notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
-        print("kfp_run_id: ", dsl.RUN_ID_PLACEHOLDER)
+
         return exit_handler(
             flow_name=self.name,
             status="{{workflow.status}}",
