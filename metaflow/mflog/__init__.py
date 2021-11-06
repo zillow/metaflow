@@ -33,7 +33,7 @@ LOG_SOURCES = [
 BASH_MFLOG =\
     'mflog(){ '\
         'T=$(date -u -Ins|tr , .); '\
-        'echo \"[MFLOG|0|${T:0:26}Z|%s|$T]$1\"'\
+        'echo \\"[MFLOG|0|${T:0:26}Z|%s|$T]$1\\"'\
             ' >> $MFLOG_STDOUT; echo $1; '\
      ' }' % TASK_LOG_SOURCE
 

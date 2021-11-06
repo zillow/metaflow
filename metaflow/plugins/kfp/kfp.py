@@ -43,8 +43,6 @@ from metaflow.metaflow_config import (
 )
 from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
-from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
-from metaflow.plugins.kfp.kfp_step_function_invoker import kfp_step_function_invoker
 from .accelerator_decorator import AcceleratorDecorator
 from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids, KfpForEachSplits
@@ -223,7 +221,7 @@ class KubeflowPipelines(object):
             pipeline_file_path,
             pipeline_conf=pipeline_conf,
         )
-        return os.path.abspath(pipeline_file_path)        
+        return os.path.abspath(pipeline_file_path)
 
     def _cd_into_metaflow_package_cmd(self) -> str:
         if self.s3_code_package:
