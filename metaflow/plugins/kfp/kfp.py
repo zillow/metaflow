@@ -964,7 +964,7 @@ class KubeflowPipelines(object):
                     command=command,
                     artifact_argument_paths=artifact_argument_paths,
                     file_outputs=file_outputs
-                )
+                ).set_display_name(node.name)
                 # container_op.inputs = [dsl.PipelineParam(name="flow_parameters_json")] if node.name == "start" else None
                 # container_op.input_artifact_paths = {} if node.name == "start" else {'flow_parameters_json': '/tmp/inputs/flow_parameters_json/data'}
                 # container_op.artifact_arguments = {} if node.name == "start" else {'flow_parameters_json': 'None'}
