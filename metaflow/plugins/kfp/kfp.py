@@ -88,7 +88,7 @@ class KfpComponent(object):
         self.name = name
         self.init_cmd = init_cmd
         self.cd_into_metaflow_package_cmd = cd_into_metaflow_package_cmd
-        self.clean_volume_cmd= clean_volume_cmd
+        self.clean_volume_cmd = clean_volume_cmd
         self.task_id = task_id
         self.task_id_template = task_id_template
         self.step_name = step_name
@@ -226,9 +226,11 @@ class KubeflowPipelines(object):
         if self.s3_code_package:
             cd_cmd = ""
         else:
-            cd_cmd = " && cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+            cd_cmd = " && cd " + str(
+                Path(inspect.getabsfile(self.flow.__class__)).parent
+            )
         return cd_cmd
-    
+
     def _get_clean_volume_cmd(self, resource_requirements: Dict[str, str]) -> str:
         if "volume" in resource_requirements:
             volume_dir = resource_requirements["volume_dir"]
@@ -356,23 +358,19 @@ class KubeflowPipelines(object):
 
             return KfpComponent(
                 name=node.name,
-                init_cmd=self._init_command(
-                    self.code_package_url,
-                    self.environment
-                ),
+                init_cmd=self._init_command(self.code_package_url, self.environment),
                 cd_into_metaflow_package_cmd=self._cd_into_metaflow_package_cmd(),
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
                 task_id=task_id,
-                task_id_template=self._get_task_id_template(
-                    node.name,
-                    task_id
-                ),
+                task_id_template=self._get_task_id_template(node.name, task_id),
                 step_name=node.name,
                 flow_name=self.flow.name,
                 total_retries=total_retries,
                 namespace=self.namespace,
                 tags=list(self.tags),
-                need_split_index=True if any(self.graph[n].type == "foreach" for n in node.in_funcs) else False,
+                need_split_index=True
+                if any(self.graph[n].type == "foreach" for n in node.in_funcs)
+                else False,
                 environment_type=self.environment.TYPE,
                 logger_type=self.event_logger.logger_type,
                 monitor_type=self.monitor.monitor_type,
@@ -746,14 +744,14 @@ class KubeflowPipelines(object):
                 command = [
                     "bash",
                     "-ec",
-                    kfp_component.init_cmd 
+                    kfp_component.init_cmd
                     + " && python -m metaflow.plugins.kfp.kfp_step_function"
                     + f" --metaflow_run_id {metaflow_run_id}"
                     + f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
-                    + f" --cd_into_metaflow_package_cmd \"{kfp_component.cd_into_metaflow_package_cmd}\""
-                    + f" --clean_volume_cmd \"{kfp_component.clean_volume_cmd}\""
+                    + f' --cd_into_metaflow_package_cmd "{kfp_component.cd_into_metaflow_package_cmd}"'
+                    + f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
                     + f" --task_id {kfp_component.task_id}"
-                    + f" --task_id_template \"{kfp_component.task_id_template}\""
+                    + f' --task_id_template "{kfp_component.task_id_template}"'
                     + f" --step_name {kfp_component.step_name}"
                     + f" --flow_name {kfp_component.flow_name}"
                     + f" --tags {json.dumps(json.dumps(kfp_component.tags))}"
@@ -765,11 +763,11 @@ class KubeflowPipelines(object):
                     + f" --script_name {os.path.basename(sys.argv[0])}"
                     + f" --passed_in_split_indexes={passed_in_split_indexes}"
                     + f" --preceding_component_inputs={json.dumps(json.dumps(preceding_component_inputs))}"
-                    + f" --preceding_component_outputs={json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
+                    + f" --preceding_component_outputs={json.dumps(json.dumps(kfp_component.preceding_component_outputs))}",
                 ]
 
                 if node.name == "start":
-                    command[-1] += f" --flow_parameters_json=\'{flow_parameters_json}\'"
+                    command[-1] += f" --flow_parameters_json='{flow_parameters_json}'"
                 if kfp_component.namespace:
                     command[-1] += f" --namespace {kfp_component.namespace}"
                 if kfp_component.need_split_index:
@@ -783,21 +781,25 @@ class KubeflowPipelines(object):
                     and kfp_component.kfp_decorator.attributes["image"]
                 ):
                     step_image = kfp_component.kfp_decorator.attributes["image"]
-                else: 
+                else:
                     step_image = self.base_image
 
-                artifact_argument_paths=None if node.name == "start" else {'flow_parameters_json': 'None'}
+                artifact_argument_paths = (
+                    None if node.name == "start" else {"flow_parameters_json": "None"}
+                )
 
-                file_outputs = {'foreach_splits': '/tmp/outputs/foreach_splits/data'}
+                file_outputs = {"foreach_splits": "/tmp/outputs/foreach_splits/data"}
                 for preceding_component_input in preceding_component_inputs:
-                    file_outputs[preceding_component_input] = f"/tmp/outputs/{preceding_component_input}/data"
+                    file_outputs[
+                        preceding_component_input
+                    ] = f"/tmp/outputs/{preceding_component_input}/data"
 
                 container_op = dsl.ContainerOp(
                     name=node.name,
                     image=step_image,
                     command=command,
                     artifact_argument_paths=artifact_argument_paths,
-                    file_outputs=file_outputs
+                    file_outputs=file_outputs,
                 ).set_display_name(node.name)
 
                 visited[node.name] = container_op

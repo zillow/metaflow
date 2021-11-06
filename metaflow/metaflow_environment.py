@@ -13,11 +13,11 @@ version_cache = None
 
 
 class InvalidEnvironmentException(MetaflowException):
-    headline = 'Incompatible environment'
+    headline = "Incompatible environment"
 
 
 class MetaflowEnvironment(object):
-    TYPE = 'local'
+    TYPE = "local"
 
     def __init__(self, flow):
         pass
@@ -82,53 +82,56 @@ class MetaflowEnvironment(object):
     def get_boto3_copy_command(self, s3_path, local_path, command="download_file"):
         if command == "download_file":
             copy_command = (
-                    "boto3.client('s3')"
-                    ".download_file(parsed.netloc, parsed.path.lstrip('/'), '%s')" % local_path
+                "boto3.client('s3')"
+                ".download_file(parsed.netloc, parsed.path.lstrip('/'), '%s')"
+                % local_path
             )
         elif command == "upload_file":
             copy_command = (
                 "boto3.client('s3')"
-                ".upload_file('%s', parsed.netloc, parsed.path.lstrip('/'))" % local_path
+                ".upload_file('%s', parsed.netloc, parsed.path.lstrip('/'))"
+                % local_path
             )
         else:
             raise ValueError("%s not supported" % command)
 
         return (
-            "%s -c \"import boto3; " % self._python()
+            '%s -c "import boto3; ' % self._python()
             + "exec('try:\\n from urlparse import urlparse\\nexcept:\\n from urllib.parse import "
-              "urlparse'); "
+            "urlparse'); "
             + "parsed = urlparse('%s'); " % s3_path
-            + "%s\"" % copy_command
+            + '%s"' % copy_command
         )
 
     def get_package_commands(
-            self,
-            code_package_url,
-            is_kfp_plugin=False,
+        self,
+        code_package_url,
+        is_kfp_plugin=False,
     ):
         mflog_bash_cmd = BASH_MFLOG if not is_kfp_plugin else BASH_MFLOG_KFP
-        cmds = ["mkdir -p /opt/metaflow_volume/metaflow_logs",
-                "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
-                mflog_bash_cmd,
-                "mflog \'Setting up task environment.\'",
-                "%s -m pip install click requests boto3 -qqq" % self._python(),
-                "mkdir metaflow",
-                "cd metaflow",
-                "mkdir .metaflow", # mute local datastore creation log
-                "i=0; while [ $i -le 5 ]; do "
-                    "mflog \'Downloading code package...\'; "
-                    "%s && \
-                        mflog \'Code package downloaded.\' && break; "
-                    "sleep 10; i=$((i+1)); "
-                "done" % self.get_boto3_copy_command(code_package_url, "job.tar"),
-                "if [ $i -gt 5 ]; then "
-                    "mflog \'Failed to download code package from %s "
-                    "after 6 tries. Exiting...\' && exit 1; "
-                "fi" % code_package_url,
-                "tar xf job.tar",
-                # KFP: "Task is starting." is made after bootstrapping instead
-                "mflog \'Task is starting.\'" if not is_kfp_plugin else "true",
-                ]
+        cmds = [
+            "mkdir -p /opt/metaflow_volume/metaflow_logs",
+            "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
+            mflog_bash_cmd,
+            "mflog 'Setting up task environment.'",
+            "%s -m pip install click requests boto3 -qqq" % self._python(),
+            "mkdir metaflow",
+            "cd metaflow",
+            "mkdir .metaflow",  # mute local datastore creation log
+            "i=0; while [ $i -le 5 ]; do "
+            "mflog 'Downloading code package...'; "
+            "%s && \
+                        mflog 'Code package downloaded.' && break; "
+            "sleep 10; i=$((i+1)); "
+            "done" % self.get_boto3_copy_command(code_package_url, "job.tar"),
+            "if [ $i -gt 5 ]; then "
+            "mflog 'Failed to download code package from %s "
+            "after 6 tries. Exiting...' && exit 1; "
+            "fi" % code_package_url,
+            "tar xf job.tar",
+            # KFP: "Task is starting." is made after bootstrapping instead
+            "mflog 'Task is starting.'" if not is_kfp_plugin else "true",
+        ]
         return cmds
 
     def get_environment_info(self):
@@ -139,21 +142,23 @@ class MetaflowEnvironment(object):
         # note that this dict goes into the code package
         # so variables here should be relatively stable (no
         # timestamps) so the hash won't change all the time
-        env = {'platform': platform.system(),
-               'username': get_username(),
-               'production_token': os.environ.get('METAFLOW_PRODUCTION_TOKEN'),
-               'runtime': os.environ.get('METAFLOW_RUNTIME_NAME', 'dev'),
-               'app': os.environ.get('APP'),
-               'environment_type': self.TYPE,
-               'use_r': R.use_r(),
-               'python_version': sys.version,
-               'python_version_code': '%d.%d.%d' % sys.version_info[:3],
-               'metaflow_version': version_cache,
-               'script': os.path.basename(os.path.abspath(sys.argv[0]))}
+        env = {
+            "platform": platform.system(),
+            "username": get_username(),
+            "production_token": os.environ.get("METAFLOW_PRODUCTION_TOKEN"),
+            "runtime": os.environ.get("METAFLOW_RUNTIME_NAME", "dev"),
+            "app": os.environ.get("APP"),
+            "environment_type": self.TYPE,
+            "use_r": R.use_r(),
+            "python_version": sys.version,
+            "python_version_code": "%d.%d.%d" % sys.version_info[:3],
+            "metaflow_version": version_cache,
+            "script": os.path.basename(os.path.abspath(sys.argv[0])),
+        }
         if R.use_r():
-            env['metaflow_r_version'] = R.metaflow_r_version()
-            env['r_version'] = R.r_version()
-            env['r_version_code'] = R.r_version_code()
+            env["metaflow_r_version"] = R.metaflow_r_version()
+            env["r_version"] = R.r_version()
+            env["r_version_code"] = R.r_version_code()
         return env
 
     def executable(self, step_name):

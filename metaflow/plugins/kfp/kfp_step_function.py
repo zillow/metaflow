@@ -5,7 +5,16 @@ import os
 from typing import List, Dict
 
 from ... import R
-from metaflow.plugins.kfp.kfp_constants import STEP_ENVIRONMENT_VARIABLES, LOGS_DIR, STDOUT_PATH, STDERR_PATH, TASK_ID_ENV_NAME, SPLIT_INDEX_ENV_NAME, INPUT_PATHS_ENV_NAME, RETRY_COUNT
+from metaflow.plugins.kfp.kfp_constants import (
+    STEP_ENVIRONMENT_VARIABLES,
+    LOGS_DIR,
+    STDOUT_PATH,
+    STDERR_PATH,
+    TASK_ID_ENV_NAME,
+    SPLIT_INDEX_ENV_NAME,
+    INPUT_PATHS_ENV_NAME,
+    RETRY_COUNT,
+)
 from metaflow.mflog import bash_capture_logs, export_mflog_env_vars, BASH_SAVE_LOGS
 
 
@@ -147,8 +156,9 @@ def _step_cli(
         step.append("--namespace %s" % namespace)
 
     cmds.append(" ".join(entrypoint + top_level + step))
-    step_cli_string =  " && ".join(cmds)
+    step_cli_string = " && ".join(cmds)
     return step_cli_string
+
 
 def _command(
     cd_into_metaflow_package_cmd: str,
@@ -207,6 +217,7 @@ def _command(
     # We lose the last logs in this scenario.
     cmd_str += "c=$?; %s; exit $c" % BASH_SAVE_LOGS
     return cmd_str
+
 
 def kfp_step_function(
     metaflow_run_id: str,
@@ -346,6 +357,7 @@ def kfp_step_function(
     )(*values)
     return ret
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--metaflow_run_id", type=str, required=True)
@@ -356,9 +368,9 @@ if __name__ == "__main__":
     parser.add_argument("--task_id_template", type=str, required=True)
     parser.add_argument("--step_name", type=str, required=True)
     parser.add_argument("--flow_name", type=str, required=True)
-    parser.add_argument("--namespace", action='store_true')
+    parser.add_argument("--namespace", action="store_true")
     parser.add_argument("--tags", type=json.loads, required=True)
-    parser.add_argument("--need_split_index", action='store_true')
+    parser.add_argument("--need_split_index", action="store_true")
     parser.add_argument("--environment_type", type=str, required=True)
     parser.add_argument("--logger_type", type=str, required=True)
     parser.add_argument("--monitor_type", type=str, required=True)
@@ -367,20 +379,22 @@ if __name__ == "__main__":
     parser.add_argument("--script_name", type=str, required=True)
     parser.add_argument("--passed_in_split_indexes", type=str, required=False)
     parser.add_argument("--preceding_component_inputs", type=json.loads, required=False)
-    parser.add_argument("--preceding_component_outputs", type=json.loads, required=False)
+    parser.add_argument(
+        "--preceding_component_outputs", type=json.loads, required=False
+    )
     parser.add_argument("--flow_parameters_json", type=str, required=False)
-    
+
     # parse_known_args parses arguments specified above into args, and returns
     # the rest as a list. This allows us
     # to pass a dictionary of type [str, dsl.PipelineParam] without serialization issues.
     args, preceding_component_outputs_dict_args = parser.parse_known_args()
-    
+
     # Obtain the variable names and values from preceding_component_outputs_dict.
     # We pass a string in kfp.py with the keys and values in preceding_component_outputs_dict
     # separated by `=`, e.g. `--dividend=3 --divisor=4`.
     kwargs = {}
     for arg in preceding_component_outputs_dict_args:
-        key, value = arg.split('=')
+        key, value = arg.split("=")
         kwargs[key] = value
 
     # We replicate what is done in the KFP SDK _container_op.py,
@@ -423,5 +437,5 @@ if __name__ == "__main__":
             os.makedirs(os.path.dirname(output_file))
         except OSError:
             pass
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             f.write(str(_outputs[idx]))
