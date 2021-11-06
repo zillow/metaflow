@@ -942,14 +942,15 @@ class KubeflowPipelines(object):
                     command[-1] += " --need_split_index"
                 for key in preceding_component_outputs_dict:
                     command[-1] += f" {key}={preceding_component_outputs_dict[key]}"
-                
+                #command[-1] += ";c=$?; exit $c"
+
                 if (
                     kfp_component.kfp_decorator
                     and kfp_component.kfp_decorator.attributes["image"]
                 ):
-                    base_image=kfp_component.kfp_decorator.attributes["image"]
+                    step_image = kfp_component.kfp_decorator.attributes["image"]
                 else: 
-                    base_image = self.base_image
+                    step_image = self.base_image
 
                 artifact_argument_paths=None if node.name == "start" else {'flow_parameters_json': 'None'}
 
@@ -959,7 +960,7 @@ class KubeflowPipelines(object):
 
                 container_op = dsl.ContainerOp(
                     name=node.name,
-                    image=base_image,
+                    image=step_image,
                     command=command,
                     artifact_argument_paths=artifact_argument_paths,
                     file_outputs=file_outputs
