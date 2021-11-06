@@ -151,7 +151,7 @@ def _step_cli(
     return step_cli_string
 
 def _command(
-    cd_cmd: str,
+    cd_into_metaflow_package_cmd: str,
     clean_volume_cmd: str,
     step_cli: List[str],
     task_id_template: str,
@@ -182,7 +182,6 @@ def _command(
     )
 
     step_cmds = []
-    # step_cmds.extend(environment.bootstrap_commands(step_name))
     step_cmds.append("echo 'Task is starting.'")
     step_cmds.extend(step_cli)
 
@@ -191,12 +190,12 @@ def _command(
     # construct an entry point that
     # 1) Clean attached volume if any
     # 2) Initializes the mflog environment (mflog_expr)
-    # 3) Bootstraps a metaflow environment (cd_cmd)
+    # 3) Bootstraps a metaflow environment (cd_into_metaflow_package_cmd)
     # 4) Executes a task (step_expr)
     cmd_str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f" {cd_cmd} " # no need for `&&` because it is included in `cd_cmd`
+        f" {cd_into_metaflow_package_cmd} "
         f"&& {step_expr};"
     )
 
@@ -212,7 +211,7 @@ def _command(
 def kfp_step_function(
     metaflow_run_id: str,
     metaflow_configs: Dict[str, str],
-    cd_cmd: str,
+    cd_into_metaflow_package_cmd: str,
     clean_volume_cmd: str,
     task_id: str,
     task_id_template: str,
@@ -276,7 +275,7 @@ def kfp_step_function(
         field: kwargs[field] for field in preceding_component_outputs
     }
     cmd_template = _command(
-        cd_cmd,
+        cd_into_metaflow_package_cmd,
         clean_volume_cmd,
         [step_cli],
         task_id_template,
@@ -287,9 +286,6 @@ def kfp_step_function(
         run_id=metaflow_run_id,
         passed_in_split_indexes=passed_in_split_indexes,
     )
-
-    print("passed_in_split_indexes: ", passed_in_split_indexes)
-    print("cmd: ", cmd)
 
     metaflow_configs_new = {
         name: value for name, value in metaflow_configs.items() if value
@@ -310,7 +306,7 @@ def kfp_step_function(
     }
     if flow_parameters_json is not None:
         env["METAFLOW_PARAMETERS"] = flow_parameters_json
-    
+
     # TODO: Map username to KFP specific user/profile/namespace
     # Running Metaflow
     # KFP orchestrator -> running MF runtime (runs user code, handles state)
@@ -348,14 +344,13 @@ def kfp_step_function(
     ret = namedtuple(
         "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
     )(*values)
-    print("ret: ", ret)
     return ret
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--metaflow_run_id", type=str, required=True)
     parser.add_argument("--metaflow_configs", type=json.loads, required=True)
-    parser.add_argument("--cd_cmd", type=str, required=True)
+    parser.add_argument("--cd_into_metaflow_package_cmd", type=str, required=True)
     parser.add_argument("--clean_volume_cmd", type=str, required=True)
     parser.add_argument("--task_id", type=str, required=True)
     parser.add_argument("--task_id_template", type=str, required=True)
@@ -376,13 +371,13 @@ if __name__ == "__main__":
     parser.add_argument("--flow_parameters_json", type=str, required=False)
     
     # parse_known_args parses arguments specified above into args, and returns
-    # the rest as a list, preceding_component_outputs_dict_args. This allows us
+    # the rest as a list. This allows us
     # to pass a dictionary of type [str, dsl.PipelineParam] without serialization issues.
     args, preceding_component_outputs_dict_args = parser.parse_known_args()
     
     # Obtain the variable names and values from preceding_component_outputs_dict.
     # We pass a string in kfp.py with the keys and values in preceding_component_outputs_dict
-    # separated by `=`, e.g. `--divident=3 --divisor=4`.
+    # separated by `=`, e.g. `--dividend=3 --divisor=4`.
     kwargs = {}
     for arg in preceding_component_outputs_dict_args:
         key, value = arg.split('=')
@@ -399,7 +394,7 @@ if __name__ == "__main__":
     _outputs = kfp_step_function(
         metaflow_run_id=args.metaflow_run_id,
         metaflow_configs=args.metaflow_configs,
-        cd_cmd=args.cd_cmd,
+        cd_into_metaflow_package_cmd=args.cd_into_metaflow_package_cmd,
         clean_volume_cmd=args.clean_volume_cmd,
         task_id=args.task_id,
         task_id_template=args.task_id_template,
@@ -422,7 +417,7 @@ if __name__ == "__main__":
     )
 
     # Write all the outputs of the kfp_step_function into the appropriate
-    # output files for KFP produces outputs for the container op.
+    # output files which KFP uses to produce outputs for the container op.
     for idx, output_file in enumerate(_output_files):
         try:
             os.makedirs(os.path.dirname(output_file))

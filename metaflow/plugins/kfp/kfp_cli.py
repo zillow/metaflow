@@ -391,7 +391,6 @@ def make_flow(
         obj.flow, obj.graph, obj.environment, obj.datastore, obj.logger
     )
 
-    print(obj.package_suffixes)
     obj.package = MetaflowPackage(
         obj.flow, obj.environment, obj.logger, obj.package_suffixes
     )

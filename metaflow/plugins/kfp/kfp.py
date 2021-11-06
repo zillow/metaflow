@@ -46,16 +46,6 @@ from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_function import kfp_step_function
 from metaflow.plugins.kfp.kfp_step_function_invoker import kfp_step_function_invoker
 from .accelerator_decorator import AcceleratorDecorator
-from .kfp_constants import (
-    INPUT_PATHS_ENV_NAME,
-    STEP_ENVIRONMENT_VARIABLES,
-    TASK_ID_ENV_NAME,
-    SPLIT_INDEX_ENV_NAME,
-    RETRY_COUNT,
-    LOGS_DIR,
-    STDOUT_PATH,
-    STDERR_PATH,
-)
 from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids, KfpForEachSplits
 from .kfp_get_workflow_uid import get_workflow_uid
@@ -65,11 +55,6 @@ from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from ... import R
 from ...metaflow_environment import MetaflowEnvironment
 from ...graph import DAGNode
-from metaflow.mflog import (
-    export_mflog_env_vars,
-    bash_capture_logs,
-    BASH_SAVE_LOGS,
-)
 from ...plugins.resources_decorator import ResourcesDecorator
 
 # TODO: @schedule
@@ -84,7 +69,7 @@ class KfpComponent(object):
         self,
         name: str,
         init_cmd: str,
-        cd_cmd: str,
+        cd_into_metaflow_package_cmd: str,
         clean_volume_cmd: str,
         task_id: str,
         task_id_template: str,
@@ -105,7 +90,7 @@ class KfpComponent(object):
     ):
         self.name = name
         self.init_cmd = init_cmd
-        self.cd_cmd = cd_cmd
+        self.cd_into_metaflow_package_cmd = cd_into_metaflow_package_cmd
         self.clean_volume_cmd= clean_volume_cmd
         self.task_id = task_id
         self.task_id_template = task_id_template
@@ -240,13 +225,11 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)        
 
-    def _get_cd_cmd(self) -> str:
+    def _cd_into_metaflow_package_cmd(self) -> str:
         if self.s3_code_package:
-            cd_cmd = ""#" && cd metaflow " # "" CHANGE
+            cd_cmd = ""
         else:
             cd_cmd = " && cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
-
-        print("flow class: ", self.flow.__class__)
         return cd_cmd
     
     def _get_clean_volume_cmd(self, resource_requirements: Dict[str, str]) -> str:
@@ -286,7 +269,7 @@ class KubeflowPipelines(object):
 
         init_expr = " && ".join(init_cmds)
 
-        return init_expr# + ";c=$?; exit $c" #CHANGE
+        return init_expr
 
     @staticmethod
     def _get_retries(node: DAGNode) -> Tuple[int, int]:
@@ -380,7 +363,7 @@ class KubeflowPipelines(object):
                     self.code_package_url,
                     self.environment
                 ),
-                cd_cmd=self._get_cd_cmd(), # TODO rename to cd_into_metaflow_package_cmd
+                cd_into_metaflow_package_cmd=self._cd_into_metaflow_package_cmd(),
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
                 task_id=task_id,
                 task_id_template=self._get_task_id_template(
@@ -643,110 +626,6 @@ class KubeflowPipelines(object):
                 "tags.ledger.zgtools.net/ai-experiment-name", self.experiment
             )
 
-    def step_op(
-        self,
-        step_name: str,
-        kfp_component: KfpComponent,
-        preceding_component_inputs: List[str] = None,
-        preceding_component_outputs: List[str] = None,
-    ) -> Callable[..., ContainerOp]:
-        """
-        Workaround of KFP.components.func_to_container_op() to set KFP Component name
-        """
-        # KFP Component for a step defined in the Metaflow FlowSpec.
-        step_op_component: Dict = yaml.load(
-            kfp.components.func_to_component_text(
-                KubeflowPipelines._update_step_op_func_signature(
-                    kfp_step_function_invoker,
-                    preceding_component_inputs=preceding_component_inputs,
-                    preceding_component_outputs=preceding_component_outputs,
-                ),
-                base_image=kfp_component.kfp_decorator.attributes["image"]
-                if (
-                    kfp_component.kfp_decorator
-                    and kfp_component.kfp_decorator.attributes["image"]
-                )
-                else self.base_image,
-            ),
-            yaml.SafeLoader,
-        )
-
-        step_op_component["name"] = step_name
-        return kfp.components.load_component_from_text(yaml.dump(step_op_component))
-
-    @staticmethod
-    def _update_step_op_func_signature(
-        func: Callable,
-        preceding_component_inputs: List[str],
-        preceding_component_outputs: List[str],
-    ) -> Callable:
-        """
-        This function updates func (a copy of kfp_step_function) with the kfp_component
-        inputs and outputs required to bind Metaflow self state to the KFP component
-        (preceding_component_inputs) and the KFP Component return values to Metaflow
-        state (preceding_component_outputs).
-
-
-        note:
-            Each Metaflow step becomes a KFP component that calls
-            kfp_step_function(), handled by step_op().
-
-        Imagine the following linear DAG with a KFP Component between two MF
-        steps.
-            step1 -> KFP Component -> step2
-
-        step1:
-            The list of Metaflow field names in preceding_component_inputs are
-            meta-programmed as new output parameters of the step1 return
-            annotation
-
-        step2:
-            The list of KFP component output names in preceding_component_outputs
-            are meta-programmed as new func and KFP step_op()
-            ContainerOp KFP parameters.  These KFP Component returned output
-            variables are then bound to the Metaflow "self" state in
-            kfp_decorator.
-
-        Returns:
-            A func signature updated with preceding_component_inputs as return values
-            and preceding_component_outputs as parameters.
-        """
-        assert func.__name__ == kfp_step_function_invoker.__name__
-
-        # -- Update Parameter Binding
-        # preceding_component_outputs are returned by the KFP component to
-        # incorporate back into Metaflow Flow state
-
-        # parameter named "preceding_component_outputs" contains list of return
-        # fields parameter key names for step_op_func to know the list of
-        # fields to add to MF state
-        params = list(
-            filter(
-                lambda x: x.name != "kwargs",
-                inspect.signature(func).parameters.values(),
-            )
-        )
-
-        new_parameters = [
-            inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY)
-            for name in preceding_component_outputs
-        ]
-
-        # -- Update Return Binding
-        ret = ["foreach_splits"]
-        # preceding_component_inputs are Flow state fields to expose to a KFP step by
-        # returning them as KFP step return values
-        if preceding_component_inputs:
-            ret += preceding_component_inputs
-        return_annotation = namedtuple("StepOpRet", ret)
-
-        # -- Create signature
-        new_sig = inspect.signature(func).replace(
-            parameters=(params + new_parameters), return_annotation=return_annotation
-        )
-        func.__signature__ = new_sig
-        return func
-
     def _create_s3_sensor_op(
         self, s3_sensor_deco: FlowDecorator, flow_parameters_json: str
     ) -> ContainerOp:
@@ -865,49 +744,7 @@ class KubeflowPipelines(object):
                     METAFLOW_DATASTORE_SYSROOT_S3=DATASTORE_SYSROOT_S3,
                     METAFLOW_USER=METAFLOW_USER,
                 )
-                # metaflow_configs = '{\"METAFLOW_DATASTORE_SYSROOT_S3\": \"%s\", \"METAFLOW_USER\": \"%s\"}' % (DATASTORE_SYSROOT_S3, METAFLOW_USER) #CHANGE
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
-
-                step_op_args = dict(
-                    init_cmd=kfp_component.init_cmd,
-                    metaflow_run_id=metaflow_run_id,
-                    metaflow_configs=metaflow_configs,
-                    cd_cmd=kfp_component.cd_cmd,
-                    clean_volume_cmd=kfp_component.clean_volume_cmd,
-                    task_id=kfp_component.task_id,
-                    task_id_template=kfp_component.task_id_template,
-                    step_name=kfp_component.step_name,
-                    flow_name=kfp_component.flow_name,
-                    namespace="" if not kfp_component.namespace else kfp_component.namespace,
-                    tags=kfp_component.tags,
-                    need_split_index=kfp_component.need_split_index,
-                    environment_type=kfp_component.environment_type,
-                    logger_type=kfp_component.logger_type,
-                    monitor_type=kfp_component.monitor_type,
-                    user_code_retries=kfp_component.user_code_retries,
-                    workflow_name="{{workflow.name}}",
-                    script_name=os.path.basename(sys.argv[0]),
-                    passed_in_split_indexes=passed_in_split_indexes,
-                    preceding_component_inputs=preceding_component_inputs,
-                    preceding_component_outputs=kfp_component.preceding_component_outputs,
-                    flow_parameters_json=flow_parameters_json
-                    if node.name == "start"
-                    else None,
-                )
-                # container_op: ContainerOp = self.step_op(
-                #     node.name,
-                #     kfp_component,
-                #     preceding_component_inputs=preceding_component_inputs,
-                #     preceding_component_outputs=kfp_component.preceding_component_outputs,
-                # )(**{**step_op_args, **preceding_component_outputs_dict})
-
-                # "python3 -c 'import subprocess, os, sys; sys.path.append(os.path.join(os.getcwd(), \"metaflow\")); ' && " 
-
-                # for key in preceding_component_outputs_dict.keys():
-                #     preceding_component_outputs_dict[key] = f"\"{preceding_component_outputs_dict[key]}\""
-                #     preceding_component_outputs_dict[f"\"{key}\""] = preceding_component_outputs_dict.pop(key)
-
-                # print("preceding_component_outputs_dict: ", preceding_component_outputs_dict)
 
                 command = [
                     "bash",
@@ -916,7 +753,7 @@ class KubeflowPipelines(object):
                     + " && python -m metaflow.plugins.kfp.kfp_step_function"
                     + f" --metaflow_run_id {metaflow_run_id}"
                     + f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
-                    + f" --cd_cmd \"{kfp_component.cd_cmd}\""
+                    + f" --cd_into_metaflow_package_cmd \"{kfp_component.cd_into_metaflow_package_cmd}\""
                     + f" --clean_volume_cmd \"{kfp_component.clean_volume_cmd}\""
                     + f" --task_id {kfp_component.task_id}"
                     + f" --task_id_template \"{kfp_component.task_id_template}\""
@@ -942,7 +779,7 @@ class KubeflowPipelines(object):
                     command[-1] += " --need_split_index"
                 for key in preceding_component_outputs_dict:
                     command[-1] += f" {key}={preceding_component_outputs_dict[key]}"
-                #command[-1] += ";c=$?; exit $c"
+                command[-1] += ";c=$?; exit $c"
 
                 if (
                     kfp_component.kfp_decorator
@@ -965,26 +802,6 @@ class KubeflowPipelines(object):
                     artifact_argument_paths=artifact_argument_paths,
                     file_outputs=file_outputs
                 ).set_display_name(node.name)
-                # container_op.inputs = [dsl.PipelineParam(name="flow_parameters_json")] if node.name == "start" else None
-                # container_op.input_artifact_paths = {} if node.name == "start" else {'flow_parameters_json': '/tmp/inputs/flow_parameters_json/data'}
-                # container_op.artifact_arguments = {} if node.name == "start" else {'flow_parameters_json': 'None'}
-                # container_op.output_artifact_paths = {}
-                # container_op.outputs = {'foreach_splits': dsl.PipelineParam(name="foreach_splits", op_name=node.name)}
-                # print(container_op.inputs)
-
-                print(f"Name: {container_op.name}")
-                print(f"Image: {container_op.image}")
-                print(f"Command: {container_op.command}")
-                print(f"Arguments: {container_op.arguments}")
-                print(f"init_containers: {container_op.init_containers}")
-                print(f"input_artifact_paths: {container_op.input_artifact_paths}")
-                print(f"artifact_arguments: {container_op.artifact_arguments}")
-                print(f"sidecars : {container_op.sidecars}")
-                print(f"file_outputs: {container_op.file_outputs}")
-                print(f"output_artifacts_paths: {container_op.output_artifact_paths}")
-                print(f"pvolumes: {container_op.pvolumes}")
-                print(f"Outputs: {container_op.outputs}")
-                print(f"need_split_index: {kfp_component.need_split_index}")
 
                 visited[node.name] = container_op
 
