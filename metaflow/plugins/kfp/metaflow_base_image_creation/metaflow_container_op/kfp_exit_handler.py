@@ -1,7 +1,6 @@
-from kfp.components import func_to_container_op
+import argparse
+import json
 
-
-@func_to_container_op
 def exit_handler(
     flow_name: str,
     status: str,
@@ -78,3 +77,22 @@ def exit_handler(
         email_notify(notify_on_success)
     else:
         print("No notification is necessary!")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--flow_name", type=str, required=True)
+    parser.add_argument("--status", type=str, required=True)
+    parser.add_argument("--kfp_run_id", type=str, required=True)
+    parser.add_argument("--notify_variables", type=json.loads, required=True)
+
+    args = parser.parse_args()
+
+    print("Reached exit handler!")
+
+    exit_handler(
+        flow_name=args.flow_name,
+        status=args.status,
+        kfp_run_id=args.kfp_run_id,
+        notify_variables=args.notify_variables,
+    )

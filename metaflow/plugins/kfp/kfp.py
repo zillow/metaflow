@@ -32,6 +32,8 @@ from kubernetes.client import (
     V1Toleration,
 )
 
+from .kfp_constants import BASE_IMAGE
+
 from metaflow.decorators import FlowDecorator
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
@@ -43,10 +45,7 @@ from metaflow.metaflow_config import (
 from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from .accelerator_decorator import AcceleratorDecorator
-from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids, KfpForEachSplits
-from .kfp_get_workflow_uid import get_workflow_uid
-from .kfp_s3_sensor import wait_for_s3_path
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from ... import R
@@ -644,19 +643,28 @@ class KubeflowPipelines(object):
         else:
             path_formatter_code_encoded = ""
 
-        s3_sensor_op = func_to_container_op(
-            wait_for_s3_path,
-            base_image="hsezhiyan/metaflow-zillow:2.1",
-        )(
-            path=path,
-            timeout_seconds=timeout_seconds,
-            polling_interval_seconds=polling_interval_seconds,
-            path_formatter_code_encoded=path_formatter_code_encoded,
-            flow_parameters_json=flow_parameters_json,
-            os_expandvars=os_expandvars,
-        ).set_display_name(
-            "s3_sensor"
-        )
+        s3_sensor_command = [
+            "bash",
+            "-ec",
+            " python /opt/metaflow/metaflow_container_op/kfp_s3_sensor.py"
+            + f" --path {path}"
+            + f" --timeout_seconds {timeout_seconds}"
+            + f" --polling_interval_seconds {polling_interval_seconds}"
+        ]
+        if path_formatter_code_encoded:
+            s3_sensor_command[-1] += f" --path_formatter_code_encoded='{path_formatter_code_encoded}'"
+        if flow_parameters_json:
+            s3_sensor_command[-1] += f" --flow_parameters_json='{flow_parameters_json}'"
+        if os_expandvars:
+            s3_sensor_command[-1] += f" --os_expandvars"
+
+        s3_sensor_op = dsl.ContainerOp(
+            name="s3_sensor",
+            image=BASE_IMAGE,
+            command=s3_sensor_command,
+            file_outputs={'Output': '/tmp/outputs/Output/data'},
+        ).set_display_name("s3_sensor") 
+
         KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
         return s3_sensor_op
 
@@ -916,15 +924,19 @@ class KubeflowPipelines(object):
                     "volume" in s.resource_requirements
                     for s in step_to_kfp_component_map.values()
                 ):
-                    workflow_uid_op = func_to_container_op(
-                        get_workflow_uid,
-                        base_image="gcr.io/cloud-builders/kubectl",
-                    )(
-                        work_flow_name="{{workflow.name}}",
-                        s3_sensor_path=s3_sensor_path,
-                    ).set_display_name(
-                        "get_workflow_uid"
-                    )
+                    workflow_uid_command = [
+                        "bash",
+                        "-ec",
+                        " python /opt/metaflow/metaflow_container_op/kfp_get_workflow_uid.py "
+                        + " --workflow_name {{workflow.name}} "
+                        + f"--s3_sensor_path {s3_sensor_path} "
+                    ]
+                    workflow_uid_op =  dsl.ContainerOp(
+                        name="workflow_uid",
+                        image=BASE_IMAGE,
+                        command=workflow_uid_command,
+                        file_outputs={'Output': '/tmp/outputs/Output/data'},
+                    ).set_display_name("workflow_uid")
                     KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
                     return workflow_uid_op
                 else:
@@ -943,13 +955,13 @@ class KubeflowPipelines(object):
                 with dsl.ExitHandler(self._create_exit_handler_op()):
                     s3_sensor_op = create_s3_sensor_op()
                     workflow_uid_op = create_workflow_uid_op(
-                        s3_sensor_op.output if s3_sensor_op else ""
+                        s3_sensor_op.output if s3_sensor_op else "s3_sensor_path"
                     )
                     call_build_kfp_dag(workflow_uid_op)
             else:
                 s3_sensor_op = create_s3_sensor_op()
                 workflow_uid_op = create_workflow_uid_op(
-                    s3_sensor_op.output if s3_sensor_op else ""
+                    s3_sensor_op.output if s3_sensor_op else "s3_sensor_path"
                 )
                 call_build_kfp_dag(workflow_uid_op)
 
@@ -1030,9 +1042,18 @@ class KubeflowPipelines(object):
         if self.notify_on_success:
             notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
 
-        return exit_handler(
-            flow_name=self.name,
-            status="{{workflow.status}}",
-            kfp_run_id=dsl.RUN_ID_PLACEHOLDER,
-            notify_variables=notify_variables,
-        )
+        exit_handler_command = [
+            "bash",
+            "-ec",
+            " python /opt/metaflow/metaflow_container_op/kfp_exit_handler.py "
+            + f"--flow_name {self.name} "
+            + " --status {{workflow.status}} "
+            + f"--kfp_run_id {dsl.RUN_ID_PLACEHOLDER} "
+            + f"--notify_variables {json.dumps(json.dumps(notify_variables))}"
+        ]
+
+        return dsl.ContainerOp(
+            name="exit_handler",
+            image=BASE_IMAGE,
+            command=exit_handler_command,
+        ).set_display_name("exit_handler")
