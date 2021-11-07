@@ -45,10 +45,7 @@ from metaflow.metaflow_config import (
 from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from .accelerator_decorator import AcceleratorDecorator
-from .kfp_exit_handler import exit_handler
 from .kfp_foreach_splits import graph_to_task_ids, KfpForEachSplits
-from .kfp_get_workflow_uid import get_workflow_uid
-from .kfp_s3_sensor import wait_for_s3_path
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from ... import R
@@ -958,13 +955,13 @@ class KubeflowPipelines(object):
                 with dsl.ExitHandler(self._create_exit_handler_op()):
                     s3_sensor_op = create_s3_sensor_op()
                     workflow_uid_op = create_workflow_uid_op(
-                        s3_sensor_op.output if s3_sensor_op else ""
+                        s3_sensor_op.output if s3_sensor_op else "s3_sensor_path"
                     )
                     call_build_kfp_dag(workflow_uid_op)
             else:
                 s3_sensor_op = create_s3_sensor_op()
                 workflow_uid_op = create_workflow_uid_op(
-                    s3_sensor_op.output if s3_sensor_op else ""
+                    s3_sensor_op.output if s3_sensor_op else "s3_sensor_path"
                 )
                 call_build_kfp_dag(workflow_uid_op)
 
