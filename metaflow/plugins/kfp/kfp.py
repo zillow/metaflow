@@ -916,15 +916,20 @@ class KubeflowPipelines(object):
                     "volume" in s.resource_requirements
                     for s in step_to_kfp_component_map.values()
                 ):
-                    workflow_uid_op = func_to_container_op(
-                        get_workflow_uid,
-                        base_image="gcr.io/cloud-builders/kubectl",
-                    )(
-                        work_flow_name="{{workflow.name}}",
-                        s3_sensor_path=s3_sensor_path,
-                    ).set_display_name(
-                        "get_workflow_uid"
-                    )
+                    workflow_uid_command = [
+                        "bash",
+                        "-ec",
+                        " python /opt/metaflow/metaflow_container_op/kfp_get_workflow_uid.py "
+                        + " --workflow_name {{workflow.name}} "
+                        + f"--s3_sensor_path s3_sensor_path "
+                    ]
+                    print(workflow_uid_command)
+                    workflow_uid_op =  dsl.ContainerOp(
+                        name="workflow_uid",
+                        image="hsezhiyan/metaflow-zillow:2.6",
+                        command=workflow_uid_command,
+                        file_outputs={'Output': '/tmp/outputs/Output/data'},
+                    ).set_display_name("workflow_uid")
                     KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
                     return workflow_uid_op
                 else:
@@ -1030,9 +1035,18 @@ class KubeflowPipelines(object):
         if self.notify_on_success:
             notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
 
-        return exit_handler(
-            flow_name=self.name,
-            status="{{workflow.status}}",
-            kfp_run_id=dsl.RUN_ID_PLACEHOLDER,
-            notify_variables=notify_variables,
-        )
+        exit_handler_command = [
+            "bash",
+            "-ec",
+            " python /opt/metaflow/metaflow_container_op/kfp_exit_handler.py "
+            + f"--flow_name {self.name} "
+            + " --status {{workflow.status}} "
+            + f"--kfp_run_id {dsl.RUN_ID_PLACEHOLDER} "
+            + f"--notify_variables {json.dumps(json.dumps(notify_variables))}"
+        ]
+
+        return dsl.ContainerOp(
+            name="exit_handler",
+            image="hsezhiyan/metaflow-zillow:2.2",
+            command=exit_handler_command,
+        ).set_display_name("exit_handler")
