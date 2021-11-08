@@ -3,7 +3,7 @@
 # Defaults for running MF on KFP
 import os
 
-BASE_IMAGE = "hsezhiyan/metaflow-zillow:pr-release"
+BASE_IMAGE = "hsezhiyan/metaflow-zillow:2.1"
 
 KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
 preceding_component_inputs_PATH = "/tmp/preceding_component_inputs.json"

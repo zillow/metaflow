@@ -1,5 +1,4 @@
-# Used to create the hsezhiyan/metaflow-zillow image.
-# TODO (hariharans) - move from personal account to Zillow public registry.
+# Used to create the hsezhiyan/metaflow-zillow:2.1 image.
 # The image is used in two places:
 #   1. In metaflow/plugins/kfp/kfp_constants.py, where it is used as a base image
 #      when the user does not provide their own base image with python flow.py kfp run --base-image...
@@ -10,7 +9,6 @@ FROM python:3.9.0
 
 WORKDIR /opt/zillow
 
-# Install kubectl for workflow_uid_op
 RUN apt-get update && apt-get install -yq --no-install-recommends \
         apt-transport-https \
         apt-utils \
@@ -30,9 +28,7 @@ RUN apt-get update && apt-get install -yq --no-install-recommends \
         zip \
         zlib1g-dev \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl \
-    && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip & install poetry
 RUN pip install -U pip==20.0.2 poetry==1.0.10
@@ -58,7 +54,3 @@ RUN echo "%users ALL=(ALL) NOPASSWD:/usr/local/bin/pip" >> /etc/sudoers && \
     echo "%users ALL=(ALL) NOPASSWD:/usr/local/bin/python" >> /etc/sudoers && \
     echo "%users ALL=(ALL) NOPASSWD:/usr/bin/apt-get" >> /etc/sudoers && \
     echo "%users ALL=(ALL) NOPASSWD:/usr/bin/apt" >> /etc/sudoers
-
-# Copy exit_handler, get_workflow_uid, and s3_sensor code to be used
-# by the Metaflow codebase.
-COPY ./metaflow_container_op /opt/metaflow/metaflow_container_op
