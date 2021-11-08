@@ -741,6 +741,31 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
 
+                # command = [
+                #     "bash",
+                #     "-ec",
+                #     kfp_component.init_cmd
+                #     + " && python -m metaflow.plugins.kfp.kfp_step_function"
+                #     + f" --metaflow_run_id {metaflow_run_id}"
+                #     + f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
+                #     + f' --cd_into_metaflow_package_cmd "{kfp_component.cd_into_metaflow_package_cmd}"'
+                #     + f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
+                #     + f" --task_id {kfp_component.task_id}"
+                #     + f' --task_id_template "{kfp_component.task_id_template}"'
+                #     + f" --step_name {kfp_component.step_name}"
+                #     + f" --flow_name {kfp_component.flow_name}"
+                #     + f" --tags {json.dumps(json.dumps(kfp_component.tags))}"
+                #     + f" --environment_type {kfp_component.environment_type}"
+                #     + f" --logger_type {kfp_component.logger_type}"
+                #     + f" --monitor_type {kfp_component.monitor_type}"
+                #     + f" --user_code_retries {kfp_component.user_code_retries}"
+                #     + " --workflow_name {{workflow.name}}"
+                #     + f" --script_name {os.path.basename(sys.argv[0])}"
+                #     + f" --passed_in_split_indexes={passed_in_split_indexes}"
+                #     + f" --preceding_component_inputs={json.dumps(json.dumps(preceding_component_inputs))}"
+                #     + f" --preceding_component_outputs={json.dumps(json.dumps(kfp_component.preceding_component_outputs))}",
+                # ]
+
                 command = [
                     "bash",
                     "-ec",
@@ -761,9 +786,9 @@ class KubeflowPipelines(object):
                     + f" --user_code_retries {kfp_component.user_code_retries}"
                     + " --workflow_name {{workflow.name}}"
                     + f" --script_name {os.path.basename(sys.argv[0])}"
-                    + f" --passed_in_split_indexes={passed_in_split_indexes}"
-                    + f" --preceding_component_inputs={json.dumps(json.dumps(preceding_component_inputs))}"
-                    + f" --preceding_component_outputs={json.dumps(json.dumps(kfp_component.preceding_component_outputs))}",
+                    + f' --passed_in_split_indexes "{passed_in_split_indexes}"'
+                    + f" --preceding_component_inputs {json.dumps(json.dumps(preceding_component_inputs))}"
+                    + f" --preceding_component_outputs {json.dumps(json.dumps(kfp_component.preceding_component_outputs))}",
                 ]
 
                 if node.name == "start":
@@ -772,9 +797,13 @@ class KubeflowPipelines(object):
                     command[-1] += f" --namespace {kfp_component.namespace}"
                 if kfp_component.need_split_index:
                     command[-1] += " --need_split_index"
+                command[-1] += ' --preceding_component_outputs_dict "'
                 for key in preceding_component_outputs_dict:
-                    command[-1] += f" {key}={preceding_component_outputs_dict[key]}"
+                    command[-1] += f"{key}={preceding_component_outputs_dict[key]},"
+                command[-1] += '"'
                 command[-1] += ";c=$?; exit $c"
+
+                print("command: ", command)
 
                 if (
                     kfp_component.kfp_decorator
