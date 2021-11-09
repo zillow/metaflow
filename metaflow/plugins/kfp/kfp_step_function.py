@@ -221,6 +221,7 @@ def _command(
 @click.option("--cd_into_metaflow_package_cmd")
 @click.option("--clean_volume_cmd")
 @click.option("--environment_type")
+@click.option("--foreach_step/--not_foreach_step", default=False)
 @click.option("--flow_name")
 @click.option("--flow_parameters_json", required=False, default="")
 @click.option("--logger_type")
@@ -246,6 +247,7 @@ def kfp_step_function(
     environment_type: str,
     flow_name: str,
     flow_parameters_json: str, # json formatted string
+    foreach_step: bool,
     logger_type: str,
     metaflow_configs: str,
     metaflow_run_id: str,
@@ -263,7 +265,7 @@ def kfp_step_function(
     task_id_template: str,
     user_code_retries: int,
     workflow_name: str,
-) -> object:
+) -> List[str]:
     """
     Renders and runs the cmd_template containing Metaflow step-init commands to
     run within the container.
@@ -360,17 +362,20 @@ def kfp_step_function(
         logging.info("----")
         raise Exception("Returned: %s" % process.returncode)
 
-    task_context_dict = {}
-    # File written by kfp_decorator.py:task_finished
-    KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
-    if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
-        with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
-            task_context_dict = json.load(file)
+    values, output_files = [], []
+    if foreach_step:
+        task_context_dict = {}
+        # File written by kfp_decorator.py:task_finished
+        KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
+        if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
+            with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
+                task_context_dict = json.load(file)
 
-    # json serialize foreach_splits else, the NamedTuple gets serialized
-    # as string and we get the following error:
-    #   withParam value could not be parsed as a JSON list: ['0', '1']
-    values = [json.dumps(task_context_dict.get("foreach_splits", []))]
+        # json serialize foreach_splits else, the NamedTuple gets serialized
+        # as string and we get the following error:
+        #   withParam value could not be parsed as a JSON list: ['0', '1']
+        values.append(json.dumps(task_context_dict.get("foreach_splits", [])))
+        output_files.append("/tmp/outputs/foreach_splits/data")
 
     # read fields to return from Flow state to KFP
     preceding_component_inputs_dict = {}
@@ -380,15 +385,10 @@ def kfp_step_function(
             preceding_component_inputs_dict = json.load(file)
             values += list(preceding_component_inputs_dict.values())
 
-    outputs = namedtuple(
-        "StepOpRet", ["foreach_splits"] + list(preceding_component_inputs_dict.keys())
-    )(*values)
-
-        # We replicate what is done in the KFP SDK _container_op.py,
+    # We replicate what is done in the KFP SDK _container_op.py,
     # see: https://github.com/kubeflow/pipelines/blob/master/sdk/python/kfp/dsl/_container_op.py
     # We write outputs to a tmp file, which KFP internally uses to produces the output
     # of the container op.
-    output_files = ["/tmp/outputs/foreach_splits/data"]
     for preceding_component_input in preceding_component_inputs:
         output_files.append(f"/tmp/outputs/{preceding_component_input}/data")
 
@@ -400,7 +400,7 @@ def kfp_step_function(
         except OSError:
             pass
         with open(output_file, "w") as f:
-            f.write(str(outputs[idx]))
+            f.write(str(values[idx]))
 
 
 if __name__ == "__main__":
