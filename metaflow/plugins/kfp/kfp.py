@@ -658,6 +658,18 @@ class KubeflowPipelines(object):
             ).decode("ascii")
         else:
             path_formatter_code_encoded = ""
+        
+        # s3_sensor_command = [
+        #     "bash",
+        #     "-ec",
+        #     self._init_cmd + (
+        #         " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
+        #         + f" --path {path}"
+        #         + f" --timeout_seconds {timeout_seconds}"
+        #         + f" --polling_interval_seconds {polling_interval_seconds}"
+        #         + f" --notify_variables {json.dumps(json.dumps(notify_variables))}"
+        #     )
+        # ]
 
         s3_sensor_op = func_to_container_op(
             wait_for_s3_path,
@@ -1065,6 +1077,6 @@ class KubeflowPipelines(object):
 
         return dsl.ContainerOp(
             name="exit_handler",
-            image="python:3.7",
+            image=self.base_image,
             command=exit_handler_command,
         ).set_display_name("exit_handler")
