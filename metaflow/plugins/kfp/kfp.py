@@ -195,6 +195,8 @@ class KubeflowPipelines(object):
         self.notify_on_success = notify_on_success
         self._client = None
 
+        self._init_cmd = self._get_init_cmd(code_package_url, environment)
+
     def create_run_on_kfp(self, run_name: str, flow_parameters: dict):
         """
         Creates a new run on KFP using the `kfp.Client()`.
@@ -230,7 +232,7 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
-    def _cd_into_metaflow_package_cmd(self) -> str:
+    def _get_cd_into_metaflow_package_cmd(self) -> str:
         if self.s3_code_package:
             cd_cmd = ""
         else:
@@ -260,7 +262,7 @@ class KubeflowPipelines(object):
             task_id_template = task_id
         return task_id_template
 
-    def _init_command(
+    def _get_init_cmd(
         self,
         code_package_url: str,
         environment: MetaflowEnvironment,
@@ -365,8 +367,8 @@ class KubeflowPipelines(object):
             resource_requirements = self._get_resource_requirements(node)
 
             metaflow_bootstrap_vars = MetaflowBootstrapVars(
-                init_cmd=self._init_command(self.code_package_url, self.environment),
-                cd_into_metaflow_package_cmd=self._cd_into_metaflow_package_cmd(),
+                init_cmd=self._get_init_cmd(self.code_package_url, self.environment),
+                cd_into_metaflow_package_cmd=self._get_cd_into_metaflow_package_cmd(),
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
                 environment_type=self.environment.TYPE,
                 flow_name=self.flow.name,
@@ -1049,9 +1051,20 @@ class KubeflowPipelines(object):
         if self.notify_on_success:
             notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
 
-        return exit_handler(
-            flow_name=self.name,
-            status="{{workflow.status}}",
-            kfp_run_id=dsl.RUN_ID_PLACEHOLDER,
-            notify_variables=notify_variables,
-        )
+        exit_handler_command = [
+            "bash",
+            "-ec",
+            self._init_cmd + (
+                " && python -m metaflow.plugins.kfp.kfp_exit_handler"
+                + f" --flow_name {self.name}"
+                + "  --status {{workflow.status}}"
+                + f" --kfp_run_id {dsl.RUN_ID_PLACEHOLDER}"
+                + f" --notify_variables {json.dumps(json.dumps(notify_variables))}"
+            )
+        ]
+
+        return dsl.ContainerOp(
+            name="exit_handler",
+            image="python:3.7",
+            command=exit_handler_command,
+        ).set_display_name("exit_handler")
