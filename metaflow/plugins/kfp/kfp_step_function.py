@@ -203,7 +203,7 @@ def _command(
     cmd_str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f" {cd_into_metaflow_package_cmd} "
+        f"&& {cd_into_metaflow_package_cmd} "
         f"&& {step_expr};"
     )
 

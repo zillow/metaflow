@@ -196,6 +196,15 @@ class KubeflowPipelines(object):
         self._client = None
 
         self._init_cmd = self._get_init_cmd(code_package_url, environment)
+        self._compile_time_bootstrap_cmd = self._get_metaflow_bootstrap_cmd(
+            code_package_url=code_package_url,
+            environment=environment,
+        )
+        self._run_time_bootstrap_cmd = self._get_metaflow_bootstrap_cmd(
+            code_package_url=code_package_url,
+            environment=environment,
+            run_time=True,
+        )
 
     def create_run_on_kfp(self, run_name: str, flow_parameters: dict):
         """
@@ -232,15 +241,6 @@ class KubeflowPipelines(object):
         )
         return os.path.abspath(pipeline_file_path)
 
-    def _get_cd_into_metaflow_package_cmd(self) -> str:
-        if self.s3_code_package:
-            cd_cmd = ""
-        else:
-            cd_cmd = " && cd " + str(
-                Path(inspect.getabsfile(self.flow.__class__)).parent
-            )
-        return cd_cmd
-
     def _get_clean_volume_cmd(self, resource_requirements: Dict[str, str]) -> str:
         if "volume" in resource_requirements:
             volume_dir = resource_requirements["volume_dir"]
@@ -252,7 +252,7 @@ class KubeflowPipelines(object):
             clean_volume_cmd = "true"
         return clean_volume_cmd
 
-    def _get_task_id_template(self, step_name, task_id):
+    def _get_task_id_template(self, step_name, task_id) -> str:
         if self.graph[step_name].is_inside_foreach:
             task_id_template = KfpForEachSplits.get_step_task_id(
                 task_id=task_id,
@@ -262,11 +262,20 @@ class KubeflowPipelines(object):
             task_id_template = task_id
         return task_id_template
 
+    def _get_cd_into_metaflow_package_cmd(self) -> str:
+        if self.s3_code_package:
+            cd_cmd = " true "
+        else:
+            cd_cmd = " cd " + str(
+                Path(inspect.getabsfile(self.flow.__class__)).parent
+            )
+        return cd_cmd
+
     def _get_init_cmd(
         self,
         code_package_url: str,
         environment: MetaflowEnvironment,
-    ):
+    ) -> str:
         if self.s3_code_package:
             init_cmds = environment.get_package_commands(
                 code_package_url, is_kfp_plugin=True
@@ -279,6 +288,24 @@ class KubeflowPipelines(object):
         init_expr = " && ".join(init_cmds)
 
         return init_expr
+
+    def _get_metaflow_bootstrap_cmd(
+        self,
+        code_package_url: str,
+        environment: MetaflowEnvironment,
+        run_time: bool = False, # whether to provide the bootstrap command at compile or run time
+    ) -> str:
+        if self.s3_code_package:
+            if run_time:
+                return " true "
+            else:
+                return " && ".join(environment.get_package_commands(
+                    code_package_url, is_kfp_plugin=True
+                ))
+        else:
+            return " cd " + str(
+                Path(inspect.getabsfile(self.flow.__class__)).parent
+            )
 
     @staticmethod
     def _get_retries(node: DAGNode) -> Tuple[int, int]:
@@ -768,13 +795,16 @@ class KubeflowPipelines(object):
                 command = [
                     "bash",
                     "-ec",
-                    kfp_component.init_cmd + (
+                    # kfp_component.init_cmd + (
+                    self._compile_time_bootstrap_cmd + (
                         " && python -m metaflow.plugins.kfp.kfp_step_function"
-                        f' --cd_into_metaflow_package_cmd "{kfp_component.cd_into_metaflow_package_cmd}"'
+                        f' --cd_into_metaflow_package_cmd "{self._run_time_bootstrap_cmd}"'
                         f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
                         f" --environment_type {kfp_component.environment_type}"
                         f" --flow_name {kfp_component.flow_name}"
                         f" --logger_type {kfp_component.logger_type}"
+                        # double json.dumps() to ensure we have the correct quotation marks
+                        # on the outside of the string to be json loaded
                         f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
                         f" --metaflow_run_id {metaflow_run_id}"
                         f" --monitor_type {kfp_component.monitor_type}"
@@ -946,16 +976,6 @@ class KubeflowPipelines(object):
                     "volume" in s.resource_requirements
                     for s in step_to_kfp_component_map.values()
                 ):
-                    # workflow_uid_op = func_to_container_op(
-                    #     get_workflow_uid,
-                    #     base_image=self.base_image,
-                    # )(
-                    #     workflow_name="{{workflow.name}}",
-                    #     s3_sensor_path=s3_sensor_path,
-                    # ).set_display_name(
-                    #     "get_workflow_uid"
-                    # )
-
                     get_workflow_uid_command = [
                         "bash",
                         "-ec",
@@ -965,7 +985,6 @@ class KubeflowPipelines(object):
                             f" --s3_sensor_path '{s3_sensor_path}'"
                         )
                     ]
-
                     workflow_uid_op = dsl.ContainerOp(
                         name="get_workflow_uid",
                         image=self.base_image,

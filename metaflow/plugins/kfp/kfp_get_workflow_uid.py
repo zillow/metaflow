@@ -6,6 +6,8 @@ import click
 @click.option("--s3_sensor_path")
 def get_workflow_uid(
     workflow_name: str,
+    # see https://zbrt.atl.zillow.net/browse/AIP-5404
+    # for explanation of s3_sensor_path parameter
     s3_sensor_path: str,
 ) -> str:
     """
