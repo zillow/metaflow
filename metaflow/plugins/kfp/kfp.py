@@ -66,8 +66,6 @@ UNSUPPORTED_DECORATORS = (
 
 @dataclass
 class MetaflowBootstrapVars():
-    init_cmd: str
-    cd_into_metaflow_package_cmd: str
     clean_volume_cmd: str
     environment_type: str
     flow_name: str
@@ -94,8 +92,6 @@ class KfpComponent(object):
         environment_decorator: EnvironmentDecorator,
     ):
         self.name = name
-        self.init_cmd = metaflow_bootstrap_vars.init_cmd
-        self.cd_into_metaflow_package_cmd = metaflow_bootstrap_vars.cd_into_metaflow_package_cmd
         self.clean_volume_cmd = metaflow_bootstrap_vars.clean_volume_cmd
         self.task_id = metaflow_bootstrap_vars.task_id
         self.task_id_template = metaflow_bootstrap_vars.task_id_template
@@ -195,7 +191,6 @@ class KubeflowPipelines(object):
         self.notify_on_success = notify_on_success
         self._client = None
 
-        self._init_cmd = self._get_init_cmd(code_package_url, environment)
         self._compile_time_bootstrap_cmd = self._get_metaflow_bootstrap_cmd(
             code_package_url=code_package_url,
             environment=environment,
@@ -261,33 +256,6 @@ class KubeflowPipelines(object):
         else:
             task_id_template = task_id
         return task_id_template
-
-    def _get_cd_into_metaflow_package_cmd(self) -> str:
-        if self.s3_code_package:
-            cd_cmd = " true "
-        else:
-            cd_cmd = " cd " + str(
-                Path(inspect.getabsfile(self.flow.__class__)).parent
-            )
-        return cd_cmd
-
-    def _get_init_cmd(
-        self,
-        code_package_url: str,
-        environment: MetaflowEnvironment,
-    ) -> str:
-        if self.s3_code_package:
-            init_cmds = environment.get_package_commands(
-                code_package_url, is_kfp_plugin=True
-            )
-        else:
-            init_cmds = [
-                "cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
-            ]
-
-        init_expr = " && ".join(init_cmds)
-
-        return init_expr
 
     def _get_metaflow_bootstrap_cmd(
         self,
@@ -394,8 +362,6 @@ class KubeflowPipelines(object):
             resource_requirements = self._get_resource_requirements(node)
 
             metaflow_bootstrap_vars = MetaflowBootstrapVars(
-                init_cmd=self._get_init_cmd(self.code_package_url, self.environment),
-                cd_into_metaflow_package_cmd=self._get_cd_into_metaflow_package_cmd(),
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
                 environment_type=self.environment.TYPE,
                 flow_name=self.flow.name,
@@ -689,7 +655,7 @@ class KubeflowPipelines(object):
         s3_sensor_command = [
             "bash",
             "-ec",
-            self._init_cmd + (
+            self._compile_time_bootstrap_cmd + (
                 " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
                 f" --path {path}"
                 f" --timeout_seconds {timeout_seconds}"
@@ -795,10 +761,9 @@ class KubeflowPipelines(object):
                 command = [
                     "bash",
                     "-ec",
-                    # kfp_component.init_cmd + (
                     self._compile_time_bootstrap_cmd + (
                         " && python -m metaflow.plugins.kfp.kfp_step_function"
-                        f' --cd_into_metaflow_package_cmd "{self._run_time_bootstrap_cmd}"'
+                        f' --metaflow_bootstrap_cmd "{self._run_time_bootstrap_cmd}"'
                         f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
                         f" --environment_type {kfp_component.environment_type}"
                         f" --flow_name {kfp_component.flow_name}"
@@ -979,7 +944,7 @@ class KubeflowPipelines(object):
                     get_workflow_uid_command = [
                         "bash",
                         "-ec",
-                        self._init_cmd + (
+                        self._compile_time_bootstrap_cmd + (
                             " && python -m metaflow.plugins.kfp.kfp_get_workflow_uid"
                             " --workflow_name {{workflow.name}}"
                             f" --s3_sensor_path '{s3_sensor_path}'"
@@ -1099,7 +1064,7 @@ class KubeflowPipelines(object):
         exit_handler_command = [
             "bash",
             "-ec",
-            self._init_cmd + (
+            self._compile_time_bootstrap_cmd + (
                 " && python -m metaflow.plugins.kfp.kfp_exit_handler"
                 f" --flow_name {self.name}"
                 "  --status {{workflow.status}}"

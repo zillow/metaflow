@@ -159,7 +159,7 @@ def _step_cli(
 
 
 def _command(
-    cd_into_metaflow_package_cmd: str,
+    metaflow_bootstrap_cmd: str,
     clean_volume_cmd: str,
     step_cli: List[str],
     task_id_template: str,
@@ -198,12 +198,12 @@ def _command(
     # construct an entry point that
     # 1) Clean attached volume if any
     # 2) Initializes the mflog environment (mflog_expr)
-    # 3) Bootstraps a metaflow environment (cd_into_metaflow_package_cmd)
+    # 3) Bootstraps a metaflow environment (metaflow_bootstrap_cmd)
     # 4) Executes a task (step_expr)
     cmd_str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f"&& {cd_into_metaflow_package_cmd} "
+        f"&& {metaflow_bootstrap_cmd} "
         f"&& {step_expr};"
     )
 
@@ -218,7 +218,7 @@ def _command(
 
 
 @click.command()
-@click.option("--cd_into_metaflow_package_cmd")
+@click.option("--metaflow_bootstrap_cmd")
 @click.option("--clean_volume_cmd")
 @click.option("--environment_type")
 @click.option("--foreach_step/--not_foreach_step", default=False)
@@ -242,7 +242,7 @@ def _command(
 @click.option("--user_code_retries", type=int)
 @click.option("--workflow_name")
 def kfp_step_function(
-    cd_into_metaflow_package_cmd: str,
+    metaflow_bootstrap_cmd: str,
     clean_volume_cmd: str,
     environment_type: str,
     flow_name: str,
@@ -316,7 +316,7 @@ def kfp_step_function(
         field: kwargs[field] for field in preceding_component_outputs
     }
     cmd_template = _command(
-        cd_into_metaflow_package_cmd,
+        metaflow_bootstrap_cmd,
         clean_volume_cmd,
         [step_cli],
         task_id_template,
