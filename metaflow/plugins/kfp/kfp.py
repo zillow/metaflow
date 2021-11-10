@@ -667,7 +667,7 @@ class KubeflowPipelines(object):
                 f" --path {path}"
                 f" --timeout_seconds {timeout_seconds}"
                 f" --polling_interval_seconds {polling_interval_seconds}"
-                f" --path_formatter_code_encoded {path_formatter_code_encoded}"
+                f" --path_formatter_code_encoded '{path_formatter_code_encoded}'"
                 f" --flow_parameters_json '{flow_parameters_json}'"
             )
         ]
@@ -950,7 +950,7 @@ class KubeflowPipelines(object):
                         get_workflow_uid,
                         base_image="gcr.io/cloud-builders/kubectl",
                     )(
-                        work_flow_name="{{workflow.name}}",
+                        workflow_name="{{workflow.name}}",
                         s3_sensor_path=s3_sensor_path,
                     ).set_display_name(
                         "get_workflow_uid"
