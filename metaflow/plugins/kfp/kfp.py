@@ -659,31 +659,28 @@ class KubeflowPipelines(object):
         else:
             path_formatter_code_encoded = ""
         
-        # s3_sensor_command = [
-        #     "bash",
-        #     "-ec",
-        #     self._init_cmd + (
-        #         " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
-        #         + f" --path {path}"
-        #         + f" --timeout_seconds {timeout_seconds}"
-        #         + f" --polling_interval_seconds {polling_interval_seconds}"
-        #         + f" --notify_variables {json.dumps(json.dumps(notify_variables))}"
-        #     )
-        # ]
+        s3_sensor_command = [
+            "bash",
+            "-ec",
+            self._init_cmd + (
+                " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
+                f" --path {path}"
+                f" --timeout_seconds {timeout_seconds}"
+                f" --polling_interval_seconds {polling_interval_seconds}"
+                f" --path_formatter_code_encoded {path_formatter_code_encoded}"
+                f" --flow_parameters_json '{flow_parameters_json}'"
+            )
+        ]
+        if os_expandvars:
+            s3_sensor_command[-1] += " --os_expandvars"
 
-        s3_sensor_op = func_to_container_op(
-            wait_for_s3_path,
-            base_image="hsezhiyan/metaflow-zillow:2.1",
-        )(
-            path=path,
-            timeout_seconds=timeout_seconds,
-            polling_interval_seconds=polling_interval_seconds,
-            path_formatter_code_encoded=path_formatter_code_encoded,
-            flow_parameters_json=flow_parameters_json,
-            os_expandvars=os_expandvars,
-        ).set_display_name(
-            "s3_sensor"
-        )
+        s3_sensor_op = dsl.ContainerOp(
+            name="s3_sensor",
+            image=self.base_image,
+            command=s3_sensor_command,
+            file_outputs={'Output': '/tmp/outputs/Output/data'},
+        ).set_display_name("s3_sensor")
+    
         KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
         return s3_sensor_op
 
@@ -1068,10 +1065,10 @@ class KubeflowPipelines(object):
             "-ec",
             self._init_cmd + (
                 " && python -m metaflow.plugins.kfp.kfp_exit_handler"
-                + f" --flow_name {self.name}"
-                + "  --status {{workflow.status}}"
-                + f" --kfp_run_id {dsl.RUN_ID_PLACEHOLDER}"
-                + f" --notify_variables {json.dumps(json.dumps(notify_variables))}"
+                f" --flow_name {self.name}"
+                "  --status {{workflow.status}}"
+                f" --kfp_run_id {dsl.RUN_ID_PLACEHOLDER}"
+                f" --notify_variables {json.dumps(json.dumps(notify_variables))}"
             )
         ]
 
