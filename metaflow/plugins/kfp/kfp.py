@@ -946,15 +946,32 @@ class KubeflowPipelines(object):
                     "volume" in s.resource_requirements
                     for s in step_to_kfp_component_map.values()
                 ):
-                    workflow_uid_op = func_to_container_op(
-                        get_workflow_uid,
-                        base_image="gcr.io/cloud-builders/kubectl",
-                    )(
-                        workflow_name="{{workflow.name}}",
-                        s3_sensor_path=s3_sensor_path,
-                    ).set_display_name(
-                        "get_workflow_uid"
-                    )
+                    # workflow_uid_op = func_to_container_op(
+                    #     get_workflow_uid,
+                    #     base_image=self.base_image,
+                    # )(
+                    #     workflow_name="{{workflow.name}}",
+                    #     s3_sensor_path=s3_sensor_path,
+                    # ).set_display_name(
+                    #     "get_workflow_uid"
+                    # )
+
+                    get_workflow_uid_command = [
+                        "bash",
+                        "-ec",
+                        self._init_cmd + (
+                            " && python -m metaflow.plugins.kfp.kfp_get_workflow_uid"
+                            " --workflow_name {{workflow.name}}"
+                            f" --s3_sensor_path '{s3_sensor_path}'"
+                        )
+                    ]
+
+                    workflow_uid_op = dsl.ContainerOp(
+                        name="get_workflow_uid",
+                        image=self.base_image,
+                        command=get_workflow_uid_command,
+                        file_outputs={'Output': '/tmp/outputs/Output/data'},
+                    ).set_display_name("get_workflow_uid")
                     KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
                     return workflow_uid_op
                 else:
