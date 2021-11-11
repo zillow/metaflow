@@ -27,6 +27,8 @@ for the integration tests.
 
 
 def identity_formatter(path: str, flow_parameters: dict) -> str:
+    if flow_parameters:
+        path = path.format(date=flow_parameters["date"])
     return path
 
 
@@ -39,7 +41,7 @@ def identity_formatter(path: str, flow_parameters: dict) -> str:
             "sample_prefix/sample_file.txt",
             "s3://sample_bucket/sample_prefix/sample_file.txt",
             "s3://sample_bucket/sample_prefix/sample_file.txt",
-            '{"key": "value"}',
+            '{}',
             False,
         ),
         (
@@ -55,7 +57,7 @@ def identity_formatter(path: str, flow_parameters: dict) -> str:
             "sample_prefix/date=08-03-2022/sample.txt",
             "s3://sample_bucket/sample_prefix/date=$DATE/sample.txt",
             "s3://sample_bucket/sample_prefix/date=08-03-2022/sample.txt",
-            '{"key": "value"}',
+            '{}',
             True,
         ),
     ],
@@ -79,6 +81,8 @@ def test_wait_for_s3_path(
     s3 = boto3.resource("s3", region_name="us-east-1")
     s3.create_bucket(Bucket=upload_bucket)
     s3.meta.client.upload_file(upload_file.name, upload_bucket, upload_key)
+
+    print("os_expandvars! : ", os_expandvars)
 
     path = wait_for_s3_path(
         path=upload_path,
@@ -106,6 +110,6 @@ def test_wait_for_s3_path_timeout_exception():
             timeout_seconds=1,
             polling_interval_seconds=1,
             path_formatter_code_encoded=identity_formatter_code_encoded,
-            flow_parameters_json='{"key": "value"}',
+            flow_parameters_json='{}',
             os_expandvars=False,
         )

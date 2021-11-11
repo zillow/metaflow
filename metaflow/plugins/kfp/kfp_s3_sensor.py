@@ -4,8 +4,11 @@ This function is called within the s3_sensor_op running container.
 (2) It splits the formatted path into an S3 bucket and key 
 (3) It polls for an object with the specified bucket and key until timeout
 """
+from email.policy import default
+import click
 
 
+# We separate out this function to ensure it can be unit-tested.
 def wait_for_s3_path(
     path: str,
     timeout_seconds: int,
@@ -67,4 +70,40 @@ def wait_for_s3_path(
 
         time.sleep(polling_interval_seconds)
 
+    output_file = "/tmp/outputs/Output/data"
+    try:
+        os.makedirs(os.path.dirname(output_file))
+    except OSError:
+        pass
+    with open(output_file, "w") as f:
+        f.write(str(path))
     return path
+
+
+@click.command()
+@click.option("--path")
+@click.option("--timeout_seconds", type=int)
+@click.option("--polling_interval_seconds", type=int)
+@click.option("--path_formatter_code_encoded")
+@click.option("--flow_parameters_json")
+@click.option("--os_expandvars/--no_os_expandvars", default=False)
+def wait_for_s3_path_cli(
+    path: str,
+    timeout_seconds: int,
+    polling_interval_seconds: int,
+    path_formatter_code_encoded: str,
+    flow_parameters_json: str,
+    os_expandvars: bool,
+) -> str:
+    return wait_for_s3_path(
+        path,
+        timeout_seconds,
+        polling_interval_seconds,
+        path_formatter_code_encoded,
+        flow_parameters_json,
+        os_expandvars,
+    )
+
+
+if __name__ == "__main__":
+    wait_for_s3_path_cli()
