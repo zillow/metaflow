@@ -274,6 +274,38 @@ class KubeflowPipelines(object):
             return " cd " + str(
                 Path(inspect.getabsfile(self.flow.__class__)).parent
             )
+    
+    def _generate_metaflow_execution_cmd(
+        self,
+        kfp_component: KfpComponent,
+        metaflow_run_id: str,
+        metaflow_configs: Dict[str, str],
+        passed_in_split_indexes: str,
+        preceding_component_inputs: List[str],
+    ) -> str:
+        return (
+            " && python -m metaflow.plugins.kfp.kfp_step_function"
+            f' --metaflow_bootstrap_cmd "{self._run_time_bootstrap_cmd}"'
+            f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
+            f" --environment_type {kfp_component.environment_type}"
+            f" --flow_name {kfp_component.flow_name}"
+            f" --logger_type {kfp_component.logger_type}"
+            # double json.dumps() to ensure we have the correct quotation marks
+            # on the outside of the string to be json loaded
+            f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
+            f" --metaflow_run_id {metaflow_run_id}"
+            f" --monitor_type {kfp_component.monitor_type}"
+            f' --passed_in_split_indexes "{passed_in_split_indexes}"'
+            f" --preceding_component_inputs {json.dumps(json.dumps(preceding_component_inputs))}"
+            f" --preceding_component_outputs {json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
+            f" --script_name {os.path.basename(sys.argv[0])}"
+            f" --step_name {kfp_component.step_name}"
+            f" --tags {json.dumps(json.dumps(kfp_component.tags))}"
+            f" --task_id {kfp_component.task_id}"
+            f' --task_id_template "{kfp_component.task_id_template}"'
+            f" --user_code_retries {kfp_component.user_code_retries}"
+            " --workflow_name {{workflow.name}}"
+        )
 
     @staticmethod
     def _get_retries(node: DAGNode) -> Tuple[int, int]:
@@ -761,29 +793,7 @@ class KubeflowPipelines(object):
                 command = [
                     "bash",
                     "-ec",
-                    self._compile_time_bootstrap_cmd + (
-                        " && python -m metaflow.plugins.kfp.kfp_step_function"
-                        f' --metaflow_bootstrap_cmd "{self._run_time_bootstrap_cmd}"'
-                        f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
-                        f" --environment_type {kfp_component.environment_type}"
-                        f" --flow_name {kfp_component.flow_name}"
-                        f" --logger_type {kfp_component.logger_type}"
-                        # double json.dumps() to ensure we have the correct quotation marks
-                        # on the outside of the string to be json loaded
-                        f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
-                        f" --metaflow_run_id {metaflow_run_id}"
-                        f" --monitor_type {kfp_component.monitor_type}"
-                        f' --passed_in_split_indexes "{passed_in_split_indexes}"'
-                        f" --preceding_component_inputs {json.dumps(json.dumps(preceding_component_inputs))}"
-                        f" --preceding_component_outputs {json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
-                        f" --script_name {os.path.basename(sys.argv[0])}"
-                        f" --step_name {kfp_component.step_name}"
-                        f" --tags {json.dumps(json.dumps(kfp_component.tags))}"
-                        f" --task_id {kfp_component.task_id}"
-                        f' --task_id_template "{kfp_component.task_id_template}"'
-                        f" --user_code_retries {kfp_component.user_code_retries}"
-                        " --workflow_name {{workflow.name}}"
-                    )
+                    self._compile_time_bootstrap_cmd + self._generate_metaflow_execution_cmd(kfp_component, metaflow_run_id, metaflow_configs, passed_in_split_indexes, preceding_component_inputs)
                 ]
 
                 if node.name == "start":
