@@ -8,13 +8,7 @@ from email.policy import default
 import click
 
 
-@click.command()
-@click.option("--path")
-@click.option("--timeout_seconds", type=int)
-@click.option("--polling_interval_seconds", type=int)
-@click.option("--path_formatter_code_encoded")
-@click.option("--flow_parameters_json")
-@click.option("--os_expandvars/--no_os_expandvars", default=False)
+# We separate out this function to ensure it can be unit-tested.
 def wait_for_s3_path(
     path: str,
     timeout_seconds: int,
@@ -83,7 +77,33 @@ def wait_for_s3_path(
         pass
     with open(output_file, "w") as f:
         f.write(str(path))
+    return parsed_path
+
+
+@click.command()
+@click.option("--path")
+@click.option("--timeout_seconds", type=int)
+@click.option("--polling_interval_seconds", type=int)
+@click.option("--path_formatter_code_encoded")
+@click.option("--flow_parameters_json")
+@click.option("--os_expandvars/--no_os_expandvars", default=False)
+def wait_for_s3_path_cli(
+    path: str,
+    timeout_seconds: int,
+    polling_interval_seconds: int,
+    path_formatter_code_encoded: str,
+    flow_parameters_json: str,
+    os_expandvars: bool,
+) -> str:
+    return wait_for_s3_path(
+        path,
+        timeout_seconds,
+        polling_interval_seconds,
+        path_formatter_code_encoded,
+        flow_parameters_json,
+        os_expandvars,
+    )
 
 
 if __name__ == "__main__":
-    wait_for_s3_path()
+    wait_for_s3_path_cli()

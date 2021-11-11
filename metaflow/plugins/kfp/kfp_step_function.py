@@ -265,7 +265,7 @@ def kfp_step_function(
     task_id_template: str,
     user_code_retries: int,
     workflow_name: str,
-) -> List[str]:
+) -> None:
     """
     Renders and runs the cmd_template containing Metaflow step-init commands to
     run within the container.
@@ -286,7 +286,7 @@ def kfp_step_function(
 
     kwargs = {}
     for arg in preceding_component_outputs_dict.split(","):
-        if arg:
+        if arg: # ensure arg is not an empty string
             key, value = arg.split("=")
             kwargs[key] = value
 
