@@ -82,8 +82,6 @@ def test_wait_for_s3_path(
     s3.create_bucket(Bucket=upload_bucket)
     s3.meta.client.upload_file(upload_file.name, upload_bucket, upload_key)
 
-    print("os_expandvars! : ", os_expandvars)
-
     path = wait_for_s3_path(
         path=upload_path,
         timeout_seconds=1,

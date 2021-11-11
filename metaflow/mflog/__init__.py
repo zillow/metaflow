@@ -75,7 +75,6 @@ def update_delay(secs_since_start):
     sigmoid = 1. / (1. + math.exp(-0.01 * secs_since_start + 9.))
     return MIN_UPDATE_DELAY + sigmoid * MAX_UPDATE_DELAY
 
-
 # this function is used to generate a Bash 'export' expression that
 # sets environment variables that are used by 'tee' and 'save_logs'.
 # Note that we can't set the env vars statically, as some of them
