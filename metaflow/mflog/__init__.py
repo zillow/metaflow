@@ -59,13 +59,11 @@ def bash_capture_logs(bash_expr):
              cmd % (TASK_LOG_SOURCE, '$MFLOG_STDERR'))
     return '(%s) 1>> >(%s) 2>> >(%s >&2)' % parts
 
-
 # update_delay determines how often logs should be uploaded to S3
 # as a function of the task execution time
 
 MIN_UPDATE_DELAY = 1.  # the most frequent update interval
 MAX_UPDATE_DELAY = 30. # the least frequent update interval
-
 
 def update_delay(secs_since_start):
     # this sigmoid function reaches

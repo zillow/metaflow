@@ -96,7 +96,7 @@ class MetaflowEnvironment(object):
         return (
             "%s -c \"import boto3; " % self._python()
             + "exec('try:\\n from urlparse import urlparse\\nexcept:\\n from urllib.parse import "
-             "urlparse'); "
+              "urlparse'); "
             + "parsed = urlparse('%s'); " % s3_path
             + "%s\"" % copy_command
         )

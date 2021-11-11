@@ -285,13 +285,13 @@ class KubeflowPipelines(object):
     ) -> str:
         return (
             " && python -m metaflow.plugins.kfp.kfp_step_function"
-            f' --metaflow_bootstrap_cmd "{self._run_time_bootstrap_cmd}"'
             f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
             f" --environment_type {kfp_component.environment_type}"
             f" --flow_name {kfp_component.flow_name}"
             f" --logger_type {kfp_component.logger_type}"
             # double json.dumps() to ensure we have the correct quotation marks
             # on the outside of the string to be json loaded
+            f' --metaflow_bootstrap_cmd "{self._run_time_bootstrap_cmd}"'
             f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
             f" --metaflow_run_id {metaflow_run_id}"
             f" --monitor_type {kfp_component.monitor_type}"
@@ -691,11 +691,11 @@ class KubeflowPipelines(object):
             self._compile_time_bootstrap_cmd
             + (
                 " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
-                f" --path {path}"
-                f" --timeout_seconds {timeout_seconds}"
-                f" --polling_interval_seconds {polling_interval_seconds}"
-                f" --path_formatter_code_encoded '{path_formatter_code_encoded}'"
                 f" --flow_parameters_json '{flow_parameters_json}'"
+                f" --path {path}"
+                f" --path_formatter_code_encoded '{path_formatter_code_encoded}'"
+                f" --polling_interval_seconds {polling_interval_seconds}"
+                f" --timeout_seconds {timeout_seconds}"
             ),
         ]
         if os_expandvars:
@@ -966,8 +966,8 @@ class KubeflowPipelines(object):
                         self._compile_time_bootstrap_cmd
                         + (
                             " && python -m metaflow.plugins.kfp.kfp_get_workflow_uid"
-                            " --workflow_name {{workflow.name}}"
                             f" --s3_sensor_path '{s3_sensor_path}'"
+                            " --workflow_name {{workflow.name}}"
                         ),
                     ]
                     workflow_uid_op = dsl.ContainerOp(
@@ -1088,9 +1088,9 @@ class KubeflowPipelines(object):
             + (
                 " && python -m metaflow.plugins.kfp.kfp_exit_handler"
                 f" --flow_name {self.name}"
-                "  --status {{workflow.status}}"
                 f" --kfp_run_id {dsl.RUN_ID_PLACEHOLDER}"
                 f" --notify_variables {json.dumps(json.dumps(notify_variables))}"
+                "  --status {{workflow.status}}"
             ),
         ]
 
