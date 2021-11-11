@@ -246,7 +246,7 @@ def kfp_step_function(
     clean_volume_cmd: str,
     environment_type: str,
     flow_name: str,
-    flow_parameters_json: str, # json formatted string
+    flow_parameters_json: str,  # json formatted string
     foreach_step: bool,
     logger_type: str,
     metaflow_configs: str,
@@ -256,8 +256,10 @@ def kfp_step_function(
     need_split_index: bool,
     passed_in_split_indexes: str,  # only if is_inside_foreach
     preceding_component_inputs: List[str],  # fields to return from Flow state to KFP
-    preceding_component_outputs: List[str], # fields to be pushed into Flow state from KFP
-    preceding_component_outputs_dict: str, # json string
+    preceding_component_outputs: List[
+        str
+    ],  # fields to be pushed into Flow state from KFP
+    preceding_component_outputs_dict: str,  # json string
     script_name: str,
     step_name: str,
     tags: List[str],
@@ -286,7 +288,7 @@ def kfp_step_function(
 
     kwargs = {}
     for arg in preceding_component_outputs_dict.split(","):
-        if arg: # ensure arg is not an empty string
+        if arg:  # ensure arg is not an empty string
             key, value = arg.split("=")
             kwargs[key] = value
 

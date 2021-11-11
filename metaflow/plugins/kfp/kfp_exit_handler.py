@@ -1,5 +1,6 @@
 import click
 
+
 @click.command()
 @click.option("--flow_name")
 @click.option("--status")
@@ -84,6 +85,7 @@ def exit_handler(
         email_notify(notify_on_success)
     else:
         print("No notification is necessary!")
+
 
 if __name__ == "__main__":
     exit_handler()

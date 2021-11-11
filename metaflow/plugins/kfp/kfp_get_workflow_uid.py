@@ -39,7 +39,7 @@ def get_workflow_uid(
 
     uid = workflow["metadata"]["uid"]
     print("uid=", uid)
-    
+
     output_file = "/tmp/outputs/Output/data"
     try:
         os.makedirs(os.path.dirname(output_file))
@@ -47,6 +47,7 @@ def get_workflow_uid(
         pass
     with open(output_file, "w") as f:
         f.write(str(uid))
+
 
 if __name__ == "__main__":
     get_workflow_uid()

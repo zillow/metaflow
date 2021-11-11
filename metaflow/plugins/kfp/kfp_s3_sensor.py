@@ -77,7 +77,7 @@ def wait_for_s3_path(
         pass
     with open(output_file, "w") as f:
         f.write(str(path))
-    return parsed_path
+    return path
 
 
 @click.command()

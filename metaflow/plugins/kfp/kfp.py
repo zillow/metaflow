@@ -65,7 +65,7 @@ UNSUPPORTED_DECORATORS = (
 
 
 @dataclass
-class MetaflowBootstrapVars():
+class MetaflowBootstrapVars:
     clean_volume_cmd: str
     environment_type: str
     flow_name: str
@@ -261,20 +261,20 @@ class KubeflowPipelines(object):
         self,
         code_package_url: str,
         environment: MetaflowEnvironment,
-        run_time: bool = False, # whether to provide the bootstrap command at compile or run time
+        run_time: bool = False,  # whether to provide the bootstrap command at compile or run time
     ) -> str:
         if self.s3_code_package:
             if run_time:
                 return " true "
             else:
-                return " && ".join(environment.get_package_commands(
-                    code_package_url, is_kfp_plugin=True
-                ))
+                return " && ".join(
+                    environment.get_package_commands(
+                        code_package_url, is_kfp_plugin=True
+                    )
+                )
         else:
-            return " cd " + str(
-                Path(inspect.getabsfile(self.flow.__class__)).parent
-            )
-    
+            return " cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
+
     def _generate_metaflow_execution_cmd(
         self,
         kfp_component: KfpComponent,
@@ -401,7 +401,8 @@ class KubeflowPipelines(object):
                 monitor_type=self.monitor.monitor_type,
                 namespace=self.namespace,
                 need_split_index=(
-                    True if any(self.graph[n].type == "foreach" for n in node.in_funcs)
+                    True
+                    if any(self.graph[n].type == "foreach" for n in node.in_funcs)
                     else False
                 ),
                 step_name=node.name,
@@ -683,18 +684,19 @@ class KubeflowPipelines(object):
             ).decode("ascii")
         else:
             path_formatter_code_encoded = ""
-        
+
         s3_sensor_command = [
             "bash",
             "-ec",
-            self._compile_time_bootstrap_cmd + (
+            self._compile_time_bootstrap_cmd
+            + (
                 " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
                 f" --path {path}"
                 f" --timeout_seconds {timeout_seconds}"
                 f" --polling_interval_seconds {polling_interval_seconds}"
                 f" --path_formatter_code_encoded '{path_formatter_code_encoded}'"
                 f" --flow_parameters_json '{flow_parameters_json}'"
-            )
+            ),
         ]
         if os_expandvars:
             s3_sensor_command[-1] += " --os_expandvars"
@@ -703,9 +705,9 @@ class KubeflowPipelines(object):
             name="s3_sensor",
             image=self.base_image,
             command=s3_sensor_command,
-            file_outputs={'Output': '/tmp/outputs/Output/data'},
+            file_outputs={"Output": "/tmp/outputs/Output/data"},
         ).set_display_name("s3_sensor")
-    
+
         KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
         return s3_sensor_op
 
@@ -793,7 +795,14 @@ class KubeflowPipelines(object):
                 command = [
                     "bash",
                     "-ec",
-                    self._compile_time_bootstrap_cmd + self._generate_metaflow_execution_cmd(kfp_component, metaflow_run_id, metaflow_configs, passed_in_split_indexes, preceding_component_inputs)
+                    self._compile_time_bootstrap_cmd
+                    + self._generate_metaflow_execution_cmd(
+                        kfp_component,
+                        metaflow_run_id,
+                        metaflow_configs,
+                        passed_in_split_indexes,
+                        preceding_component_inputs,
+                    ),
                 ]
 
                 if node.name == "start":
@@ -954,17 +963,18 @@ class KubeflowPipelines(object):
                     get_workflow_uid_command = [
                         "bash",
                         "-ec",
-                        self._compile_time_bootstrap_cmd + (
+                        self._compile_time_bootstrap_cmd
+                        + (
                             " && python -m metaflow.plugins.kfp.kfp_get_workflow_uid"
                             " --workflow_name {{workflow.name}}"
                             f" --s3_sensor_path '{s3_sensor_path}'"
-                        )
+                        ),
                     ]
                     workflow_uid_op = dsl.ContainerOp(
                         name="get_workflow_uid",
                         image=self.base_image,
                         command=get_workflow_uid_command,
-                        file_outputs={'Output': '/tmp/outputs/Output/data'},
+                        file_outputs={"Output": "/tmp/outputs/Output/data"},
                     ).set_display_name("get_workflow_uid")
                     KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
                     return workflow_uid_op
@@ -1074,13 +1084,14 @@ class KubeflowPipelines(object):
         exit_handler_command = [
             "bash",
             "-ec",
-            self._compile_time_bootstrap_cmd + (
+            self._compile_time_bootstrap_cmd
+            + (
                 " && python -m metaflow.plugins.kfp.kfp_exit_handler"
                 f" --flow_name {self.name}"
                 "  --status {{workflow.status}}"
                 f" --kfp_run_id {dsl.RUN_ID_PLACEHOLDER}"
                 f" --notify_variables {json.dumps(json.dumps(notify_variables))}"
-            )
+            ),
         ]
 
         return dsl.ContainerOp(
