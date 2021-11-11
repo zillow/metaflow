@@ -267,14 +267,21 @@ class KubeflowPipelines(object):
             if run_time:
                 return " true "
             else:
-                return " && ".join(
+                cmd = [
+                    "mkdir -p /opt/metaflow_volume/metaflow_logs",
+                    "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
+                ]
+                cmd.extend(
                     environment.get_package_commands(
                         code_package_url, is_kfp_plugin=True
                     )
                 )
+                return " && ".join(cmd)
         else:
             return " cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
 
+    # TODO (hariharans): https://zbrt.atl.zillow.net/browse/AIP-5406
+    # (Title: Clean up output formatting of workflow and pod specs in container op)
     def _generate_metaflow_execution_cmd(
         self,
         kfp_component: KfpComponent,

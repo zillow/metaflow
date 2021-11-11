@@ -32,17 +32,23 @@ def identity_formatter(path: str, flow_parameters: dict) -> str:
     return path
 
 
+identity_formatter_code_encoded = base64.b64encode(
+    marshal.dumps(identity_formatter.__code__)
+).decode("ascii")
+
+
 @mock_s3
 @pytest.mark.parametrize(
-    "upload_bucket, upload_key, upload_path, processed_path, flow_parameters_json, os_expandvars",
+    "upload_bucket, upload_key, upload_path, processed_path, flow_parameters_json, os_expandvars, formatter_encoded",
     [
         (
             "sample_bucket",
             "sample_prefix/sample_file.txt",
             "s3://sample_bucket/sample_prefix/sample_file.txt",
             "s3://sample_bucket/sample_prefix/sample_file.txt",
-            '{}',
+            "{}",
             False,
+            identity_formatter_code_encoded,
         ),
         (
             "sample_bucket",
@@ -51,14 +57,16 @@ def identity_formatter(path: str, flow_parameters: dict) -> str:
             "s3://sample_bucket/sample_prefix/date=07-02-2021/sample.txt",
             '{"date": "07-02-2021"}',
             False,
+            identity_formatter_code_encoded,
         ),
         (
             "sample_bucket",
             "sample_prefix/date=08-03-2022/sample.txt",
             "s3://sample_bucket/sample_prefix/date=$DATE/sample.txt",
             "s3://sample_bucket/sample_prefix/date=08-03-2022/sample.txt",
-            '{}',
+            "{}",
             True,
+            "",
         ),
     ],
 )
@@ -69,12 +77,9 @@ def test_wait_for_s3_path(
     processed_path: str,
     flow_parameters_json: str,
     os_expandvars: bool,
+    formatter_encoded: str,
 ):
     os.environ["DATE"] = "08-03-2022"
-
-    identity_formatter_code_encoded = base64.b64encode(
-        marshal.dumps(identity_formatter.__code__)
-    ).decode("ascii")
 
     upload_file = tempfile.NamedTemporaryFile()
 
@@ -86,7 +91,7 @@ def test_wait_for_s3_path(
         path=upload_path,
         timeout_seconds=1,
         polling_interval_seconds=1,
-        path_formatter_code_encoded=identity_formatter_code_encoded,
+        path_formatter_code_encoded=formatter_encoded,
         flow_parameters_json=flow_parameters_json,
         os_expandvars=os_expandvars,
     )
@@ -108,6 +113,6 @@ def test_wait_for_s3_path_timeout_exception():
             timeout_seconds=1,
             polling_interval_seconds=1,
             path_formatter_code_encoded=identity_formatter_code_encoded,
-            flow_parameters_json='{}',
+            flow_parameters_json="{}",
             os_expandvars=False,
         )
