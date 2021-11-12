@@ -26,10 +26,18 @@ for the integration tests.
 """
 
 
-def identity_formatter(path: str, flow_parameters: dict) -> str:
-    if flow_parameters:
-        path = path.format(date=flow_parameters["date"])
+def data_formatter(path: str, flow_parameters: dict) -> str:
+    path = path.format(date=flow_parameters["date"])
     return path
+
+
+def identity_formatter(path: str, flow_parameters: dict) -> str:
+    return path
+
+
+date_formatter_code_encoded = base64.b64encode(
+    marshal.dumps(data_formatter.__code__)
+).decode("ascii")
 
 
 identity_formatter_code_encoded = base64.b64encode(
@@ -46,7 +54,7 @@ identity_formatter_code_encoded = base64.b64encode(
             "sample_prefix/sample_file.txt",
             "s3://sample_bucket/sample_prefix/sample_file.txt",
             "s3://sample_bucket/sample_prefix/sample_file.txt",
-            "{}",
+            '{"date": "07-02-2021"}',
             False,
             identity_formatter_code_encoded,
         ),
@@ -57,7 +65,7 @@ identity_formatter_code_encoded = base64.b64encode(
             "s3://sample_bucket/sample_prefix/date=07-02-2021/sample.txt",
             '{"date": "07-02-2021"}',
             False,
-            identity_formatter_code_encoded,
+            date_formatter_code_encoded,
         ),
         (
             "sample_bucket",
@@ -66,7 +74,7 @@ identity_formatter_code_encoded = base64.b64encode(
             "s3://sample_bucket/sample_prefix/date=08-03-2022/sample.txt",
             "{}",
             True,
-            "",
+            None,  # os_expandvars is only used when no formatter is passed
         ),
     ],
 )
@@ -103,10 +111,6 @@ def test_wait_for_s3_path(
 # looks for a nonexistent S3 path. This ensures we don't have an idle
 # pod using up resources continuously.
 def test_wait_for_s3_path_timeout_exception():
-    identity_formatter_code_encoded = base64.b64encode(
-        marshal.dumps(identity_formatter.__code__)
-    ).decode("ascii")
-
     with pytest.raises(TimeoutError):
         wait_for_s3_path(
             path="s3://sample_bucket/sample_prefix/sample_key",

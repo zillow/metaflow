@@ -7,6 +7,8 @@ This function is called within the s3_sensor_op running container.
 from email.policy import default
 import click
 
+import pathlib
+
 
 # We separate out this function to ensure it can be unit-tested.
 def wait_for_s3_path(
@@ -70,11 +72,9 @@ def wait_for_s3_path(
 
         time.sleep(polling_interval_seconds)
 
+    output_path = "/tmp/outputs/Output"
     output_file = "/tmp/outputs/Output/data"
-    try:
-        os.makedirs(os.path.dirname(output_file))
-    except OSError:
-        pass
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
     with open(output_file, "w") as f:
         f.write(str(path))
     return path

@@ -42,6 +42,7 @@ from metaflow.metaflow_config import (
     KFP_USER_DOMAIN,
     from_conf,
 )
+from metaflow.mflog import BASH_MFLOG_KFP, BASH_MFLOG
 from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from .accelerator_decorator import AcceleratorDecorator
@@ -268,14 +269,13 @@ class KubeflowPipelines(object):
                 return " true "
             else:
                 cmd = [
+                    BASH_MFLOG_KFP,
                     "mkdir -p /opt/metaflow_volume/metaflow_logs",
                     "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
                 ]
-                cmd.extend(
-                    environment.get_package_commands(
-                        code_package_url, is_kfp_plugin=True
-                    )
-                )
+                cmd.extend(environment.get_package_commands(code_package_url))
+                # KFP: "Task is starting." is made after bootstrapping instead
+                cmd.append("mflog 'Task is starting.'")
                 return " && ".join(cmd)
         else:
             return " cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)

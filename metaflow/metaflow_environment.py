@@ -6,7 +6,6 @@ from .metaflow_config import from_conf
 from .util import get_username, to_unicode
 from . import metaflow_version
 from metaflow.exception import MetaflowException
-from metaflow.mflog import BASH_MFLOG, BASH_MFLOG_KFP, BASH_SAVE_LOGS
 from . import R
 
 version_cache = None
@@ -104,11 +103,8 @@ class MetaflowEnvironment(object):
     def get_package_commands(
             self,
             code_package_url,
-            is_kfp_plugin=False,
     ):
-        mflog_bash_cmd = BASH_MFLOG if not is_kfp_plugin else BASH_MFLOG_KFP
-        cmds = [mflog_bash_cmd,
-                "mflog \'Setting up task environment.\'",
+        cmds = ["mflog \'Setting up task environment.\'",
                 "%s -m pip install click requests boto3 -qqq" % self._python(),
                 "mkdir metaflow",
                 "cd metaflow",
@@ -124,8 +120,6 @@ class MetaflowEnvironment(object):
                     "after 6 tries. Exiting...\' && exit 1; "
                 "fi" % code_package_url,
                 "tar xf job.tar",
-                # KFP: "Task is starting." is made after bootstrapping instead
-                "mflog \'Task is starting.\'" if not is_kfp_plugin else "true",
                 ]
         return cmds
 

@@ -1,5 +1,7 @@
 import click
 
+import pathlib
+import os
 from typing import List
 
 from ... import R
@@ -364,7 +366,7 @@ def kfp_step_function(
         logging.info("----")
         raise Exception("Returned: %s" % process.returncode)
 
-    values, output_files = [], []
+    values, output_paths = [], []
     if foreach_step:
         task_context_dict = {}
         # File written by kfp_decorator.py:task_finished
@@ -377,7 +379,7 @@ def kfp_step_function(
         # as string and we get the following error:
         #   withParam value could not be parsed as a JSON list: ['0', '1']
         values.append(json.dumps(task_context_dict.get("foreach_splits", [])))
-        output_files.append("/tmp/outputs/foreach_splits/data")
+        output_paths.append("/tmp/outputs/foreach_splits")
 
     # read fields to return from Flow state to KFP
     preceding_component_inputs_dict = {}
@@ -392,15 +394,13 @@ def kfp_step_function(
     # We write outputs to a tmp file, which KFP internally uses to produces the output
     # of the container op.
     for preceding_component_input in preceding_component_inputs:
-        output_files.append(f"/tmp/outputs/{preceding_component_input}/data")
+        output_paths.append(f"/tmp/outputs/{preceding_component_input}")
 
     # Write all the outputs of the kfp_step_function into the appropriate
     # output files which KFP uses to produce outputs for the container op.
-    for idx, output_file in enumerate(output_files):
-        try:
-            os.makedirs(os.path.dirname(output_file))
-        except OSError:
-            pass
+    for idx, output_path in enumerate(output_paths):
+        output_file = os.path.join(output_path, "data")
+        pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
         with open(output_file, "w") as f:
             f.write(str(values[idx]))
 
