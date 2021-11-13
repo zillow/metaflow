@@ -1,6 +1,9 @@
 import click
 
 
+from typing import Dict
+
+
 @click.command()
 @click.option("--flow_name")
 @click.option("--status")
@@ -27,7 +30,7 @@ def exit_handler(
     import json
     import os
 
-    notify_variables = json.loads(notify_variables)
+    notify_variables: Dict[str, str] = json.loads(notify_variables)
 
     def get_env(name, default=None) -> str:
         return notify_variables.get(name, os.environ.get(name, default=default))

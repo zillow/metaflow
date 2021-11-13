@@ -31,15 +31,10 @@ def get_workflow_uid(
     workflow_api: ResourceInstance = dynamic_client.resources.get(
         api_version="argoproj.io/v1alpha1", kind="Workflow"
     )
-    if namespace:
-        workflow = workflow_api.get(
-            name=workflow_name,
-            namespace=namespace,
-        )
-    else:
-        workflow = workflow_api.get(
-            name=workflow_name,
-        )
+    workflow: ResourceInstance = workflow_api.get(
+        name=workflow_name,
+        namespace=namespace,
+    )
 
     uid = workflow["metadata"]["uid"]
     print("uid=", uid)

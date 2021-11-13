@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union, Any
 
 from dataclasses import dataclass
+from typing_extensions import runtime
 
 import kfp
 from kfp import dsl
@@ -67,54 +68,48 @@ UNSUPPORTED_DECORATORS = (
 
 @dataclass
 class MetaflowBootstrapVars:
-    clean_volume_cmd: str
     environment_type: str
     flow_name: str
     logger_type: str
     monitor_type: str
     namespace: str
-    need_split_index: bool
-    step_name: str
     tags: List[str]
-    task_id: str
-    task_id_template: str
-    user_code_retries: int
+    compile_time_bootstrap_cmd: str
+    run_time_bootstrap_cmd: str
 
 
 class KfpComponent(object):
     def __init__(
         self,
-        name: str,
-        metaflow_bootstrap_vars: MetaflowBootstrapVars,
+        step_name: str,
+        clean_volume_cmd: str,
+        need_split_index: str,
+        task_id: str,
+        task_id_template: str,
+        user_code_retries: str,
         total_retries: int,
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
         environment_decorator: EnvironmentDecorator,
     ):
-        self.name = name
-        self.clean_volume_cmd = metaflow_bootstrap_vars.clean_volume_cmd
-        self.task_id = metaflow_bootstrap_vars.task_id
-        self.task_id_template = metaflow_bootstrap_vars.task_id_template
-        self.step_name = metaflow_bootstrap_vars.step_name
-        self.flow_name = metaflow_bootstrap_vars.flow_name
+        self.step_name = step_name
+        self.clean_volume_cmd = clean_volume_cmd
+        self.need_split_index = need_split_index
+        self.task_id = task_id
+        self.task_id_template = task_id_template
+        self.user_code_retries = user_code_retries
         self.total_retries = total_retries
-        self.namespace = metaflow_bootstrap_vars.namespace
-        self.tags = metaflow_bootstrap_vars.tags
-        self.need_split_index = metaflow_bootstrap_vars.need_split_index
-        self.environment_type = metaflow_bootstrap_vars.environment_type
-        self.logger_type = metaflow_bootstrap_vars.logger_type
-        self.monitor_type = metaflow_bootstrap_vars.monitor_type
-        self.user_code_retries = metaflow_bootstrap_vars.user_code_retries
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
+        self.accelerator_decorator = accelerator_decorator
+        self.environment_decorator = environment_decorator
+
         self.preceding_kfp_func: Callable = (
             kfp_decorator.attributes.get("preceding_component", None)
             if kfp_decorator
             else None
         )
-        self.accelerator_decorator = accelerator_decorator
-        self.environment_decorator = environment_decorator
 
         def bindings(binding_name: str) -> List[str]:
             if kfp_decorator:
@@ -192,16 +187,6 @@ class KubeflowPipelines(object):
         self.notify_on_success = notify_on_success
         self._client = None
 
-        self._compile_time_bootstrap_cmd = self._get_metaflow_bootstrap_cmd(
-            code_package_url=code_package_url,
-            environment=environment,
-        )
-        self._run_time_bootstrap_cmd = self._get_metaflow_bootstrap_cmd(
-            code_package_url=code_package_url,
-            environment=environment,
-            run_time=True,
-        )
-
     def create_run_on_kfp(self, run_name: str, flow_parameters: dict):
         """
         Creates a new run on KFP using the `kfp.Client()`.
@@ -274,8 +259,6 @@ class KubeflowPipelines(object):
                     "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
                 ]
                 cmd.extend(environment.get_package_commands(code_package_url))
-                # KFP: "Task is starting." is made after bootstrapping instead
-                cmd.append("mflog 'Task is starting.'")
                 return " && ".join(cmd)
         else:
             return " cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
@@ -285,6 +268,7 @@ class KubeflowPipelines(object):
     def _generate_metaflow_execution_cmd(
         self,
         kfp_component: KfpComponent,
+        metaflow_bootstrap_vars: MetaflowBootstrapVars,
         metaflow_run_id: str,
         metaflow_configs: Dict[str, str],
         passed_in_split_indexes: str,
@@ -293,21 +277,21 @@ class KubeflowPipelines(object):
         return (
             " && python -m metaflow.plugins.kfp.kfp_step_function"
             f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
-            f" --environment_type {kfp_component.environment_type}"
-            f" --flow_name {kfp_component.flow_name}"
-            f" --logger_type {kfp_component.logger_type}"
+            f" --environment_type {metaflow_bootstrap_vars.environment_type}"
+            f" --flow_name {metaflow_bootstrap_vars.flow_name}"
+            f" --logger_type {metaflow_bootstrap_vars.logger_type}"
             # double json.dumps() to ensure we have the correct quotation marks
             # on the outside of the string to be json loaded
-            f' --metaflow_bootstrap_cmd "{self._run_time_bootstrap_cmd}"'
+            f' --metaflow_bootstrap_cmd "{metaflow_bootstrap_vars.run_time_bootstrap_cmd}"'
             f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
             f" --metaflow_run_id {metaflow_run_id}"
-            f" --monitor_type {kfp_component.monitor_type}"
+            f" --monitor_type {metaflow_bootstrap_vars.monitor_type}"
             f' --passed_in_split_indexes "{passed_in_split_indexes}"'
             f" --preceding_component_inputs {json.dumps(json.dumps(preceding_component_inputs))}"
             f" --preceding_component_outputs {json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
             f" --script_name {os.path.basename(sys.argv[0])}"
             f" --step_name {kfp_component.step_name}"
-            f" --tags {json.dumps(json.dumps(kfp_component.tags))}"
+            f" --tags {json.dumps(json.dumps(metaflow_bootstrap_vars.tags))}"
             f" --task_id {kfp_component.task_id}"
             f' --task_id_template "{kfp_component.task_id_template}"'
             f" --user_code_retries {kfp_component.user_code_retries}"
@@ -378,6 +362,26 @@ class KubeflowPipelines(object):
 
         return resource_requirements
 
+    def create_metaflow_bootstrap_vars(self) -> MetaflowBootstrapVars:
+        metaflow_bootstrap_vars = MetaflowBootstrapVars(
+            environment_type=self.environment.TYPE,
+            flow_name=self.flow.name,
+            logger_type=self.event_logger.logger_type,
+            monitor_type=self.monitor.monitor_type,
+            namespace=self.namespace,
+            tags=list(self.tags),
+            compile_time_bootstrap_cmd=self._get_metaflow_bootstrap_cmd(
+                code_package_url=self.code_package_url,
+                environment=self.environment,
+            ),
+            run_time_bootstrap_cmd=self._get_metaflow_bootstrap_cmd(
+                code_package_url=self.code_package_url,
+                environment=self.environment,
+                run_time=True,
+            ),
+        )
+        return metaflow_bootstrap_vars
+
     def create_kfp_components_from_graph(self) -> Dict[str, KfpComponent]:
         """
         Returns a map of steps to their corresponding KfpComponent.
@@ -400,29 +404,16 @@ class KubeflowPipelines(object):
 
             resource_requirements = self._get_resource_requirements(node)
 
-            metaflow_bootstrap_vars = MetaflowBootstrapVars(
+            return KfpComponent(
                 clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
-                environment_type=self.environment.TYPE,
-                flow_name=self.flow.name,
-                logger_type=self.event_logger.logger_type,
-                monitor_type=self.monitor.monitor_type,
-                namespace=self.namespace,
-                need_split_index=(
-                    True
-                    if any(self.graph[n].type == "foreach" for n in node.in_funcs)
-                    else False
-                ),
                 step_name=node.name,
-                tags=list(self.tags),
+                need_split_index=True
+                if any(self.graph[n].type == "foreach" for n in node.in_funcs)
+                else False,
                 task_id=task_id,
                 task_id_template=self._get_task_id_template(node.name, task_id),
-                user_code_retries=user_code_retries,
-            )
-
-            return KfpComponent(
-                name=node.name,
-                metaflow_bootstrap_vars=metaflow_bootstrap_vars,
                 total_retries=total_retries,
+                user_code_retries=user_code_retries,
                 resource_requirements=resource_requirements,
                 kfp_decorator=next(
                     (
@@ -540,10 +531,10 @@ class KubeflowPipelines(object):
 
             if mode == "ReadWriteMany":
                 # ReadWriteMany shared volumes are created way before
-                container_op.add_pvolumes(shared_volumes[kfp_component.name])
+                container_op.add_pvolumes(shared_volumes[kfp_component.step_name])
             else:
                 volume = KubeflowPipelines._create_volume(
-                    step_name=kfp_component.name,
+                    step_name=kfp_component.step_name,
                     size=resource_requirements["volume"],
                     workflow_uid=workflow_uid,
                     mode=mode,
@@ -669,55 +660,6 @@ class KubeflowPipelines(object):
                 "tags.ledger.zgtools.net/ai-experiment-name", self.experiment
             )
 
-    def _create_s3_sensor_op(
-        self, s3_sensor_deco: FlowDecorator, flow_parameters_json: str
-    ) -> ContainerOp:
-        path = s3_sensor_deco.path
-        timeout_seconds = s3_sensor_deco.timeout_seconds
-        polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
-        path_formatter = s3_sensor_deco.path_formatter
-        os_expandvars = s3_sensor_deco.os_expandvars
-
-        # see https://github.com/kubeflow/pipelines/pull/1946/files
-        # KFP does not support the serialization of Python functions directly. The KFP team took
-        # the approach of using base64 encoding + pickle. Pickle didn't quite work out
-        # in this case because pickling a function directly stores references to the function's path,
-        # which couldn't be resolved when the path_formatter function was unpickled within the running
-        # container. Instead, we took the approach of marshalling just the code of the path_formatter
-        # function, and reconstructing the function within the kf_s3_sensor.py code.
-        if path_formatter:
-            path_formatter_code_encoded = base64.b64encode(
-                marshal.dumps(path_formatter.__code__)
-            ).decode("ascii")
-        else:
-            path_formatter_code_encoded = ""
-
-        s3_sensor_command = [
-            "bash",
-            "-ec",
-            self._compile_time_bootstrap_cmd
-            + (
-                " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
-                f" --flow_parameters_json '{flow_parameters_json}'"
-                f" --path {path}"
-                f" --path_formatter_code_encoded '{path_formatter_code_encoded}'"
-                f" --polling_interval_seconds {polling_interval_seconds}"
-                f" --timeout_seconds {timeout_seconds}"
-            ),
-        ]
-        if os_expandvars:
-            s3_sensor_command[-1] += " --os_expandvars"
-
-        s3_sensor_op = dsl.ContainerOp(
-            name="s3_sensor",
-            image=self.base_image,
-            command=s3_sensor_command,
-            file_outputs={"Output": "/tmp/outputs/Output/data"},
-        ).set_display_name("s3_sensor")
-
-        KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
-        return s3_sensor_op
-
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
         """
         Returns a KFP DSL Pipeline function by walking the Metaflow Graph
@@ -726,6 +668,7 @@ class KubeflowPipelines(object):
         step_to_kfp_component_map: Dict[
             str, KfpComponent
         ] = self.create_kfp_components_from_graph()
+        metaflow_bootstrap_vars = self.create_metaflow_bootstrap_vars()
 
         def pipeline_transform(op: ContainerOp):
             # Disable caching because Metaflow doesn't have memoization
@@ -799,60 +742,17 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
 
-                command = [
-                    "bash",
-                    "-ec",
-                    self._compile_time_bootstrap_cmd
-                    + self._generate_metaflow_execution_cmd(
-                        kfp_component,
-                        metaflow_run_id,
-                        metaflow_configs,
-                        passed_in_split_indexes,
-                        preceding_component_inputs,
-                    ),
-                ]
-
-                if node.name == "start":
-                    command[-1] += f" --flow_parameters_json='{flow_parameters_json}'"
-                if node.type == "foreach":
-                    command[-1] += f" --foreach_step"
-                if kfp_component.namespace:
-                    command[-1] += f" --namespace {kfp_component.namespace}"
-                if kfp_component.need_split_index:
-                    command[-1] += " --need_split_index"
-                command[-1] += ' --preceding_component_outputs_dict "'
-                for key in preceding_component_outputs_dict:
-                    command[-1] += f"{key}={preceding_component_outputs_dict[key]},"
-                command[-1] += '"'
-
-                if (
-                    kfp_component.kfp_decorator
-                    and kfp_component.kfp_decorator.attributes["image"]
-                ):
-                    step_image = kfp_component.kfp_decorator.attributes["image"]
-                else:
-                    step_image = self.base_image
-
-                artifact_argument_paths = (
-                    None if node.name == "start" else {"flow_parameters_json": "None"}
+                container_op = self._create_container_op(
+                    node,
+                    kfp_component,
+                    metaflow_bootstrap_vars,
+                    metaflow_configs,
+                    metaflow_run_id,
+                    flow_parameters_json,
+                    passed_in_split_indexes,
+                    preceding_component_inputs,
+                    preceding_component_outputs_dict,
                 )
-
-                file_outputs = {}
-                if node.type == "foreach":
-                    file_outputs["foreach_splits"] = "/tmp/outputs/foreach_splits/data"
-                for preceding_component_input in preceding_component_inputs:
-                    file_outputs[
-                        preceding_component_input
-                    ] = f"/tmp/outputs/{preceding_component_input}/data"
-
-                container_op = dsl.ContainerOp(
-                    name=node.name,
-                    image=step_image,
-                    command=command,
-                    artifact_argument_paths=artifact_argument_paths,
-                    file_outputs=file_outputs,
-                ).set_display_name(node.name)
-
                 visited[node.name] = container_op
 
                 if kfp_component.environment_decorator:
@@ -951,43 +851,6 @@ class KubeflowPipelines(object):
                                 shared_volumes=shared_volumes,
                             )
 
-            def create_s3_sensor_op():
-                s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
-                if s3_sensor_deco:
-                    return self._create_s3_sensor_op(
-                        s3_sensor_deco=s3_sensor_deco,
-                        flow_parameters_json=flow_parameters_json,
-                    )
-                else:
-                    return None
-
-            def create_workflow_uid_op(s3_sensor_path: str):
-                workflow_uid_op: ContainerOp = None
-                if any(
-                    "volume" in s.resource_requirements
-                    for s in step_to_kfp_component_map.values()
-                ):
-                    get_workflow_uid_command = [
-                        "bash",
-                        "-ec",
-                        self._compile_time_bootstrap_cmd
-                        + (
-                            " && python -m metaflow.plugins.kfp.kfp_get_workflow_uid"
-                            f" --s3_sensor_path '{s3_sensor_path}'"
-                            " --workflow_name {{workflow.name}}"
-                        ),
-                    ]
-                    workflow_uid_op = dsl.ContainerOp(
-                        name="get_workflow_uid",
-                        image=self.base_image,
-                        command=get_workflow_uid_command,
-                        file_outputs={"Output": "/tmp/outputs/Output/data"},
-                    ).set_display_name("get_workflow_uid")
-                    KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
-                    return workflow_uid_op
-                else:
-                    return None
-
             def call_build_kfp_dag(workflow_uid_op: ContainerOp):
                 build_kfp_dag(
                     self.graph["start"],
@@ -997,17 +860,43 @@ class KubeflowPipelines(object):
                     ),
                 )
 
+            s3_sensor_deco = self.flow._flow_decorators.get("s3_sensor")
+
             if self.notify:
-                with dsl.ExitHandler(self._create_exit_handler_op()):
-                    s3_sensor_op = create_s3_sensor_op()
-                    workflow_uid_op = create_workflow_uid_op(
-                        s3_sensor_op.output if s3_sensor_op else ""
+                with dsl.ExitHandler(
+                    self._create_exit_handler_op(
+                        metaflow_bootstrap_vars.compile_time_bootstrap_cmd
+                    )
+                ):
+                    s3_sensor_op = (
+                        self._create_s3_sensor_op(
+                            s3_sensor_deco=s3_sensor_deco,
+                            flow_parameters_json=flow_parameters_json,
+                            compile_time_bootstrap_cmd=metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
+                        )
+                        if s3_sensor_deco
+                        else None
+                    )
+                    workflow_uid_op = self._create_workflow_uid_op(
+                        s3_sensor_op.output if s3_sensor_op else "",
+                        step_to_kfp_component_map,
+                        metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
                     )
                     call_build_kfp_dag(workflow_uid_op)
             else:
-                s3_sensor_op = create_s3_sensor_op()
-                workflow_uid_op = create_workflow_uid_op(
-                    s3_sensor_op.output if s3_sensor_op else ""
+                s3_sensor_op = (
+                    self._create_s3_sensor_op(
+                        s3_sensor_deco=s3_sensor_deco,
+                        flow_parameters_json=flow_parameters_json,
+                        compile_time_bootstrap_cmd=metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
+                    )
+                    if s3_sensor_deco
+                    else None
+                )
+                workflow_uid_op = self._create_workflow_uid_op(
+                    s3_sensor_op.output if s3_sensor_op else "",
+                    step_to_kfp_component_map,
+                    metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
                 )
                 call_build_kfp_dag(workflow_uid_op)
 
@@ -1059,9 +948,9 @@ class KubeflowPipelines(object):
                 and resources["volume_mode"] == "ReadWriteMany"
             ):
                 volume_dir = resources["volume_dir"]
-                shared_volumes[kfp_component.name] = {
+                shared_volumes[kfp_component.step_name] = {
                     volume_dir: KubeflowPipelines._create_volume(
-                        step_name=f"{kfp_component.name}-shared",
+                        step_name=f"{kfp_component.step_name}-shared",
                         size=resources["volume"],
                         workflow_uid=workflow_uid_op.output,
                         mode=resources["volume_mode"],
@@ -1069,7 +958,169 @@ class KubeflowPipelines(object):
                 }
         return shared_volumes
 
-    def _create_exit_handler_op(self) -> ContainerOp:
+    def _create_container_op(
+        self,
+        node: DAGNode,
+        kfp_component: KfpComponent,
+        metaflow_bootstrap_vars: MetaflowBootstrapVars,
+        metaflow_configs: Dict[str, str],
+        metaflow_run_id: str,
+        flow_parameters_json: str,
+        passed_in_split_indexes: str,
+        preceding_component_inputs: str,
+        preceding_component_outputs_dict: Dict[str, str],
+    ):
+        metaflow_execution_cmd = self._generate_metaflow_execution_cmd(
+            kfp_component,
+            metaflow_bootstrap_vars,
+            metaflow_run_id,
+            metaflow_configs,
+            passed_in_split_indexes,
+            preceding_component_inputs,
+        )
+
+        if node.name == "start":
+            metaflow_execution_cmd += (
+                f" --flow_parameters_json='{flow_parameters_json}'"
+            )
+        if node.type == "foreach":
+            metaflow_execution_cmd += f" --foreach_step"
+        if metaflow_bootstrap_vars.namespace:
+            metaflow_execution_cmd += (
+                f" --namespace {metaflow_bootstrap_vars.namespace}"
+            )
+        if kfp_component.need_split_index:
+            metaflow_execution_cmd += " --need_split_index"
+        metaflow_execution_cmd += ' --preceding_component_outputs_dict "'
+        for key in preceding_component_outputs_dict:
+            metaflow_execution_cmd += f"{key}={preceding_component_outputs_dict[key]},"
+        metaflow_execution_cmd += '"'
+
+        # bash -ec used because Docker starts a single process and thus to run
+        # multiple bash commands, we use bash -ec to chain them.
+        command = [
+            "bash",
+            "-ec",
+            (
+                f"{metaflow_bootstrap_vars.compile_time_bootstrap_cmd}"
+                f"{metaflow_execution_cmd}"
+            ),
+        ]
+
+        if (
+            kfp_component.kfp_decorator
+            and kfp_component.kfp_decorator.attributes["image"]
+        ):
+            step_image = kfp_component.kfp_decorator.attributes["image"]
+        else:
+            step_image = self.base_image
+
+        artifact_argument_paths = (
+            None if node.name == "start" else {"flow_parameters_json": "None"}
+        )
+
+        file_outputs = {}
+        if node.type == "foreach":
+            file_outputs["foreach_splits"] = "/tmp/outputs/foreach_splits/data"
+        for preceding_component_input in preceding_component_inputs:
+            file_outputs[
+                preceding_component_input
+            ] = f"/tmp/outputs/{preceding_component_input}/data"
+
+        container_op = dsl.ContainerOp(
+            name=node.name,
+            image=step_image,
+            command=command,
+            artifact_argument_paths=artifact_argument_paths,
+            file_outputs=file_outputs,
+        ).set_display_name(node.name)
+        return container_op
+
+    def _create_workflow_uid_op(
+        self,
+        s3_sensor_path: str,
+        step_to_kfp_component_map: Dict[str, KfpComponent],
+        compile_time_bootstrap_cmd: str,
+    ):
+        workflow_uid_op: ContainerOp = None
+        if any(
+            "volume" in s.resource_requirements
+            for s in step_to_kfp_component_map.values()
+        ):
+            get_workflow_uid_command = [
+                "bash",
+                "-ec",
+                (
+                    f"{compile_time_bootstrap_cmd}"
+                    " && python -m metaflow.plugins.kfp.kfp_get_workflow_uid"
+                    f" --s3_sensor_path '{s3_sensor_path}'"
+                    " --workflow_name {{workflow.name}}"
+                ),
+            ]
+            workflow_uid_op = dsl.ContainerOp(
+                name="get_workflow_uid",
+                image=self.base_image,
+                command=get_workflow_uid_command,
+                file_outputs={"Output": "/tmp/outputs/Output/data"},
+            ).set_display_name("get_workflow_uid")
+            KubeflowPipelines._set_minimal_container_resources(workflow_uid_op)
+            return workflow_uid_op
+        else:
+            return None
+
+    def _create_s3_sensor_op(
+        self,
+        s3_sensor_deco: FlowDecorator,
+        flow_parameters_json: str,
+        compile_time_bootstrap_cmd: str,
+    ) -> ContainerOp:
+        path = s3_sensor_deco.path
+        timeout_seconds = s3_sensor_deco.timeout_seconds
+        polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
+        path_formatter = s3_sensor_deco.path_formatter
+        os_expandvars = s3_sensor_deco.os_expandvars
+
+        # see https://github.com/kubeflow/pipelines/pull/1946/files
+        # KFP does not support the serialization of Python functions directly. The KFP team took
+        # the approach of using base64 encoding + pickle. Pickle didn't quite work out
+        # in this case because pickling a function directly stores references to the function's path,
+        # which couldn't be resolved when the path_formatter function was unpickled within the running
+        # container. Instead, we took the approach of marshalling just the code of the path_formatter
+        # function, and reconstructing the function within the kfp_s3_sensor.py code.
+        if path_formatter:
+            path_formatter_code_encoded = base64.b64encode(
+                marshal.dumps(path_formatter.__code__)
+            ).decode("ascii")
+        else:
+            path_formatter_code_encoded = ""
+
+        s3_sensor_command = [
+            "bash",
+            "-ec",
+            (
+                f"{compile_time_bootstrap_cmd}"
+                " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
+                f" --flow_parameters_json '{flow_parameters_json}'"
+                f" --path {path}"
+                f" --path_formatter_code_encoded '{path_formatter_code_encoded}'"
+                f" --polling_interval_seconds {polling_interval_seconds}"
+                f" --timeout_seconds {timeout_seconds}"
+            ),
+        ]
+        if os_expandvars:
+            s3_sensor_command[-1] += " --os_expandvars"
+
+        s3_sensor_op = dsl.ContainerOp(
+            name="s3_sensor",
+            image=self.base_image,
+            command=s3_sensor_command,
+            file_outputs={"Output": "/tmp/outputs/Output/data"},
+        ).set_display_name("s3_sensor")
+
+        KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
+        return s3_sensor_op
+
+    def _create_exit_handler_op(self, compile_time_bootstrap_cmd: str) -> ContainerOp:
         notify_variables: dict = {
             key: from_conf(key)
             for key in [
@@ -1091,8 +1142,8 @@ class KubeflowPipelines(object):
         exit_handler_command = [
             "bash",
             "-ec",
-            self._compile_time_bootstrap_cmd
-            + (
+            (
+                f"{compile_time_bootstrap_cmd}"
                 " && python -m metaflow.plugins.kfp.kfp_exit_handler"
                 f" --flow_name {self.name}"
                 f" --kfp_run_id {dsl.RUN_ID_PLACEHOLDER}"
