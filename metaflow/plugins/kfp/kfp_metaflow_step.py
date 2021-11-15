@@ -48,7 +48,7 @@ def _step_cli(
     input_paths = None
 
     tags_extended = [
-        f"--tag argo_workflow:{workflow_name}",
+        f"--tag argo_workflow:{workflow_name}", # TODO (hariharans): rename to argo_workflow?
         "--tag pod_name:$MF_POD_NAME",
         "--tag pod_namespace:$MF_POD_NAMESPACE",
         # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
@@ -220,14 +220,14 @@ def _command(
 @click.command()
 @click.option("--metaflow_bootstrap_cmd")
 @click.option("--clean_volume_cmd")
-@click.option("--environment_type")
+@click.option("--environment")
 @click.option("--foreach_step/--not_foreach_step", default=False)
 @click.option("--flow_name")
 @click.option("--flow_parameters_json", required=False, default="")
-@click.option("--logger_type")
+@click.option("--event_logger")
 @click.option("--metaflow_configs")
 @click.option("--metaflow_run_id")
-@click.option("--monitor_type")
+@click.option("--monitor")
 @click.option("--namespace", required=False, default="")
 @click.option("--need_split_index/--no-need_split_index", default=False)
 @click.option("--passed_in_split_indexes")
@@ -241,17 +241,17 @@ def _command(
 @click.option("--task_id_template")
 @click.option("--user_code_retries", type=int)
 @click.option("--workflow_name")
-def kfp_step_function(
+def kfp_metaflow_step(
     metaflow_bootstrap_cmd: str,
     clean_volume_cmd: str,
-    environment_type: str,
+    environment: str,
     flow_name: str,
     flow_parameters_json: str,  # json formatted string
     foreach_step: bool,
-    logger_type: str,
+    event_logger: str,
     metaflow_configs: str,
     metaflow_run_id: str,
-    monitor_type: str,
+    monitor: str,
     namespace: str,
     need_split_index: bool,
     passed_in_split_indexes: str,  # only if is_inside_foreach
@@ -269,10 +269,10 @@ def kfp_step_function(
     workflow_name: str,
 ) -> None:
     """
-    Renders and runs the cmd_template containing Metaflow step-init commands to
-    run within the container.
+    (1) Runs metaflow_bootstrap_cmd to ensure Metaflow is available on the KFP step.
+    (2) Writes output of the Metaflow step function to ensure subsequent KFP steps
+        have access to these outputs.
 
-    Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
     """
     import os
     import json
@@ -286,7 +286,7 @@ def kfp_step_function(
     preceding_component_inputs: List[str] = json.loads(preceding_component_inputs)
     preceding_component_outputs: List[str] = json.loads(preceding_component_outputs)
 
-    kwargs = {}
+    kwargs: Dict[str, str] = {}
     for arg in preceding_component_outputs_dict.split(","):
         if arg:  # ensure arg is not an empty string
             key, value = arg.split("=")
@@ -304,9 +304,9 @@ def kfp_step_function(
         namespace,
         tags,
         need_split_index,
-        environment_type,
-        logger_type,
-        monitor_type,
+        environment,
+        event_logger,
+        monitor,
         user_code_retries,
         workflow_name,
         script_name,
@@ -404,4 +404,4 @@ def kfp_step_function(
 
 
 if __name__ == "__main__":
-    kfp_step_function()
+    kfp_metaflow_step()

@@ -67,39 +67,38 @@ UNSUPPORTED_DECORATORS = (
 
 
 @dataclass
-class MetaflowBootstrapVars:
-    environment_type: str
+class FlowBootstrapVars:
+    environment: str
     flow_name: str
-    logger_type: str
-    monitor_type: str
+    event_logger: str
+    monitor: str
     namespace: str
     tags: List[str]
     compile_time_bootstrap_cmd: str
     run_time_bootstrap_cmd: str
 
 
+@dataclass
+class StepBootstrapVars:
+    step_name: str
+    clean_volume_cmd: str
+    need_split_index: bool
+    task_id: str
+    task_id_template: str
+    user_code_retries: int
+    total_retries: int
+
+
 class KfpComponent(object):
     def __init__(
         self,
-        step_name: str,
-        clean_volume_cmd: str,
-        need_split_index: str,
-        task_id: str,
-        task_id_template: str,
-        user_code_retries: str,
-        total_retries: int,
+        step_name: str, # TODO (hariharans): should step_name live in KfpComponent (repeated in StepBootstrapVars)
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
         environment_decorator: EnvironmentDecorator,
     ):
         self.step_name = step_name
-        self.clean_volume_cmd = clean_volume_cmd
-        self.need_split_index = need_split_index
-        self.task_id = task_id
-        self.task_id_template = task_id_template
-        self.user_code_retries = user_code_retries
-        self.total_retries = total_retries
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
         self.accelerator_decorator = accelerator_decorator
@@ -265,36 +264,37 @@ class KubeflowPipelines(object):
 
     # TODO (hariharans): https://zbrt.atl.zillow.net/browse/AIP-5406
     # (Title: Clean up output formatting of workflow and pod specs in container op)
+    @staticmethod
     def _generate_metaflow_execution_cmd(
-        self,
         kfp_component: KfpComponent,
-        metaflow_bootstrap_vars: MetaflowBootstrapVars,
+        step_bootstrap_vars: StepBootstrapVars,
+        flow_bootstrap_vars: FlowBootstrapVars,
         metaflow_run_id: str,
         metaflow_configs: Dict[str, str],
         passed_in_split_indexes: str,
         preceding_component_inputs: List[str],
     ) -> str:
         return (
-            " && python -m metaflow.plugins.kfp.kfp_step_function"
-            f' --clean_volume_cmd "{kfp_component.clean_volume_cmd}"'
-            f" --environment_type {metaflow_bootstrap_vars.environment_type}"
-            f" --flow_name {metaflow_bootstrap_vars.flow_name}"
-            f" --logger_type {metaflow_bootstrap_vars.logger_type}"
+            " && python -m metaflow.plugins.kfp.kfp_metaflow_step"
+            f' --clean_volume_cmd "{step_bootstrap_vars.clean_volume_cmd}"'
+            f" --environment {flow_bootstrap_vars.environment}"
+            f" --event_logger {flow_bootstrap_vars.event_logger}"
+            f" --flow_name {flow_bootstrap_vars.flow_name}"
             # double json.dumps() to ensure we have the correct quotation marks
             # on the outside of the string to be json loaded
-            f' --metaflow_bootstrap_cmd "{metaflow_bootstrap_vars.run_time_bootstrap_cmd}"'
+            f' --metaflow_bootstrap_cmd "{flow_bootstrap_vars.run_time_bootstrap_cmd}"'
             f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
             f" --metaflow_run_id {metaflow_run_id}"
-            f" --monitor_type {metaflow_bootstrap_vars.monitor_type}"
+            f" --monitor {flow_bootstrap_vars.monitor}"
             f' --passed_in_split_indexes "{passed_in_split_indexes}"'
             f" --preceding_component_inputs {json.dumps(json.dumps(preceding_component_inputs))}"
             f" --preceding_component_outputs {json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
             f" --script_name {os.path.basename(sys.argv[0])}"
-            f" --step_name {kfp_component.step_name}"
-            f" --tags {json.dumps(json.dumps(metaflow_bootstrap_vars.tags))}"
-            f" --task_id {kfp_component.task_id}"
-            f' --task_id_template "{kfp_component.task_id_template}"'
-            f" --user_code_retries {kfp_component.user_code_retries}"
+            f" --step_name {step_bootstrap_vars.step_name}"
+            f" --tags {json.dumps(json.dumps(flow_bootstrap_vars.tags))}"
+            f" --task_id {step_bootstrap_vars.task_id}"
+            f' --task_id_template "{step_bootstrap_vars.task_id_template}"'
+            f" --user_code_retries {step_bootstrap_vars.user_code_retries}"
             " --workflow_name {{workflow.name}}"
         )
 
@@ -362,12 +362,12 @@ class KubeflowPipelines(object):
 
         return resource_requirements
 
-    def create_metaflow_bootstrap_vars(self) -> MetaflowBootstrapVars:
-        metaflow_bootstrap_vars = MetaflowBootstrapVars(
-            environment_type=self.environment.TYPE,
+    def create_flow_bootstrap_vars(self) -> FlowBootstrapVars:
+        flow_bootstrap_vars = FlowBootstrapVars(
+            environment=self.environment.TYPE,
             flow_name=self.flow.name,
-            logger_type=self.event_logger.logger_type,
-            monitor_type=self.monitor.monitor_type,
+            event_logger=self.event_logger.logger_type,
+            monitor=self.monitor.monitor_type,
             namespace=self.namespace,
             tags=list(self.tags),
             compile_time_bootstrap_cmd=self._get_metaflow_bootstrap_cmd(
@@ -380,7 +380,53 @@ class KubeflowPipelines(object):
                 run_time=True,
             ),
         )
-        return metaflow_bootstrap_vars
+        return flow_bootstrap_vars
+
+    """
+    @dataclass
+class StepBootstrapVars:
+    step_name: str
+    clean_volume_cmd: str
+    need_split_index: bool
+    task_id: str
+    task_id_template: str
+    user_code_retries: int
+    total_retries: int
+    """
+
+    def create_step_bootstrap_vars_from_graph(self) -> Dict[str, StepBootstrapVars]:
+        """
+        Returns a map of steps to their correspond StepBootstrapVars, which is
+        used to bootstrap Metaflow on KFP with step (node) specific information.
+        """
+        def build_step_bootstrap_vars(node: DAGNode, task_id: str) -> StepBootstrapVars:
+            """
+            Returns the StepBootstraVars for each step.
+            """
+            user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
+            resource_requirements = self._get_resource_requirements(node)
+
+            return StepBootstrapVars(
+                clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
+                step_name=node.name,
+                need_split_index=True
+                if any(self.graph[n].type == "foreach" for n in node.in_funcs)
+                else False,
+                task_id=task_id,
+                task_id_template=self._get_task_id_template(node.name, task_id),
+                total_retries=total_retries,
+                user_code_retries=user_code_retries,
+            )
+        
+        # Mapping of steps to their StepBootstrapVars
+        task_ids: Dict[str, str] = graph_to_task_ids(self.graph)
+        step_to_step_bootstrap_vars_map: Dict[str, StepBootstrapVars] = {}
+        for step_name, task_id in task_ids.items():
+            node = self.graph[step_name]
+            step_to_step_bootstrap_vars_map[step_name] = build_step_bootstrap_vars(node, task_id)
+
+        return step_to_step_bootstrap_vars_map
+
 
     def create_kfp_components_from_graph(self) -> Dict[str, KfpComponent]:
         """
@@ -400,20 +446,10 @@ class KubeflowPipelines(object):
                         f"{type(deco)} in {node.name} step is not yet supported by kfp"
                     )
 
-            user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
-
             resource_requirements = self._get_resource_requirements(node)
 
             return KfpComponent(
-                clean_volume_cmd=self._get_clean_volume_cmd(resource_requirements),
                 step_name=node.name,
-                need_split_index=True
-                if any(self.graph[n].type == "foreach" for n in node.in_funcs)
-                else False,
-                task_id=task_id,
-                task_id_template=self._get_task_id_template(node.name, task_id),
-                total_retries=total_retries,
-                user_code_retries=user_code_retries,
                 resource_requirements=resource_requirements,
                 kfp_decorator=next(
                     (
@@ -668,7 +704,10 @@ class KubeflowPipelines(object):
         step_to_kfp_component_map: Dict[
             str, KfpComponent
         ] = self.create_kfp_components_from_graph()
-        metaflow_bootstrap_vars = self.create_metaflow_bootstrap_vars()
+        step_to_step_bootstrap_vars_map: Dict[
+            str, StepBootstrapVars
+        ] = self.create_step_bootstrap_vars_from_graph()
+        flow_bootstrap_vars = self.create_flow_bootstrap_vars()
 
         def pipeline_transform(op: ContainerOp):
             # Disable caching because Metaflow doesn't have memoization
@@ -734,6 +773,7 @@ class KubeflowPipelines(object):
                     )
 
                 kfp_component: KfpComponent = step_to_kfp_component_map[node.name]
+                step_bootstrap_vars: StepBootstrapVars = step_to_step_bootstrap_vars_map[node.name]
                 # capture metaflow configs from client to be used at runtime
                 # client configs have the highest precedence
                 metaflow_configs = dict(
@@ -742,10 +782,11 @@ class KubeflowPipelines(object):
                 )
                 metaflow_run_id = f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
 
-                container_op = self._create_container_op(
+                metaflow_step_op: ContainerOp = self._create_metaflow_step_op(
                     node,
                     kfp_component,
-                    metaflow_bootstrap_vars,
+                    step_bootstrap_vars,
+                    flow_bootstrap_vars,
                     metaflow_configs,
                     metaflow_run_id,
                     flow_parameters_json,
@@ -753,20 +794,20 @@ class KubeflowPipelines(object):
                     preceding_component_inputs,
                     preceding_component_outputs_dict,
                 )
-                visited[node.name] = container_op
+                visited[node.name] = metaflow_step_op
 
                 if kfp_component.environment_decorator:
                     envs = kfp_component.environment_decorator.attributes[
                         "kubernetes_vars"
                     ]
                     for env in envs if envs else []:
-                        container_op.container.add_env_variable(env)
+                        metaflow_step_op.container.add_env_variable(env)
 
-                if kfp_component.total_retries and kfp_component.total_retries > 0:
-                    container_op.set_retry(kfp_component.total_retries)
+                if step_bootstrap_vars.total_retries and step_bootstrap_vars.total_retries > 0:
+                    metaflow_step_op.set_retry(step_bootstrap_vars.total_retries)
 
                 if preceding_kfp_component_op:
-                    container_op.after(preceding_kfp_component_op)
+                    metaflow_step_op.after(preceding_kfp_component_op)
 
                 # If any of this node's children has a preceding_kfp_func then
                 # create (next_preceding_component_outputs_dict, next_kfp_component_op)
@@ -776,12 +817,12 @@ class KubeflowPipelines(object):
                 if next_kfp_decorator_component:
                     next_kfp_component_op: ContainerOp = next_kfp_decorator_component.preceding_kfp_func(
                         *[
-                            container_op.outputs[mf_field]
+                            metaflow_step_op.outputs[mf_field]
                             for mf_field in next_kfp_decorator_component.preceding_component_inputs
                         ]
                     )
 
-                    next_kfp_component_op.after(container_op)
+                    next_kfp_component_op.after(metaflow_step_op)
 
                     num_outputs = len(
                         next_kfp_decorator_component.preceding_component_outputs
@@ -796,15 +837,15 @@ class KubeflowPipelines(object):
                     }
 
                 KubeflowPipelines._set_container_resources(
-                    container_op, kfp_component, workflow_uid, shared_volumes
+                    metaflow_step_op, kfp_component, workflow_uid, shared_volumes
                 )
-                self._set_container_labels(container_op, node, metaflow_run_id)
+                self._set_container_labels(metaflow_step_op, node, metaflow_run_id)
 
                 if node.type == "foreach":
                     # Please see nested_parallelfor.ipynb for how this works
                     next_step_name = node.out_funcs[0]
                     with kfp.dsl.ParallelFor(
-                        container_op.outputs["foreach_splits"]
+                        metaflow_step_op.outputs["foreach_splits"]
                     ) as split_index:
                         # build_kfp_dag() will halt when a foreach join is
                         # reached.
@@ -865,14 +906,14 @@ class KubeflowPipelines(object):
             if self.notify:
                 with dsl.ExitHandler(
                     self._create_exit_handler_op(
-                        metaflow_bootstrap_vars.compile_time_bootstrap_cmd
+                        flow_bootstrap_vars.compile_time_bootstrap_cmd
                     )
                 ):
                     s3_sensor_op = (
                         self._create_s3_sensor_op(
                             s3_sensor_deco=s3_sensor_deco,
                             flow_parameters_json=flow_parameters_json,
-                            compile_time_bootstrap_cmd=metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
+                            compile_time_bootstrap_cmd=flow_bootstrap_vars.compile_time_bootstrap_cmd,
                         )
                         if s3_sensor_deco
                         else None
@@ -880,7 +921,7 @@ class KubeflowPipelines(object):
                     workflow_uid_op = self._create_workflow_uid_op(
                         s3_sensor_op.output if s3_sensor_op else "",
                         step_to_kfp_component_map,
-                        metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
+                        flow_bootstrap_vars.compile_time_bootstrap_cmd,
                     )
                     call_build_kfp_dag(workflow_uid_op)
             else:
@@ -888,7 +929,7 @@ class KubeflowPipelines(object):
                     self._create_s3_sensor_op(
                         s3_sensor_deco=s3_sensor_deco,
                         flow_parameters_json=flow_parameters_json,
-                        compile_time_bootstrap_cmd=metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
+                        compile_time_bootstrap_cmd=flow_bootstrap_vars.compile_time_bootstrap_cmd,
                     )
                     if s3_sensor_deco
                     else None
@@ -896,7 +937,7 @@ class KubeflowPipelines(object):
                 workflow_uid_op = self._create_workflow_uid_op(
                     s3_sensor_op.output if s3_sensor_op else "",
                     step_to_kfp_component_map,
-                    metaflow_bootstrap_vars.compile_time_bootstrap_cmd,
+                    flow_bootstrap_vars.compile_time_bootstrap_cmd,
                 )
                 call_build_kfp_dag(workflow_uid_op)
 
@@ -958,21 +999,23 @@ class KubeflowPipelines(object):
                 }
         return shared_volumes
 
-    def _create_container_op(
+    def _create_metaflow_step_op(
         self,
-        node: DAGNode,
+        node: DAGNode, # TODO (hariharans): do we still need node here? node.type moved to step bootstrap vars or kfp component
         kfp_component: KfpComponent,
-        metaflow_bootstrap_vars: MetaflowBootstrapVars,
+        step_bootstrap_vars: StepBootstrapVars,
+        flow_bootstrap_vars: FlowBootstrapVars,
         metaflow_configs: Dict[str, str],
         metaflow_run_id: str,
         flow_parameters_json: str,
         passed_in_split_indexes: str,
         preceding_component_inputs: str,
         preceding_component_outputs_dict: Dict[str, str],
-    ):
-        metaflow_execution_cmd = self._generate_metaflow_execution_cmd(
+    ) -> ContainerOp:
+        metaflow_execution_cmd: str = KubeflowPipelines._generate_metaflow_execution_cmd(
             kfp_component,
-            metaflow_bootstrap_vars,
+            step_bootstrap_vars,
+            flow_bootstrap_vars,
             metaflow_run_id,
             metaflow_configs,
             passed_in_split_indexes,
@@ -985,11 +1028,11 @@ class KubeflowPipelines(object):
             )
         if node.type == "foreach":
             metaflow_execution_cmd += f" --foreach_step"
-        if metaflow_bootstrap_vars.namespace:
+        if flow_bootstrap_vars.namespace:
             metaflow_execution_cmd += (
-                f" --namespace {metaflow_bootstrap_vars.namespace}"
+                f" --namespace {flow_bootstrap_vars.namespace}"
             )
-        if kfp_component.need_split_index:
+        if step_bootstrap_vars.need_split_index:
             metaflow_execution_cmd += " --need_split_index"
         metaflow_execution_cmd += ' --preceding_component_outputs_dict "'
         for key in preceding_component_outputs_dict:
@@ -1002,7 +1045,7 @@ class KubeflowPipelines(object):
             "bash",
             "-ec",
             (
-                f"{metaflow_bootstrap_vars.compile_time_bootstrap_cmd}"
+                f"{flow_bootstrap_vars.compile_time_bootstrap_cmd}"
                 f"{metaflow_execution_cmd}"
             ),
         ]
@@ -1015,11 +1058,11 @@ class KubeflowPipelines(object):
         else:
             step_image = self.base_image
 
-        artifact_argument_paths = (
+        artifact_argument_paths: Optional[Dict[str, str]] = (
             None if node.name == "start" else {"flow_parameters_json": "None"}
         )
 
-        file_outputs = {}
+        file_outputs: Dict[str, str] = {}
         if node.type == "foreach":
             file_outputs["foreach_splits"] = "/tmp/outputs/foreach_splits/data"
         for preceding_component_input in preceding_component_inputs:
@@ -1041,7 +1084,7 @@ class KubeflowPipelines(object):
         s3_sensor_path: str,
         step_to_kfp_component_map: Dict[str, KfpComponent],
         compile_time_bootstrap_cmd: str,
-    ):
+    ) -> ContainerOp:
         workflow_uid_op: ContainerOp = None
         if any(
             "volume" in s.resource_requirements
