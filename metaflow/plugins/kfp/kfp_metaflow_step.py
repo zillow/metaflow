@@ -1,5 +1,7 @@
 import click
 
+import pathlib
+import os
 from typing import List
 
 from ... import R
@@ -17,16 +19,16 @@ from metaflow.mflog import bash_capture_logs, export_mflog_env_vars, BASH_SAVE_L
 
 
 def _step_cli(
-    node_name: str,
+    step_name: str,
     task_id: str,
-    metaflow_run_id: str,
+    run_id: str,
     namespace: str,
     tags: List[str],
     need_split_index: bool,
-    environment_type: str,
-    logger_type: str,
-    monitor_type: str,
-    user_code_retries: int,
+    environment: str,
+    event_logger: str,
+    monitor: str,
+    max_user_code_retries: int,
     workflow_name: str,
     script_name: str,
 ) -> str:
@@ -43,7 +45,7 @@ def _step_cli(
     else:
         entrypoint = [executable, script_name]
 
-    start_task_id_params_path = None
+    input_paths = None
 
     tags_extended = [
         f"--tag argo_workflow:{workflow_name}",
@@ -56,7 +58,7 @@ def _step_cli(
     if tags:
         tags_extended.extend("--tag %s" % tag for tag in tags)
 
-    if node_name == "start":
+    if step_name == "start":
         # We need a separate unique ID for the special _parameters task
         task_id_params = "1-params"
 
@@ -70,14 +72,14 @@ def _step_cli(
         )
         params = entrypoint + [
             "--quiet",
-            "--environment=%s" % environment_type,
+            "--environment=%s" % environment,
             "--datastore=s3",
             "--datastore-root=$METAFLOW_DATASTORE_SYSROOT_S3",
-            "--event-logger=%s" % logger_type,
-            "--monitor=%s" % monitor_type,
+            "--event-logger=%s" % event_logger,
+            "--monitor=%s" % monitor,
             "--no-pylint",
             "init",
-            "--run-id %s" % metaflow_run_id,
+            "--run-id %s" % run_id,
             "--task-id %s" % task_id_params,
         ]
 
@@ -86,15 +88,13 @@ def _step_cli(
         # If the start step gets retried, we must be careful not to
         # regenerate multiple parameters tasks. Hence we check first if
         # _parameters exists already.
-        start_task_id_params_path = (
-            "{metaflow_run_id}/_parameters/{task_id_params}".format(
-                metaflow_run_id=metaflow_run_id, task_id_params=task_id_params
-            )
+        input_paths = "{run_id}/_parameters/{task_id_params}".format(
+            run_id=run_id, task_id_params=task_id_params
         )
         exists = entrypoint + [
             "dump",
             "--max-value-size=0",
-            start_task_id_params_path,
+            input_paths,
         ]
         cmd = "if ! %s >/dev/null 2>/dev/null; then %s && %s; fi" % (
             " ".join(exists),
@@ -105,11 +105,11 @@ def _step_cli(
 
     top_level = [
         "--quiet",
-        "--environment=%s" % environment_type,
+        "--environment=%s" % environment,
         "--datastore=s3",
         "--datastore-root=$METAFLOW_DATASTORE_SYSROOT_S3",
-        "--event-logger=%s" % logger_type,
-        "--monitor=%s" % monitor_type,
+        "--event-logger=%s" % event_logger,
+        "--monitor=%s" % monitor,
         "--no-pylint",
     ]
 
@@ -119,8 +119,8 @@ def _step_cli(
             + top_level
             + [
                 "kfp step-init",
-                "--run-id %s" % metaflow_run_id,
-                "--step_name %s" % node_name,
+                "--run-id %s" % run_id,
+                "--step_name %s" % step_name,
                 '--passed_in_split_indexes "{passed_in_split_indexes}"',
                 "--task_id %s" % task_id,  # the assigned task_id from Flow graph
             ]
@@ -133,14 +133,14 @@ def _step_cli(
     step = [
         "--with=kfp",
         "step",
-        node_name,
-        "--run-id %s" % metaflow_run_id,
+        step_name,
+        "--run-id %s" % run_id,
         f"--task-id ${TASK_ID_ENV_NAME}",
         f"--retry-count ${RETRY_COUNT}",
-        "--max-user-code-retries %d" % user_code_retries,
+        "--max-user-code-retries %d" % max_user_code_retries,
         (
-            "--input-paths %s" % start_task_id_params_path
-            if node_name == "start"
+            "--input-paths %s" % input_paths
+            if step_name == "start"
             else f"--input-paths ${INPUT_PATHS_ENV_NAME}"
         ),
     ]
@@ -159,7 +159,7 @@ def _step_cli(
 
 
 def _command(
-    metaflow_bootstrap_cmd: str,
+    run_time_bootstrap_cmd: str,
     clean_volume_cmd: str,
     step_cli: List[str],
     task_id_template: str,
@@ -198,12 +198,12 @@ def _command(
     # construct an entry point that
     # 1) Clean attached volume if any
     # 2) Initializes the mflog environment (mflog_expr)
-    # 3) Bootstraps a metaflow environment (metaflow_bootstrap_cmd)
+    # 3) Bootstraps a metaflow environment (run_time_bootstrap_cmd)
     # 4) Executes a task (step_expr)
     cmd_str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f"&& {metaflow_bootstrap_cmd} "
+        f"&& {run_time_bootstrap_cmd} "
         f"&& {step_expr};"
     )
 
@@ -218,16 +218,16 @@ def _command(
 
 
 @click.command()
-@click.option("--metaflow_bootstrap_cmd")
+@click.option("--run_time_bootstrap_cmd")
 @click.option("--clean_volume_cmd")
-@click.option("--environment_type")
+@click.option("--environment")
 @click.option("--foreach_step/--not_foreach_step", default=False)
 @click.option("--flow_name")
 @click.option("--flow_parameters_json", required=False, default="")
-@click.option("--logger_type")
+@click.option("--event_logger")
 @click.option("--metaflow_configs")
 @click.option("--metaflow_run_id")
-@click.option("--monitor_type")
+@click.option("--monitor")
 @click.option("--namespace", required=False, default="")
 @click.option("--need_split_index/--no-need_split_index", default=False)
 @click.option("--passed_in_split_indexes")
@@ -241,17 +241,17 @@ def _command(
 @click.option("--task_id_template")
 @click.option("--user_code_retries", type=int)
 @click.option("--workflow_name")
-def kfp_step_function(
-    metaflow_bootstrap_cmd: str,
+def kfp_metaflow_step(
+    run_time_bootstrap_cmd: str,
     clean_volume_cmd: str,
-    environment_type: str,
+    environment: str,
     flow_name: str,
     flow_parameters_json: str,  # json formatted string
     foreach_step: bool,
-    logger_type: str,
+    event_logger: str,
     metaflow_configs: str,
     metaflow_run_id: str,
-    monitor_type: str,
+    monitor: str,
     namespace: str,
     need_split_index: bool,
     passed_in_split_indexes: str,  # only if is_inside_foreach
@@ -259,7 +259,7 @@ def kfp_step_function(
     preceding_component_outputs: List[
         str
     ],  # fields to be pushed into Flow state from KFP
-    preceding_component_outputs_dict: str,  # json string
+    preceding_component_outputs_dict: str,  # json string of type Dict[str, str]
     script_name: str,
     step_name: str,
     tags: List[str],
@@ -269,24 +269,24 @@ def kfp_step_function(
     workflow_name: str,
 ) -> None:
     """
-    Renders and runs the cmd_template containing Metaflow step-init commands to
-    run within the container.
+    (1) Runs run_time_bootstrap_cmd to ensure Metaflow is available on the KFP step.
+    (2) Writes output of the Metaflow step function to ensure subsequent KFP steps
+        have access to these outputs.
 
-    Returns: namedtuple(["foreach_splits"] + preceding_component_inputs)
     """
     import os
     import json
     import logging
     from subprocess import Popen
     from collections import namedtuple
-    from typing import Dict
+    from typing import Dict, List
 
-    metaflow_configs = json.loads(metaflow_configs)
-    tags = json.loads(tags)
-    preceding_component_inputs = json.loads(preceding_component_inputs)
-    preceding_component_outputs = json.loads(preceding_component_outputs)
+    metaflow_configs: Dict[str, str] = json.loads(metaflow_configs)
+    tags: List[str] = json.loads(tags)
+    preceding_component_inputs: List[str] = json.loads(preceding_component_inputs)
+    preceding_component_outputs: List[str] = json.loads(preceding_component_outputs)
 
-    kwargs = {}
+    kwargs: Dict[str, str] = {}
     for arg in preceding_component_outputs_dict.split(","):
         if arg:  # ensure arg is not an empty string
             key, value = arg.split("=")
@@ -297,16 +297,16 @@ def kfp_step_function(
     if preceding_component_outputs is None:
         preceding_component_outputs = []
 
-    step_cli = _step_cli(
+    step_cli: str = _step_cli(
         step_name,
         task_id,
         metaflow_run_id,
         namespace,
         tags,
         need_split_index,
-        environment_type,
-        logger_type,
-        monitor_type,
+        environment,
+        event_logger,
+        monitor,
         user_code_retries,
         workflow_name,
         script_name,
@@ -317,8 +317,8 @@ def kfp_step_function(
     preceding_component_outputs_env: Dict[str, str] = {
         field: kwargs[field] for field in preceding_component_outputs
     }
-    cmd_template = _command(
-        metaflow_bootstrap_cmd,
+    cmd_template: str = _command(
+        run_time_bootstrap_cmd,
         clean_volume_cmd,
         [step_cli],
         task_id_template,
@@ -330,7 +330,7 @@ def kfp_step_function(
         passed_in_split_indexes=passed_in_split_indexes,
     )
 
-    metaflow_configs_new = {
+    metaflow_configs_new: Dict[str, str] = {
         name: value for name, value in metaflow_configs.items() if value
     }
 
@@ -364,7 +364,7 @@ def kfp_step_function(
         logging.info("----")
         raise Exception("Returned: %s" % process.returncode)
 
-    values, output_files = [], []
+    values, output_paths = [], []
     if foreach_step:
         task_context_dict = {}
         # File written by kfp_decorator.py:task_finished
@@ -377,7 +377,7 @@ def kfp_step_function(
         # as string and we get the following error:
         #   withParam value could not be parsed as a JSON list: ['0', '1']
         values.append(json.dumps(task_context_dict.get("foreach_splits", [])))
-        output_files.append("/tmp/outputs/foreach_splits/data")
+        output_paths.append("/tmp/outputs/foreach_splits")
 
     # read fields to return from Flow state to KFP
     preceding_component_inputs_dict = {}
@@ -392,18 +392,16 @@ def kfp_step_function(
     # We write outputs to a tmp file, which KFP internally uses to produces the output
     # of the container op.
     for preceding_component_input in preceding_component_inputs:
-        output_files.append(f"/tmp/outputs/{preceding_component_input}/data")
+        output_paths.append(f"/tmp/outputs/{preceding_component_input}")
 
     # Write all the outputs of the kfp_step_function into the appropriate
     # output files which KFP uses to produce outputs for the container op.
-    for idx, output_file in enumerate(output_files):
-        try:
-            os.makedirs(os.path.dirname(output_file))
-        except OSError:
-            pass
+    for idx, output_path in enumerate(output_paths):
+        output_file = os.path.join(output_path, "data")
+        pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
         with open(output_file, "w") as f:
             f.write(str(values[idx]))
 
 
 if __name__ == "__main__":
-    kfp_step_function()
+    kfp_metaflow_step()

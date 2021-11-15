@@ -36,7 +36,9 @@ def export_mflog_env_vars():
 
 
 @pytest.mark.parametrize(
-    "node_name, task_id, metaflow_run_id, namespace, tags, need_split_index, environment_type, logger_type, monitor_type, user_code_retries, workflow_name, script_name, included_vars, not_included_vars",
+    "node_name, task_id, metaflow_run_id, namespace, tags, "
+    "need_split_index, environment_type, logger_type, monitor_type, "
+    "user_code_retries, workflow_name, script_name, included_vars, not_included_vars",
     [
         (
             "start",

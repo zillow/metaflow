@@ -7,6 +7,9 @@ This function is called within the s3_sensor_op running container.
 from email.policy import default
 import click
 
+import pathlib
+from typing import Dict
+
 
 # We separate out this function to ensure it can be unit-tested.
 def wait_for_s3_path(
@@ -26,9 +29,11 @@ def wait_for_s3_path(
     from urllib.parse import urlparse
     import os
 
-    flow_parameters = json.loads(flow_parameters_json)
+    flow_parameters: Dict[str, str] = json.loads(flow_parameters_json)
 
     if path_formatter_code_encoded:
+        # path_formatter_code is of type `code object`,
+        # see: https://docs.python.org/3/c-api/code.html
         path_formatter_code = marshal.loads(
             base64.b64decode(path_formatter_code_encoded)
         )
@@ -37,13 +42,13 @@ def wait_for_s3_path(
             pass
 
         path_formatter_template.__code__ = path_formatter_code
-        path = path_formatter_template(path, flow_parameters)
+        path: str = path_formatter_template(path, flow_parameters)
     else:
         if os_expandvars:
             # expand OS env variables
             path = os.path.expandvars(path)
         # default variable substitution
-        path = path.format(**flow_parameters)
+        path: str = path.format(**flow_parameters)
 
     # debugging print statement for customers so they know the final path
     # we're looking for
@@ -70,11 +75,9 @@ def wait_for_s3_path(
 
         time.sleep(polling_interval_seconds)
 
+    output_path = "/tmp/outputs/Output"
     output_file = "/tmp/outputs/Output/data"
-    try:
-        os.makedirs(os.path.dirname(output_file))
-    except OSError:
-        pass
+    pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
     with open(output_file, "w") as f:
         f.write(str(path))
     return path
