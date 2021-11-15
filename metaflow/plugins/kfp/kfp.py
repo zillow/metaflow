@@ -92,7 +92,7 @@ class StepBootstrapVars:
 class KfpComponent(object):
     def __init__(
         self,
-        step_name: str, # TODO (hariharans): should step_name live in KfpComponent (repeated in StepBootstrapVars)
+        step_name: str,
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
@@ -282,7 +282,7 @@ class KubeflowPipelines(object):
             f" --flow_name {flow_bootstrap_vars.flow_name}"
             # double json.dumps() to ensure we have the correct quotation marks
             # on the outside of the string to be json loaded
-            f' --metaflow_bootstrap_cmd "{flow_bootstrap_vars.run_time_bootstrap_cmd}"'
+            f' --run_time_bootstrap_cmd "{flow_bootstrap_vars.run_time_bootstrap_cmd}"'
             f" --metaflow_configs {json.dumps(json.dumps(metaflow_configs))}"
             f" --metaflow_run_id {metaflow_run_id}"
             f" --monitor {flow_bootstrap_vars.monitor}"
@@ -382,18 +382,6 @@ class KubeflowPipelines(object):
         )
         return flow_bootstrap_vars
 
-    """
-    @dataclass
-class StepBootstrapVars:
-    step_name: str
-    clean_volume_cmd: str
-    need_split_index: bool
-    task_id: str
-    task_id_template: str
-    user_code_retries: int
-    total_retries: int
-    """
-
     def create_step_bootstrap_vars_from_graph(self) -> Dict[str, StepBootstrapVars]:
         """
         Returns a map of steps to their correspond StepBootstrapVars, which is
@@ -401,7 +389,7 @@ class StepBootstrapVars:
         """
         def build_step_bootstrap_vars(node: DAGNode, task_id: str) -> StepBootstrapVars:
             """
-            Returns the StepBootstraVars for each step.
+            Returns the StepBootstrapVars for each step.
             """
             user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
             resource_requirements = self._get_resource_requirements(node)
@@ -1001,7 +989,7 @@ class StepBootstrapVars:
 
     def _create_metaflow_step_op(
         self,
-        node: DAGNode, # TODO (hariharans): do we still need node here? node.type moved to step bootstrap vars or kfp component
+        node: DAGNode,
         kfp_component: KfpComponent,
         step_bootstrap_vars: StepBootstrapVars,
         flow_bootstrap_vars: FlowBootstrapVars,

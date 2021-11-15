@@ -48,7 +48,7 @@ def _step_cli(
     input_paths = None
 
     tags_extended = [
-        f"--tag argo_workflow:{workflow_name}", # TODO (hariharans): rename to argo_workflow?
+        f"--tag argo_workflow:{workflow_name}",
         "--tag pod_name:$MF_POD_NAME",
         "--tag pod_namespace:$MF_POD_NAMESPACE",
         # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
@@ -159,7 +159,7 @@ def _step_cli(
 
 
 def _command(
-    metaflow_bootstrap_cmd: str,
+    run_time_bootstrap_cmd: str,
     clean_volume_cmd: str,
     step_cli: List[str],
     task_id_template: str,
@@ -198,12 +198,12 @@ def _command(
     # construct an entry point that
     # 1) Clean attached volume if any
     # 2) Initializes the mflog environment (mflog_expr)
-    # 3) Bootstraps a metaflow environment (metaflow_bootstrap_cmd)
+    # 3) Bootstraps a metaflow environment (run_time_bootstrap_cmd)
     # 4) Executes a task (step_expr)
     cmd_str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f"&& {metaflow_bootstrap_cmd} "
+        f"&& {run_time_bootstrap_cmd} "
         f"&& {step_expr};"
     )
 
@@ -218,7 +218,7 @@ def _command(
 
 
 @click.command()
-@click.option("--metaflow_bootstrap_cmd")
+@click.option("--run_time_bootstrap_cmd")
 @click.option("--clean_volume_cmd")
 @click.option("--environment")
 @click.option("--foreach_step/--not_foreach_step", default=False)
@@ -242,7 +242,7 @@ def _command(
 @click.option("--user_code_retries", type=int)
 @click.option("--workflow_name")
 def kfp_metaflow_step(
-    metaflow_bootstrap_cmd: str,
+    run_time_bootstrap_cmd: str,
     clean_volume_cmd: str,
     environment: str,
     flow_name: str,
@@ -269,7 +269,7 @@ def kfp_metaflow_step(
     workflow_name: str,
 ) -> None:
     """
-    (1) Runs metaflow_bootstrap_cmd to ensure Metaflow is available on the KFP step.
+    (1) Runs run_time_bootstrap_cmd to ensure Metaflow is available on the KFP step.
     (2) Writes output of the Metaflow step function to ensure subsequent KFP steps
         have access to these outputs.
 
@@ -297,7 +297,7 @@ def kfp_metaflow_step(
     if preceding_component_outputs is None:
         preceding_component_outputs = []
 
-    step_cli = _step_cli(
+    step_cli: str = _step_cli(
         step_name,
         task_id,
         metaflow_run_id,
@@ -317,8 +317,8 @@ def kfp_metaflow_step(
     preceding_component_outputs_env: Dict[str, str] = {
         field: kwargs[field] for field in preceding_component_outputs
     }
-    cmd_template = _command(
-        metaflow_bootstrap_cmd,
+    cmd_template: str = _command(
+        run_time_bootstrap_cmd,
         clean_volume_cmd,
         [step_cli],
         task_id_template,
