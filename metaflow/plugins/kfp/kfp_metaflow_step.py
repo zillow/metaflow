@@ -310,7 +310,7 @@ def kfp_metaflow_step(
         clean_volume_cmd: str = f"rm -rf {os.path.join(volume_dir, '*')}"
     else:
         clean_volume_cmd: str = "true"
-    task_id_template = f"{task_id}.{passed_in_split_indexes}".strip(".")
+    task_id_template: str = f"{task_id}.{passed_in_split_indexes}".strip(".")
     cmd_template: str = _command(
         clean_volume_cmd,
         step_cli,
