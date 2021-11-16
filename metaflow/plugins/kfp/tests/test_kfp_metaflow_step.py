@@ -3,13 +3,13 @@ from unittest.mock import patch, Mock
 
 from typing import List
 
-from metaflow.plugins.kfp.kfp_step_function import _step_cli, _command
+from metaflow.plugins.kfp.kfp_metaflow_step import _step_cli, _command
 from metaflow.plugins.kfp.kfp_constants import STDOUT_PATH, STDERR_PATH
 
 """
 To run these tests from your terminal, go to the root directory and run:
 
-`python -m pytest metaflow/plugins/kfp/tests/test_kfp_step_function.py -c /dev/null`
+`python -m pytest metaflow/plugins/kfp/tests/test_kfp_metaflow_step.py -c /dev/null`
 
 The `-c` flag above tells PyTest to ignore the setup.cfg config file which is used
 for the integration tests.
@@ -20,7 +20,7 @@ for the integration tests.
 @pytest.fixture
 def bash_capture_logs():
     with patch(
-        "metaflow.plugins.kfp.kfp_step_function.bash_capture_logs",
+        "metaflow.plugins.kfp.kfp_metaflow_step.bash_capture_logs",
         return_value="bash_capture_logs_cmd",
     ) as bash_capture_logs:
         yield bash_capture_logs
@@ -29,7 +29,7 @@ def bash_capture_logs():
 @pytest.fixture
 def export_mflog_env_vars():
     with patch(
-        "metaflow.plugins.kfp.kfp_step_function.export_mflog_env_vars",
+        "metaflow.plugins.kfp.kfp_metaflow_step.export_mflog_env_vars",
         return_value="export_mflog_env_vars_cmd",
     ) as export_mflog_env_vars:
         yield export_mflog_env_vars
@@ -137,9 +137,8 @@ def test_command(bash_capture_logs: Mock, export_mflog_env_vars: Mock):
     )
 
     cmd_str = _command(
-        metaflow_bootstrap_cmd="metaflow_bootstrap_cmd",
         clean_volume_cmd="clean_volume_cmd",
-        step_cli=["cli", "command"],
+        step_cli="cli command",
         task_id_template="task_id_template",
         step_name="start",
         flow_name="sample_flow",
@@ -147,7 +146,7 @@ def test_command(bash_capture_logs: Mock, export_mflog_env_vars: Mock):
 
     assert cmd_str == (
         "clean_volume_cmd && mkdir -p /opt/metaflow_volume/metaflow_logs && "
-        "export_mflog_env_vars_cmd && metaflow_bootstrap_cmd && bash_capture_logs_cmd;c=$?; "
+        "export_mflog_env_vars_cmd && bash_capture_logs_cmd;c=$?; "
         "python -m metaflow.mflog.save_logs; exit $c"
     )
 
@@ -164,5 +163,5 @@ def test_command(bash_capture_logs: Mock, export_mflog_env_vars: Mock):
     )
 
     bash_capture_logs.assert_called_once_with(
-        "echo 'Task is starting.' && cli && command"
+        "echo 'Task is starting.' && cli command"
     )
