@@ -8,12 +8,12 @@ from typing import Dict
 @click.option("--flow_name")
 @click.option("--status")
 @click.option("--kfp_run_id")
-@click.option("--notify_variables")
+@click.option("--notify_variables_json")
 def exit_handler(
     flow_name: str,
     status: str,
     kfp_run_id: str,
-    notify_variables: str,
+    notify_variables_json: str,
 ):
     """
     The environment variables that this depends on:
@@ -30,7 +30,7 @@ def exit_handler(
     import json
     import os
 
-    notify_variables: Dict[str, str] = json.loads(notify_variables)
+    notify_variables: Dict[str, str] = json.loads(notify_variables_json)
 
     def get_env(name, default=None) -> str:
         return notify_variables.get(name, os.environ.get(name, default=default))
