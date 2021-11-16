@@ -137,15 +137,16 @@ def test_command(bash_capture_logs: Mock, export_mflog_env_vars: Mock):
     )
 
     cmd_str = _command(
-        clean_volume_cmd="clean_volume_cmd",
+        volume_dir="/opt/metaflow/volume_dir",
         step_cli="cli command",
-        task_id_template="task_id_template",
+        task_id="kfp1",
+        passed_in_split_indexes="01",
         step_name="start",
         flow_name="sample_flow",
     )
 
     assert cmd_str == (
-        "clean_volume_cmd && mkdir -p /opt/metaflow_volume/metaflow_logs && "
+        "rm -rf /opt/metaflow/volume_dir/* && mkdir -p /opt/metaflow_volume/metaflow_logs && "
         "export_mflog_env_vars_cmd && bash_capture_logs_cmd;c=$?; "
         "python -m metaflow.mflog.save_logs; exit $c"
     )
@@ -154,7 +155,7 @@ def test_command(bash_capture_logs: Mock, export_mflog_env_vars: Mock):
         flow_name="sample_flow",
         run_id="{run_id}",
         step_name="start",
-        task_id="task_id_template",
+        task_id="kfp1.01",
         retry_count=f"`python -c '{retry_count_python}'`",
         datastore_type="s3",
         datastore_root="$METAFLOW_DATASTORE_SYSROOT_S3",
@@ -162,6 +163,4 @@ def test_command(bash_capture_logs: Mock, export_mflog_env_vars: Mock):
         stderr_path=STDERR_PATH,
     )
 
-    bash_capture_logs.assert_called_once_with(
-        "echo 'Task is starting.' && cli command"
-    )
+    bash_capture_logs.assert_called_once_with("echo 'Task is starting.' && cli command")
