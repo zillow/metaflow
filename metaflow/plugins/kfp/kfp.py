@@ -727,7 +727,9 @@ class KubeflowPipelines(object):
                         metaflow_step_op.container.add_env_variable(env)
 
                 if step_variables.total_retries and step_variables.total_retries > 0:
-                    metaflow_step_op.set_retry(step_variables.total_retries)
+                    metaflow_step_op.set_retry(
+                        step_variables.total_retries, policy="Always"
+                    )
 
                 if preceding_kfp_component_op:
                     metaflow_step_op.after(preceding_kfp_component_op)
