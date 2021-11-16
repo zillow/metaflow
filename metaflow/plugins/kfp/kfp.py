@@ -321,8 +321,8 @@ class KubeflowPipelines(object):
             if any(self.graph[n].type == "foreach" for n in node.in_funcs)
             else False
         )
-        volume_dir: Optional[str] = (
-            None
+        volume_dir: str = (
+            ""  # simulating passing None type object to command line
             if "volume_dir" not in resource_requirements
             else resource_requirements["volume_dir"]
         )

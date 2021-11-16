@@ -1,6 +1,12 @@
 import pathlib
 from typing import List
 
+import os
+import json
+import logging
+from subprocess import Popen
+from typing import Dict, List
+
 import click
 
 from metaflow.mflog import bash_capture_logs, export_mflog_env_vars, BASH_SAVE_LOGS
@@ -160,9 +166,10 @@ def _step_cli(
 
 
 def _command(
-    clean_volume_cmd: str,
+    volume_dir: str,
     step_cli: str,
-    task_id_template: str,
+    task_id: str,
+    passed_in_split_indexes: str,
     step_name: str,
     flow_name: str,
 ) -> str:
@@ -177,6 +184,7 @@ def _command(
         "print(str(retry_count))"
     )
 
+    task_id_template: str = f"{task_id}.{passed_in_split_indexes}".strip(".")
     mflog_expr: str = export_mflog_env_vars(
         flow_name=flow_name,
         run_id="{run_id}",
@@ -191,6 +199,11 @@ def _command(
 
     step_cmds: List[str] = ["echo 'Task is starting.'", step_cli]
     step_expr: str = bash_capture_logs(" && ".join(step_cmds))
+
+    if volume_dir:
+        clean_volume_cmd: str = f"rm -rf {os.path.join(volume_dir, '*')}"
+    else:
+        clean_volume_cmd: str = "true"
 
     # construct an entry point that
     # 1) Clean attached volume if any
@@ -261,14 +274,7 @@ def kfp_metaflow_step(
     (1) Renders and runs the Metaflow package_commands and Metaflow step
     (2) Writes output of the Metaflow step function to ensure subsequent KFP steps
         have access to these outputs.
-
     """
-    import os
-    import json
-    import logging
-    from subprocess import Popen
-    from typing import Dict, List
-
     metaflow_configs: Dict[str, str] = json.loads(metaflow_configs_json)
     tags: List[str] = json.loads(tags_json)
     preceding_component_inputs: List[str] = json.loads(preceding_component_inputs_json)
@@ -276,10 +282,8 @@ def kfp_metaflow_step(
         preceding_component_outputs_json
     )
 
-    if preceding_component_inputs is None:
-        preceding_component_inputs = []
-    if preceding_component_outputs is None:
-        preceding_component_outputs = []
+    if volume_dir == "":
+        volume_dir = None
 
     step_cli: str = _step_cli(
         step_name,
@@ -306,15 +310,11 @@ def kfp_metaflow_step(
     preceding_component_outputs_env: Dict[str, str] = {
         field: kwargs[field] for field in preceding_component_outputs
     }
-    if volume_dir:
-        clean_volume_cmd: str = f"rm -rf {os.path.join(volume_dir, '*')}"
-    else:
-        clean_volume_cmd: str = "true"
-    task_id_template: str = f"{task_id}.{passed_in_split_indexes}".strip(".")
     cmd_template: str = _command(
-        clean_volume_cmd,
+        volume_dir,
         step_cli,
-        task_id_template,
+        task_id,
+        passed_in_split_indexes,
         step_name,
         flow_name,
     )
