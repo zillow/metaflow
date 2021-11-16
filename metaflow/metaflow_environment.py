@@ -6,7 +6,7 @@ from .metaflow_config import from_conf
 from .util import get_username, to_unicode
 from . import metaflow_version
 from metaflow.exception import MetaflowException
-from metaflow.mflog import BASH_MFLOG_KFP
+from metaflow.mflog import BASH_MFLOG, BASH_MFLOG_KFP
 from . import R
 
 version_cache = None
@@ -104,9 +104,11 @@ class MetaflowEnvironment(object):
     def get_package_commands(
             self,
             code_package_url,
+            is_kfp_plugin=False,
     ):
+        mflog_bash_cmd = BASH_MFLOG if not is_kfp_plugin else BASH_MFLOG_KFP
         cmds = [
-                BASH_MFLOG_KFP,
+                mflog_bash_cmd,
                 "mflog \'Setting up task environment.\'",
                 "%s -m pip install click requests boto3 -qqq" % self._python(),
                 "mkdir metaflow",

@@ -299,7 +299,9 @@ class KubeflowPipelines(object):
                 "mkdir -p /opt/metaflow_volume/metaflow_logs",
                 "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
             ]
-            cmd.extend(environment.get_package_commands(code_package_url))
+            cmd.extend(
+                environment.get_package_commands(code_package_url, is_kfp_plugin=True)
+            )
             return " && ".join(cmd)
         else:
             return " cd " + str(Path(inspect.getabsfile(self.flow.__class__)).parent)
