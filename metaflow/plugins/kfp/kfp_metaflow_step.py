@@ -213,7 +213,7 @@ def _command(
 
 
 @click.command()
-@click.option("--clean_volume_cmd")
+@click.option("--volume_dir")
 @click.option("--environment")
 @click.option("--is_foreach_step/--not_foreach_step", default=False)
 @click.option("--flow_name")
@@ -232,11 +232,10 @@ def _command(
 @click.option("--step_name")
 @click.option("--tags_json")
 @click.option("--task_id")
-@click.option("--task_id_template")
 @click.option("--user_code_retries", type=int)
 @click.option("--workflow_name")
 def kfp_metaflow_step(
-    clean_volume_cmd: str,
+    volume_dir: str,
     environment: str,
     flow_name: str,
     flow_parameters_json: str,  # json formatted string
@@ -255,7 +254,6 @@ def kfp_metaflow_step(
     step_name: str,
     tags_json: str,
     task_id: str,
-    task_id_template: str,
     user_code_retries: int,
     workflow_name: str,
 ) -> None:
@@ -308,6 +306,11 @@ def kfp_metaflow_step(
     preceding_component_outputs_env: Dict[str, str] = {
         field: kwargs[field] for field in preceding_component_outputs
     }
+    if volume_dir:
+        clean_volume_cmd: str = f"rm -rf {os.path.join(volume_dir, '*')}"
+    else:
+        clean_volume_cmd: str = "true"
+    task_id_template = f"{task_id}.{passed_in_split_indexes}".strip(".")
     cmd_template: str = _command(
         clean_volume_cmd,
         step_cli,

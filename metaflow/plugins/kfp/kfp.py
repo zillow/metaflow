@@ -39,7 +39,6 @@ from metaflow.metaflow_config import (
     KFP_USER_DOMAIN,
     from_conf,
 )
-from metaflow.mflog import BASH_MFLOG_KFP
 from metaflow.plugins import KfpInternalDecorator, EnvironmentDecorator
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 from .accelerator_decorator import AcceleratorDecorator
@@ -71,12 +70,10 @@ class FlowVariables:
 @dataclass
 class StepVariables:
     step_name: str
-    clean_volume_cmd: str
+    volume_dir: str
     is_split_index: bool
     task_id: str
-    task_id_template: str
     user_code_retries: int
-    total_retries: int
 
 
 class KfpComponent(object):
@@ -87,12 +84,14 @@ class KfpComponent(object):
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
         environment_decorator: EnvironmentDecorator,
+        total_retries: int,
     ):
         self.step_name = step_name
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
         self.accelerator_decorator = accelerator_decorator
         self.environment_decorator = environment_decorator
+        self.total_retries = total_retries
 
         self.preceding_kfp_func: Callable = (
             kfp_decorator.attributes.get("preceding_component", None)
@@ -297,7 +296,6 @@ class KubeflowPipelines(object):
     ) -> str:
         if self.s3_code_package:
             cmd: List[str] = [
-                BASH_MFLOG_KFP,
                 "mkdir -p /opt/metaflow_volume/metaflow_logs",
                 "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
             ]
@@ -321,38 +319,19 @@ class KubeflowPipelines(object):
             if any(self.graph[n].type == "foreach" for n in node.in_funcs)
             else False
         )
-
-        return StepVariables(
-            clean_volume_cmd=KubeflowPipelines._get_clean_volume_cmd(
-                resource_requirements
-            ),
-            step_name=node.name,
-            is_split_index=is_split_index,
-            task_id=task_id,
-            task_id_template=self._get_task_id_template(node.name, task_id),
-            total_retries=total_retries,
-            user_code_retries=user_code_retries,
+        volume_dir: Optional[str] = (
+            None
+            if "volume_dir" not in resource_requirements
+            else resource_requirements["volume_dir"]
         )
 
-    def _get_task_id_template(self, step_name: str, task_id: str) -> str:
-        if self.graph[step_name].is_inside_foreach:
-            return KfpForEachSplits.get_step_task_id(
-                task_id=task_id,
-                passed_in_split_indexes="{passed_in_split_indexes}",
-            )
-        else:
-            return task_id
-
-    @staticmethod
-    def _get_clean_volume_cmd(resource_requirements: Dict[str, str]) -> str:
-        if "volume" in resource_requirements:
-            volume_dir: str = resource_requirements["volume_dir"]
-            return f"rm -rf {os.path.join(volume_dir, '*')}"
-        else:
-            # the `true` command is to make sure that the generated command
-            # plays well with docker containers which have entrypoint set as
-            # eval $@
-            return "true"
+        return StepVariables(
+            step_name=node.name,
+            volume_dir=volume_dir,
+            is_split_index=is_split_index,
+            task_id=task_id,
+            user_code_retries=user_code_retries,
+        )
 
     def _create_kfp_components_from_graph(self) -> Dict[str, KfpComponent]:
         """
@@ -372,6 +351,7 @@ class KubeflowPipelines(object):
                         f"{type(deco)} in {node.name} step is not yet supported by kfp"
                     )
 
+            user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
             resource_requirements = self._get_resource_requirements(node)
 
             return KfpComponent(
@@ -401,6 +381,7 @@ class KubeflowPipelines(object):
                     ),
                     None,  # default
                 ),
+                total_retries=total_retries,
             )
 
         # Mapping of steps to their KfpComponent
@@ -726,9 +707,9 @@ class KubeflowPipelines(object):
                     for env in envs if envs else []:
                         metaflow_step_op.container.add_env_variable(env)
 
-                if step_variables.total_retries and step_variables.total_retries > 0:
+                if kfp_component.total_retries and kfp_component.total_retries > 0:
                     metaflow_step_op.set_retry(
-                        step_variables.total_retries, policy="Always"
+                        kfp_component.total_retries, policy="Always"
                     )
 
                 if preceding_kfp_component_op:
@@ -931,7 +912,7 @@ class KubeflowPipelines(object):
         # and still be a valid JSON string when loaded by the Python module.
         metaflow_execution_cmd: str = (
             " && python -m metaflow.plugins.kfp.kfp_metaflow_step"
-            f' --clean_volume_cmd "{step_variables.clean_volume_cmd}"'
+            f' --volume_dir "{step_variables.volume_dir}"'
             f" --environment {flow_variables.environment}"
             f" --event_logger {flow_variables.event_logger}"
             f" --flow_name {flow_variables.flow_name}"
@@ -945,7 +926,6 @@ class KubeflowPipelines(object):
             f" --step_name {step_variables.step_name}"
             f" --tags_json {json.dumps(json.dumps(flow_variables.tags))}"
             f" --task_id {step_variables.task_id}"
-            f' --task_id_template "{step_variables.task_id_template}"'
             f" --user_code_retries {step_variables.user_code_retries}"
             " --workflow_name {{workflow.name}}"
         )
