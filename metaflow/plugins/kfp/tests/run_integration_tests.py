@@ -1,12 +1,11 @@
+import subprocess
 import tempfile
-from os import listdir
+from os import listdir, environ
 from os.path import isfile, join
 
 import yaml
 from subprocess_tee import run
-import json
 import re
-import requests
 from typing import List, Dict
 
 import pytest
@@ -39,6 +38,8 @@ KFP runs will be scheduled.
 
 """
 
+SUBMIT_RUN_POLL_TIMEOUT_SECONDS = 5
+
 non_standard_test_flows = [
     "check_error_handling_flow.py",
     "raise_error_flow.py",
@@ -67,17 +68,33 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     return file_paths
 
 
+def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
+    USER_ID = environ["GITLAB_USER_EMAIL"]
+    get_kfp_run_status_cmd = f"kfp --output json --userid {USER_ID} run get {kfp_run_id} | jq --raw-output \".[0].status\""
+    kfp_run_status = None
+    while kfp_run_status not in {"Succeeded", "Skipped", "Failed", "Error"}:
+        kfp_run_status_process = subprocess.run(get_kfp_run_status_cmd, shell=True, check=True)
+        kfp_run_status = kfp_run_status_process.stdout
+        time.sleep(SUBMIT_RUN_POLL_TIMEOUT_SECONDS)
+
+    if kfp_run_status == "Succeeded":
+        print("s3_sensor flow passed!")
+        exit(0)
+    else:
+        print("s3_sensor flow passed!")
+        exit(1)
+
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
     file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
     file_name_for_formatter_test = f"s3-sensor-file-{uuid.uuid1()}.txt"
 
     s3_sensor_flow_cmd = (
-        f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
+        f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run "
         f"--file_name {file_name} --notify "
     )
     s3_sensor_with_formatter_flow_cmd = (
-        f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run --wait-for-completion "
+        f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run "
         f"--file_name_for_formatter_test {file_name_for_formatter_test} --notify "
     )
 
@@ -96,19 +113,23 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         s3_sensor_with_formatter_flow_cmd += image_cmds
 
     kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
-    exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
+    kfp_run_id_formatter_flow, workflow_name_formatter_flow = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
 
     upload_to_s3_flow_cmd = (
         f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
         f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
         f"--workflow_name {workflow_name} "
     )
+    upload_to_s3_flow_cmd += main_config_cmds
     if pytestconfig.getoption("image"):
         image_cmds = (
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
         )
         upload_to_s3_flow_cmd += image_cmds
     exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
+
+    ensure_s3_sensor_flow_completes(kfp_run_id)
+    ensure_s3_sensor_flow_completes(kfp_run_id_formatter_flow)
 
     return
 
