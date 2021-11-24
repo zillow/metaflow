@@ -72,10 +72,6 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
     file_name_for_formatter_test = f"s3-sensor-file-{uuid.uuid1()}.txt"
 
-    upload_to_s3_flow_cmd = (
-        f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
-        f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
-    )
     s3_sensor_flow_cmd = (
         f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
         f"--file_name {file_name} --notify "
@@ -89,7 +85,6 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         f"--workflow-timeout 1800 " f"--experiment metaflow_test --tag test_t1 "
     )
 
-    upload_to_s3_flow_cmd += main_config_cmds
     s3_sensor_flow_cmd += main_config_cmds
     s3_sensor_with_formatter_flow_cmd += main_config_cmds
 
@@ -97,103 +92,113 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         image_cmds = (
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
         )
-        upload_to_s3_flow_cmd += image_cmds
         s3_sensor_flow_cmd += image_cmds
         s3_sensor_with_formatter_flow_cmd += image_cmds
 
-    exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
-    exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
+    kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
     exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
+
+    upload_to_s3_flow_cmd = (
+        f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+        f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
+        f"--workflow_name {workflow_name} "
+    )
+    if pytestconfig.getoption("image"):
+        image_cmds = (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
+        )
+        upload_to_s3_flow_cmd += image_cmds
+    exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
 
     return
 
 
 # This test ensures that a flow fails correctly,
 # and when it fails, an OpsGenie email is sent.
-def test_error_and_opsgenie_alert(pytestconfig) -> None:
-    test_cmd = (
-        f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--experiment metaflow_test --tag test_t1 --notify "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
+# def test_error_and_opsgenie_alert(pytestconfig) -> None:
+#     test_cmd = (
+#         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--experiment metaflow_test --tag test_t1 --notify "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
 
-    error_flow_id = exponential_backoff_from_platform_errors(test_cmd, 1)
-    opsgenie_auth_headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
-    }
+#     error_flow_id = exponential_backoff_from_platform_errors(test_cmd, 1)
+#     opsgenie_auth_headers = {
+#         "Content-Type": "application/json",
+#         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
+#     }
 
-    # Look for the alert with the correct kfp_run_id in the description.
-    list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
-    list_alerts_response = requests.get(
-        list_alerts_endpoint, headers=opsgenie_auth_headers
-    )
-    assert list_alerts_response.status_code == 200
+#     # Look for the alert with the correct kfp_run_id in the description.
+#     list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
+#     list_alerts_response = requests.get(
+#         list_alerts_endpoint, headers=opsgenie_auth_headers
+#     )
+#     assert list_alerts_response.status_code == 200
 
-    list_alerts_response_json = json.loads(list_alerts_response.text)
-    # assert we have found the alert (there should only be one alert with that kfp_run_id)
-    assert len(list_alerts_response_json["data"]) == 1
-    alert_alias = list_alerts_response_json["data"][0]["alias"]
+#     list_alerts_response_json = json.loads(list_alerts_response.text)
+#     # assert we have found the alert (there should only be one alert with that kfp_run_id)
+#     assert len(list_alerts_response_json["data"]) == 1
+#     alert_alias = list_alerts_response_json["data"][0]["alias"]
 
-    close_alert_data = {
-        "user": "AIP Integration Testing Service",
-        "source": "AIP Integration Testing Service",
-        "note": "Closing ticket because the test is complete.",
-    }
-    close_alert_endpoint = (
-        f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
-    )
-    close_alert_response = requests.post(
-        close_alert_endpoint,
-        data=json.dumps(close_alert_data),
-        headers=opsgenie_auth_headers,
-    )
-    # Sometimes the response status code is 202, signaling
-    # the request has been accepted and is being queued for processing.
-    assert (
-        close_alert_response.status_code == 200
-        or close_alert_response.status_code == 202
-    )
+#     close_alert_data = {
+#         "user": "AIP Integration Testing Service",
+#         "source": "AIP Integration Testing Service",
+#         "note": "Closing ticket because the test is complete.",
+#     }
+#     close_alert_endpoint = (
+#         f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
+#     )
+#     close_alert_response = requests.post(
+#         close_alert_endpoint,
+#         data=json.dumps(close_alert_data),
+#         headers=opsgenie_auth_headers,
+#     )
+#     # Sometimes the response status code is 202, signaling
+#     # the request has been accepted and is being queued for processing.
+#     assert (
+#         close_alert_response.status_code == 200
+#         or close_alert_response.status_code == 202
+#     )
 
-    # Test logging of raise_error_flow
-    test_cmd = (
-        f"{_python()} flows/check_error_handling_flow.py "
-        f"--datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--experiment metaflow_test --tag test_t1 "
-        f"--error_flow_id={error_flow_id} "
-        f"--notify "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
-    exponential_backoff_from_platform_errors(test_cmd, 0)
+#     # Test logging of raise_error_flow
+#     test_cmd = (
+#         f"{_python()} flows/check_error_handling_flow.py "
+#         f"--datastore=s3 --with retry kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--experiment metaflow_test --tag test_t1 "
+#         f"--error_flow_id={error_flow_id} "
+#         f"--notify "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
+#     exponential_backoff_from_platform_errors(test_cmd, 0)
 
-    return
+#     return
 
 
-@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
-def test_flows(pytestconfig, flow_file_path: str) -> None:
-    full_path = join("flows", flow_file_path)
+# @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+# def test_flows(pytestconfig, flow_file_path: str) -> None:
+#     full_path = join("flows", flow_file_path)
 
-    test_cmd = (
-        f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
+#     test_cmd = (
+#         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
 
-    exponential_backoff_from_platform_errors(test_cmd, 0)
+#     exponential_backoff_from_platform_errors(test_cmd, 0)
 
-    return
+#     return
 
 
 def exponential_backoff_from_platform_errors(
@@ -238,8 +243,12 @@ def exponential_backoff_from_platform_errors(
     kfp_run_id = re.search("Metaflow run_id=(.*)\n", run_and_wait_process.stderr).group(
         1
     )
+    workflow_command = re.search("Argo workflow: (.*)\n", run_and_wait_process.stderr).group(
+        1
+    )
+    workflow_name = workflow_command.split(" ")[-1]
 
-    return kfp_run_id
+    return kfp_run_id, workflow_name
 
 
 def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
