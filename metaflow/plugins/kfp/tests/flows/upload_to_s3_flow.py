@@ -47,20 +47,20 @@ def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
         namespace=namespace,
     )
     for node in workflow["status"]["nodes"]:
-        if node["type"] == "Pod" and "s3sensor" in node["id"]:
-            s3_sensor_pod_name = node["id"]
+        node_name: str = node[0]
+        node_info: dict = node[1]
+        if node_info["type"] == "Pod" and "s3sensor" in node_name:
+            s3_sensor_pod_name = node_name
             break
     else:
         raise ValueError("s3_sensor pod not found.")
     pod_api: ResourceInstance = dynamic_client.resources.get(
-        api_version="argoproj.io/v1alpha1", kind="Pod"
+        api_version="v1", kind="Pod"
     )
-    print("pod_api: ", pod_api)
     pod: ResourceInstance = pod_api.delete(
         name=s3_sensor_pod_name,
         namespace=namespace,
     )
-    print("pod: ", pod)
 
 class UploadToS3Flow(FlowSpec):
     file_name = Parameter(
@@ -74,7 +74,7 @@ class UploadToS3Flow(FlowSpec):
     @step
     def start(self):     
         print("Waiting to delete pod to test s3_sensor retry...")
-        time.sleep(50)
+        time.sleep(15)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name)
 
         print("Waiting to upload file...")

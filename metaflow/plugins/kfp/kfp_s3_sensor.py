@@ -44,7 +44,7 @@ def _read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
         elapsed_time: float = float(s3_object['Body'].read().decode("utf-8"))
     return elapsed_time
 
-def _write_elapsed_time_s3_path(flow_name: str, kfp_run_id: str, elapsed_time: int) -> None:
+def _write_elapsed_time_s3_path(flow_name: str, kfp_run_id: str, elapsed_time: float) -> None:
     bucket, key = _get_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
     s3: botocore.client.S3 = boto3.client("s3")
     elapsed_time_binary_data = str(elapsed_time).encode('ascii')

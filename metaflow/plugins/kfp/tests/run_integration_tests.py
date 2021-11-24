@@ -71,9 +71,10 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
     USER_ID = environ["GITLAB_USER_EMAIL"]
     get_kfp_run_status_cmd = f"kfp --output json --userid {USER_ID} run get {kfp_run_id} | jq --raw-output \".[0].status\""
+    
     kfp_run_status = None
     while kfp_run_status not in {"Succeeded", "Skipped", "Failed", "Error"}:
-        kfp_run_status_process = subprocess.run(get_kfp_run_status_cmd, shell=True, check=True)
+        kfp_run_status_process = run(get_kfp_run_status_cmd, shell=True, check=True)
         kfp_run_status = kfp_run_status_process.stdout
         time.sleep(SUBMIT_RUN_POLL_TIMEOUT_SECONDS)
 
@@ -81,8 +82,9 @@ def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
         print("s3_sensor flow passed!")
         exit(0)
     else:
-        print("s3_sensor flow passed!")
+        print("s3_sensor flow failed!")
         exit(1)
+
 
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
