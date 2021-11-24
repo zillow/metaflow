@@ -75,6 +75,8 @@ def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
     run_id = kfp_run_id.replace("kfp-", "")
     get_kfp_run_status_cmd = f"kfp --output json --namespace {NAMESPACE} --userid {USER_ID} run get {run_id} | jq --raw-output \".[0].status\""
     
+    print("USER_ID: ", USER_ID)
+
     kfp_run_status = None
     start_time = time.time()
     while kfp_run_status not in {"Succeeded", "Skipped", "Failed", "Error"}:
