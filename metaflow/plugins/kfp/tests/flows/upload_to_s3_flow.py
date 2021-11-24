@@ -72,7 +72,7 @@ def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
             s3_sensor_pod_name = node_name
             break
     else:
-        raise ValueError("s3_sensor pod not found.")
+        raise Exception("s3_sensor pod not found.")
     _delete_pod(s3_sensor_pod_name)
 
 def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
@@ -93,10 +93,8 @@ def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
 
     if workflow_status == "Succeeded":
         print(f"workflow {workflow_name} passed!")
-        exit(0)
     else:
-        print(f"workflow {workflow_name} failed!")
-        exit(1)
+        raise Exception(f"workflow {workflow_name} failed!")
 
 class UploadToS3Flow(FlowSpec):
     file_name = Parameter(
