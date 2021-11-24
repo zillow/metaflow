@@ -36,9 +36,8 @@ def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
 
     namespace: str = environ.get("POD_NAMESPACE", default=None)
 
-    configuration = config.load_incluster_config()
     dynamic_client: Resource = DynamicClient(
-        api_client.ApiClient(configuration=configuration)
+        api_client.ApiClient(configuration=config.load_incluster_config())
     )
     workflow_api: ResourceInstance = dynamic_client.resources.get(
         api_version="argoproj.io/v1alpha1", kind="Workflow"
