@@ -95,7 +95,7 @@ def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
         print(f"workflow {workflow_name} passed!")
         exit(0)
     else:
-        print("workflow {workflow_name} failed!")
+        print(f"workflow {workflow_name} failed!")
         exit(1)
 
 class UploadToS3Flow(FlowSpec):
