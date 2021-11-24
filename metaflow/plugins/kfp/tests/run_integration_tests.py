@@ -39,6 +39,7 @@ KFP runs will be scheduled.
 """
 
 SUBMIT_RUN_POLL_TIMEOUT_SECONDS = 5
+WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT = 1200
 
 non_standard_test_flows = [
     "check_error_handling_flow.py",
@@ -70,10 +71,17 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
     USER_ID = environ["USER"]
-    get_kfp_run_status_cmd = f"kfp --output json --userid {USER_ID} run get {kfp_run_id} | jq --raw-output \".[0].status\""
+    run_id = kfp_run_id.replace("kfp-", "")
+    get_kfp_run_status_cmd = f"kfp --output json --userid {USER_ID} run get {run_id} | jq --raw-output \".[0].status\""
     
     kfp_run_status = None
+    start_time = time.time()
     while kfp_run_status not in {"Succeeded", "Skipped", "Failed", "Error"}:
+        current_time = time.time()
+        elapsed_time = current_time - start_time
+        if elapsed_time > WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT:
+            raise TimeoutError("Timed out waiting for s3_sensor_flow completion.")
+
         kfp_run_status_process = run(get_kfp_run_status_cmd, shell=True, check=True)
         kfp_run_status = kfp_run_status_process.stdout
         print("kfp_run_status: ", kfp_run_status)
@@ -133,8 +141,6 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 
     ensure_s3_sensor_flow_completes(kfp_run_id)
     ensure_s3_sensor_flow_completes(kfp_run_id_formatter_flow)
-
-    return
 
 
 # This test ensures that a flow fails correctly,
