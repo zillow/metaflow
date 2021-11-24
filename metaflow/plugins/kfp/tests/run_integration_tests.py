@@ -71,8 +71,9 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
 
 def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
     USER_ID = environ["USER"]
+    NAMESPACE = environ["KFP_SDK_NAMESPACE"]
     run_id = kfp_run_id.replace("kfp-", "")
-    get_kfp_run_status_cmd = f"kfp --output json --userid {USER_ID} run get {run_id} | jq --raw-output \".[0].status\""
+    get_kfp_run_status_cmd = f"kfp --output json --namespace {NAMESPACE} --userid {USER_ID} run get {run_id} | jq --raw-output \".[0].status\""
     
     kfp_run_status = None
     start_time = time.time()
