@@ -20,6 +20,9 @@ and s3_sensor_flow_with_formatter.py then wait for this file to appear in S3 thr
 of the @s3_sensor, after which the flows proceed.
 """
 
+SUBMIT_RUN_POLL_TIMEOUT_SECONDS = 5
+WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT = 1200
+
 
 def upload_file_to_s3(file_name: str) -> None:
     run(f"touch {file_name}", universal_newlines=True, stdout=PIPE, shell=True)
@@ -32,8 +35,6 @@ def upload_file_to_s3(file_name: str) -> None:
     s3.meta.client.upload_file(f"./{file_name}", bucket, join(key, file_name))
 
 def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
-    print("workflow_name: ", workflow_name)
-
     namespace: str = environ.get("POD_NAMESPACE", default=None)
 
     dynamic_client: Resource = DynamicClient(
@@ -62,6 +63,42 @@ def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
         namespace=namespace,
     )
 
+def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
+    namespace: str = environ.get("POD_NAMESPACE", default=None)
+
+    dynamic_client: Resource = DynamicClient(
+        api_client.ApiClient(configuration=config.load_incluster_config())
+    )
+    workflow_api: ResourceInstance = dynamic_client.resources.get(
+        api_version="argoproj.io/v1alpha1", kind="Workflow"
+    )
+    workflow: ResourceInstance = workflow_api.get(
+        name=workflow_name,
+        namespace=namespace,
+    )
+    workflow_status: str = workflow["status"]["phase"]
+    start_time = time.time()
+
+    while workflow_status not in {"Succeeded", "Skipped", "Failed", "Error"}:
+        current_time = time.time()
+        elapsed_time = current_time - start_time
+        if elapsed_time > WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT:
+            raise TimeoutError("Timed out waiting for s3_sensor_flow completion.")
+
+        workflow: ResourceInstance = workflow_api.get(
+            name=workflow_name,
+            namespace=namespace,
+        )
+        workflow_status: str = workflow["status"]["phase"]
+        time.sleep(SUBMIT_RUN_POLL_TIMEOUT_SECONDS)
+
+    if workflow_status == "Succeeded":
+        print("s3_sensor flow passed!")
+        exit(0)
+    else:
+        print("s3_sensor flow failed!")
+        exit(1)
+
 class UploadToS3Flow(FlowSpec):
     file_name = Parameter(
         "file_name",
@@ -70,20 +107,22 @@ class UploadToS3Flow(FlowSpec):
     workflow_name = Parameter(
         "workflow_name",
     )
+    workflow_name_for_formmater_test = Parameter("workflow_name_for_formmater_test")
 
     @step
     def start(self):     
         print("Waiting to delete pod to test s3_sensor retry...")
         time.sleep(15)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name)
+        delete_s3_sensor_pod_to_test_retry(self.workflow_name_for_formmater_test)
 
         print("Waiting to upload file...")
-        time.sleep(50)
+        time.sleep(20)
         print(f"Uploading {self.file_name} to S3...")
         upload_file_to_s3(self.file_name)
 
         print("Waiting to upload file for formatter test...")
-        time.sleep(100)
+        time.sleep(20)
         print(f"Uploading {self.file_name_for_formatter_test} to S3...")
         upload_file_to_s3(self.file_name_for_formatter_test)
 
@@ -91,6 +130,8 @@ class UploadToS3Flow(FlowSpec):
 
     @step
     def end(self):
+        wait_for_s3_sensor_flow_completion(self.workflow_name)
+        wait_for_s3_sensor_flow_completion(self.workflow_name_for_formmater_test)
         print("S3SensorFlow is all done.")
 
 

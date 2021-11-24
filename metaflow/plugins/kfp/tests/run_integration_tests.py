@@ -38,9 +38,6 @@ KFP runs will be scheduled.
 
 """
 
-SUBMIT_RUN_POLL_TIMEOUT_SECONDS = 5
-WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT = 1200
-
 non_standard_test_flows = [
     "check_error_handling_flow.py",
     "raise_error_flow.py",
@@ -67,38 +64,6 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
         and not file_name in non_standard_test_flows
     ]
     return file_paths
-
-
-def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
-    USER_ID = environ["USER"]
-    NAMESPACE = environ["KFP_SDK_NAMESPACE"]
-    run_id = kfp_run_id.replace("kfp-", "")
-
-    raise ValueError(f"USER_ID: {USER_ID}")
-
-    get_kfp_run_status_cmd = f"kfp --output json --namespace {NAMESPACE} --userid {USER_ID} run get {run_id} | jq --raw-output \".[0].status\""
-    
-    print("USER_ID: ", USER_ID)
-
-    kfp_run_status = None
-    start_time = time.time()
-    while kfp_run_status not in {"Succeeded", "Skipped", "Failed", "Error"}:
-        current_time = time.time()
-        elapsed_time = current_time - start_time
-        if elapsed_time > WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT:
-            raise TimeoutError("Timed out waiting for s3_sensor_flow completion.")
-
-        kfp_run_status_process = run(get_kfp_run_status_cmd, shell=True, check=True)
-        kfp_run_status = kfp_run_status_process.stdout
-        print("kfp_run_status: ", kfp_run_status)
-        time.sleep(SUBMIT_RUN_POLL_TIMEOUT_SECONDS)
-
-    if kfp_run_status == "Succeeded":
-        print("s3_sensor flow passed!")
-        exit(0)
-    else:
-        print("s3_sensor flow failed!")
-        exit(1)
 
 
 def test_s3_sensor_flow(pytestconfig) -> None:
@@ -135,7 +100,8 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     upload_to_s3_flow_cmd = (
         f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
         f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
-        f"--workflow_name {workflow_name} "
+        f"--workflow_name {workflow_name} --workflow_name_formmater_flow {workflow_name_formatter_flow} "
+        f"--wait-for-completion "
     )
     upload_to_s3_flow_cmd += main_config_cmds
     if pytestconfig.getoption("image"):
@@ -144,9 +110,6 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         )
         upload_to_s3_flow_cmd += image_cmds
     exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
-
-    ensure_s3_sensor_flow_completes(kfp_run_id)
-    ensure_s3_sensor_flow_completes(kfp_run_id_formatter_flow)
 
 
 # This test ensures that a flow fails correctly,
