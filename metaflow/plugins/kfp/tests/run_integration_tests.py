@@ -95,12 +95,12 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         s3_sensor_with_formatter_flow_cmd += image_cmds
 
     kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
-    kfp_run_id_formatter_flow, workflow_name_for_formmater_test = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
+    kfp_run_id_formatter_flow, workflow_name_for_formatter_test = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
 
     upload_to_s3_flow_cmd = (
         f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
         f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
-        f"--workflow_name {workflow_name} --workflow_name_for_formmater_test {workflow_name_for_formmater_test} "
+        f"--workflow_name {workflow_name} --workflow_name_for_formatter_test {workflow_name_for_formatter_test} "
         f"--wait-for-completion "
     )
     upload_to_s3_flow_cmd += main_config_cmds
