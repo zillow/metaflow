@@ -73,6 +73,9 @@ def ensure_s3_sensor_flow_completes(kfp_run_id: str) -> None:
     USER_ID = environ["USER"]
     NAMESPACE = environ["KFP_SDK_NAMESPACE"]
     run_id = kfp_run_id.replace("kfp-", "")
+
+    raise ValueError(f"USER_ID: {USER_ID}")
+
     get_kfp_run_status_cmd = f"kfp --output json --namespace {NAMESPACE} --userid {USER_ID} run get {run_id} | jq --raw-output \".[0].status\""
     
     print("USER_ID: ", USER_ID)
