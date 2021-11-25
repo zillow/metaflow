@@ -15,9 +15,19 @@ from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.resource import Resource, ResourceInstance
 
 """
-This test flow uploads a file at a particular S3 location. The test flows s3_sensor_flow.py
-and s3_sensor_flow_with_formatter.py then wait for this file to appear in S3 through the use
-of the @s3_sensor, after which the flows proceed.
+This test flow validates the execution of s3_sensor_flow.py and 
+s3_sensor_with_formatter_flow.py. 
+
+1. It uploads a file at a particular path in S3 known to the above 2
+flows so during execution, the s3_sensor in the above 2 flows are tested to
+find the the file.
+2. It deletes the s3_sensor pod in the above 2 flows to ensure s3_sensor recovers
+from workflow failures.
+3. It waits for the completion of the above 2 flows. This is necesary because we don't
+specify --wait-for-completion in the above 2 flows, so the kfp run command will return
+immediately with success. We didn't specify --wait-for-completion because we parse the
+output of the kfp run command to obtain the workflow_name, which is used within this
+flow to delete the s3_sensor pods.
 """
 
 SUBMIT_RUN_POLL_TIMEOUT_SECONDS = 5
