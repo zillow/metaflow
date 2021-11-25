@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union, Any
 
 import kfp
 from kfp import dsl
-from kfp.dsl import RUN_ID_PLACEHOLDER, ContainerOp, PipelineConf
+from kfp.dsl import ContainerOp, PipelineConf
 from kfp.dsl import PipelineVolume, ResourceOp
 from kfp.dsl._container_op import _get_resource_number, _get_cpu_number
 from kfp.dsl._pipeline_param import sanitize_k8s_name
@@ -1028,7 +1028,6 @@ class KubeflowPipelines(object):
             return self._create_s3_sensor_op(
                 s3_sensor_deco=s3_sensor_deco,
                 flow_parameters_json=flow_parameters_json,
-                metaflow_run_id=metaflow_run_id,
                 package_commands=flow_variables.package_commands,
             )
         else:
@@ -1038,7 +1037,6 @@ class KubeflowPipelines(object):
         self,
         s3_sensor_deco: FlowDecorator,
         flow_parameters_json: str,
-        metaflow_run_id: str,
         package_commands: str,
     ) -> ContainerOp:
         path = s3_sensor_deco.path

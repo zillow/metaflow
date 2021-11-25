@@ -24,15 +24,15 @@ SUBMIT_RUN_POLL_TIMEOUT_SECONDS = 5
 WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT = 1200
 
 
-def _get_dynamic_client() -> Resource:
+def get_dynamic_client() -> Resource:
     dynamic_client: Resource = DynamicClient(
         api_client.ApiClient(configuration=config.load_incluster_config())
     )
     return dynamic_client
 
-def _get_workflow(workflow_name: str) -> ResourceInstance:
+def get_workflow(workflow_name: str) -> ResourceInstance:
     namespace: str = environ.get("POD_NAMESPACE", default=None)
-    dynamic_client = _get_dynamic_client()
+    dynamic_client = get_dynamic_client()
     workflow_api: ResourceInstance = dynamic_client.resources.get(
         api_version="argoproj.io/v1alpha1", kind="Workflow"
     )
@@ -42,9 +42,9 @@ def _get_workflow(workflow_name: str) -> ResourceInstance:
     )
     return workflow
 
-def _delete_pod(pod_name: str) -> None:
+def delete_pod(pod_name: str) -> None:
     namespace: str = environ.get("POD_NAMESPACE", default=None)
-    dynamic_client = _get_dynamic_client()
+    dynamic_client = get_dynamic_client()
     pod_api: ResourceInstance = dynamic_client.resources.get(
         api_version="v1", kind="Pod"
     )
@@ -64,7 +64,7 @@ def upload_file_to_s3(file_name: str) -> None:
     s3.meta.client.upload_file(f"./{file_name}", bucket, join(key, file_name))
 
 def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
-    workflow = _get_workflow(workflow_name)
+    workflow = get_workflow(workflow_name)
     for node in workflow["status"]["nodes"]:
         node_name: str = node[0]
         node_info: dict = node[1]
@@ -73,10 +73,10 @@ def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
             break
     else:
         raise Exception("s3_sensor pod not found.")
-    _delete_pod(s3_sensor_pod_name)
+    delete_pod(s3_sensor_pod_name)
 
 def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
-    workflow = _get_workflow(workflow_name)
+    workflow = get_workflow(workflow_name)
     workflow_status: str = workflow["status"]["phase"]
     start_time = time.time()
 
@@ -87,7 +87,7 @@ def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
         if elapsed_time > WAIT_FOR_S3_SENSOR_FLOW_COMPLETION_TIMEOUT:
             raise TimeoutError("Timed out waiting for s3_sensor_flow completion.")
 
-        workflow = _get_workflow(workflow_name)
+        workflow = get_workflow(workflow_name)
         workflow_status: str = workflow["status"]["phase"]
         time.sleep(SUBMIT_RUN_POLL_TIMEOUT_SECONDS)
 

@@ -97,19 +97,19 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
     kfp_run_id_formatter_flow, workflow_name_for_formatter_test = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
 
-    upload_to_s3_flow_cmd = (
-        f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
+    validate_s3_sensor_flow_cmd = (
+        f"{_python()} flows/validate_s3_sensor_flow.py --datastore=s3 kfp run "
         f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
         f"--workflow_name {workflow_name} --workflow_name_for_formatter_test {workflow_name_for_formatter_test} "
         f"--wait-for-completion "
     )
-    upload_to_s3_flow_cmd += main_config_cmds
+    validate_s3_sensor_flow_cmd += main_config_cmds
     if pytestconfig.getoption("image"):
         image_cmds = (
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
         )
-        upload_to_s3_flow_cmd += image_cmds
-    exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
+        validate_s3_sensor_flow_cmd += image_cmds
+    exponential_backoff_from_platform_errors(validate_s3_sensor_flow_cmd, 0)
 
 
 # This test ensures that a flow fails correctly,
