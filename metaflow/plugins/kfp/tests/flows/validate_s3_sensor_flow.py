@@ -96,7 +96,7 @@ def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
     else:
         raise Exception(f"workflow {workflow_name} failed!")
 
-class UploadToS3Flow(FlowSpec):
+class ValidateS3SensorFlow(FlowSpec):
     file_name = Parameter(
         "file_name",
     )
@@ -133,4 +133,4 @@ class UploadToS3Flow(FlowSpec):
 
 
 if __name__ == "__main__":
-    UploadToS3Flow()
+    ValidateS3SensorFlow()
