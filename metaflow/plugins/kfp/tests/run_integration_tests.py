@@ -182,23 +182,23 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     return
 
 
-# @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
-# def test_flows(pytestconfig, flow_file_path: str) -> None:
-#     full_path = join("flows", flow_file_path)
+@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+def test_flows(pytestconfig, flow_file_path: str) -> None:
+    full_path = join("flows", flow_file_path)
 
-#     test_cmd = (
-#         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-#         f"--wait-for-completion --workflow-timeout 1800 "
-#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
+    test_cmd = (
+        f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
+        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
 
-#     exponential_backoff_from_platform_errors(test_cmd, 0)
+    exponential_backoff_from_platform_errors(test_cmd, 0)
 
-#     return
+    return
 
 
 def exponential_backoff_from_platform_errors(
@@ -274,74 +274,74 @@ def has_node_toleration(
     )
 
 
-# def test_toleration_and_affinity_compile_only() -> None:
-#     step_templates = {}
-#     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
-#         yaml_file_path = join(yaml_tmp_dir, "toleration_and_affinity_flow.yaml")
+def test_toleration_and_affinity_compile_only() -> None:
+    step_templates = {}
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_file_path = join(yaml_tmp_dir, "toleration_and_affinity_flow.yaml")
 
-#         compile_to_yaml_cmd = (
-#             f"{_python()} flows/toleration_and_affinity_flow.py --datastore=s3 --with retry kfp run"
-#             f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
-#         )
+        compile_to_yaml_cmd = (
+            f"{_python()} flows/toleration_and_affinity_flow.py --datastore=s3 --with retry kfp run"
+            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
+        )
 
-#         compile_to_yaml_process = run(
-#             compile_to_yaml_cmd,
-#             universal_newlines=True,
-#             shell=True,
-#         )
-#         assert compile_to_yaml_process.returncode == 0
+        compile_to_yaml_process = run(
+            compile_to_yaml_cmd,
+            universal_newlines=True,
+            shell=True,
+        )
+        assert compile_to_yaml_process.returncode == 0
 
-#         with open(f"{yaml_file_path}", "r") as stream:
-#             try:
-#                 flow_yaml = yaml.safe_load(stream)
-#             except yaml.YAMLError as exc:
-#                 print(exc)
+        with open(f"{yaml_file_path}", "r") as stream:
+            try:
+                flow_yaml = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
 
-#         for step in flow_yaml["spec"]["templates"]:
-#             # step name in yaml use "-" in place of "_"
-#             step_templates[step["name"].replace("-", "_")] = step
+        for step in flow_yaml["spec"]["templates"]:
+            # step name in yaml use "-" in place of "_"
+            step_templates[step["name"].replace("-", "_")] = step
 
-#     # Test accelerator deco: Both affinity and toleration need to be added
-#     assert any(
-#         exists_nvidia_accelerator(node_selector_term)
-#         for node_selector_term in step_templates["start"]["affinity"]["nodeAffinity"][
-#             "requiredDuringSchedulingIgnoredDuringExecution"
-#         ]["nodeSelectorTerms"]
-#     )
-#     assert has_node_toleration(
-#         step_template=step_templates["start"],
-#         key="k8s.amazonaws.com/accelerator",
-#         value="nvidia-tesla-v100",
-#     )
+    # Test accelerator deco: Both affinity and toleration need to be added
+    assert any(
+        exists_nvidia_accelerator(node_selector_term)
+        for node_selector_term in step_templates["start"]["affinity"]["nodeAffinity"][
+            "requiredDuringSchedulingIgnoredDuringExecution"
+        ]["nodeSelectorTerms"]
+    )
+    assert has_node_toleration(
+        step_template=step_templates["start"],
+        key="k8s.amazonaws.com/accelerator",
+        value="nvidia-tesla-v100",
+    )
 
-#     # Test toleration generated from resource spec for CPU pods
-#     assert not has_node_toleration(
-#         step_template=step_templates["small_default_pod"],
-#         key="node.kubernetes.io/instance-type",
-#         value="r5.12xlarge",
-#     )
-#     assert not has_node_toleration(
-#         step_template=step_templates["small_cpu_pod"],
-#         key="node.kubernetes.io/instance-type",
-#         value="r5.12xlarge",
-#     )
-#     assert not has_node_toleration(
-#         step_template=step_templates["small_memory_pod"],
-#         key="node.kubernetes.io/instance-type",
-#         value="r5.12xlarge",
-#     )
-#     assert has_node_toleration(
-#         step_template=step_templates["large_cpu_pod"],
-#         key="node.kubernetes.io/instance-type",
-#         value="r5.12xlarge",
-#     )
-#     assert has_node_toleration(
-#         step_template=step_templates["large_memory_pod"],
-#         key="node.kubernetes.io/instance-type",
-#         value="r5.12xlarge",
-#     )
-#     assert has_node_toleration(
-#         step_template=step_templates["large_memory_cpu_pod"],
-#         key="node.kubernetes.io/instance-type",
-#         value="r5.12xlarge",
-#     )
+    # Test toleration generated from resource spec for CPU pods
+    assert not has_node_toleration(
+        step_template=step_templates["small_default_pod"],
+        key="node.kubernetes.io/instance-type",
+        value="r5.12xlarge",
+    )
+    assert not has_node_toleration(
+        step_template=step_templates["small_cpu_pod"],
+        key="node.kubernetes.io/instance-type",
+        value="r5.12xlarge",
+    )
+    assert not has_node_toleration(
+        step_template=step_templates["small_memory_pod"],
+        key="node.kubernetes.io/instance-type",
+        value="r5.12xlarge",
+    )
+    assert has_node_toleration(
+        step_template=step_templates["large_cpu_pod"],
+        key="node.kubernetes.io/instance-type",
+        value="r5.12xlarge",
+    )
+    assert has_node_toleration(
+        step_template=step_templates["large_memory_pod"],
+        key="node.kubernetes.io/instance-type",
+        value="r5.12xlarge",
+    )
+    assert has_node_toleration(
+        step_template=step_templates["large_memory_cpu_pod"],
+        key="node.kubernetes.io/instance-type",
+        value="r5.12xlarge",
+    )
