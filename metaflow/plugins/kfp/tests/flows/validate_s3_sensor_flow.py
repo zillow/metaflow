@@ -81,7 +81,7 @@ def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
         if workflow and workflow["status"]:
             break
         print(f"Workflow {workflow_name}, waiting to retry...")
-        time.sleep(30)
+        time.sleep(1)
         workflow = get_workflow(workflow_name)
     for node in workflow["status"]["nodes"]:
         node_name: str = node[0]
@@ -126,8 +126,6 @@ class ValidateS3SensorFlow(FlowSpec):
 
     @step
     def start(self):     
-        print("Waiting to delete pod to test s3_sensor retry...")
-        time.sleep(15)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name_for_formatter_test)
 
