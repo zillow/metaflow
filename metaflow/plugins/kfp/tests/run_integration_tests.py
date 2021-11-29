@@ -126,13 +126,11 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
         )
 
-    error_flow_id = exponential_backoff_from_platform_errors(test_cmd, 1)
+    error_flow_id, error_flow_workflow = exponential_backoff_from_platform_errors(test_cmd, 1)
     opsgenie_auth_headers = {
         "Content-Type": "application/json",
         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
     }
-
-    print("OpsGenie run_id: ", error_flow_id)
 
     # Look for the alert with the correct kfp_run_id in the description.
     list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
