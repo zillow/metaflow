@@ -119,7 +119,9 @@ class ValidateS3SensorFlow(FlowSpec):
     @step
     def start(self):     
         print("Waiting to delete pod to test s3_sensor retry...")
-        time.sleep(15)
+        # wait 60 seconds to ensure s3_sensor pod has spun up fully
+        # otherwise, we get an exception that the pod isn't found
+        time.sleep(60)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name_for_formatter_test)
 
