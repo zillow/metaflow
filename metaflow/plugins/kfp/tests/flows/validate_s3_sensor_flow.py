@@ -75,6 +75,10 @@ def upload_file_to_s3(file_name: str) -> None:
 
 def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
     workflow = get_workflow(workflow_name)
+    # wait for s3_sensor workflow to be created
+    while not workflow:
+        time.sleep(30)
+        workflow = get_workflow(workflow_name)
     for node in workflow["status"]["nodes"]:
         node_name: str = node[0]
         node_info: dict = node[1]
@@ -119,9 +123,7 @@ class ValidateS3SensorFlow(FlowSpec):
     @step
     def start(self):     
         print("Waiting to delete pod to test s3_sensor retry...")
-        # wait 60 seconds to ensure s3_sensor pod has spun up fully
-        # otherwise, we get an exception that the pod isn't found
-        time.sleep(60)
+        time.sleep(15)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name_for_formatter_test)
 
