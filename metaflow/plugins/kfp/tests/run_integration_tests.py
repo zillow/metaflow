@@ -44,8 +44,8 @@ non_standard_test_flows = [
     "raise_error_flow.py",
     "s3_sensor_flow.py",
     "s3_sensor_with_formatter_flow.py",
+    "validate_s3_sensor_flow.py"
     "toleration_and_affinity_flow.py",
-    "upload_to_s3_flow.py",
 ]
 
 
