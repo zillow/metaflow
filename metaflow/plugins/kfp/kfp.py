@@ -817,7 +817,9 @@ class KubeflowPipelines(object):
                     self._create_exit_handler_op(flow_variables.package_commands)
                 ):
                     s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
-                        flow_parameters_json, flow_variables, f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
+                        flow_parameters_json,
+                        flow_variables,
+                        f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     )
                     workflow_uid_op: Optional[
                         ContainerOp
@@ -830,7 +832,9 @@ class KubeflowPipelines(object):
             else:
                 # TODO: can this and above duplicated code be in a function?
                 s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
-                    flow_parameters_json, flow_variables, f"kfp-{dsl.RUN_ID_PLACEHOLDER}"
+                    flow_parameters_json,
+                    flow_variables,
+                    f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                 )
                 workflow_uid_op: Optional[ContainerOp] = self._create_workflow_uid_op(
                     s3_sensor_op.output if s3_sensor_op else "",
@@ -1021,7 +1025,10 @@ class KubeflowPipelines(object):
             return None
 
     def create_s3_sensor_op(
-        self, flow_parameters_json: str, flow_variables: FlowVariables, metaflow_run_id: str,
+        self,
+        flow_parameters_json: str,
+        flow_variables: FlowVariables,
+        metaflow_run_id: str,
     ):
         s3_sensor_deco: Optional[FlowDecorator] = self.flow._flow_decorators.get(
             "s3_sensor"

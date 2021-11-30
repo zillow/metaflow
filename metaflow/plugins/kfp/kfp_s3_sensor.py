@@ -20,7 +20,10 @@ from urllib.parse import urlparse
 
 from typing import Tuple
 
-def get_elapsed_time_s3_bucket_and_key(flow_name: str, kfp_run_id: str) -> Tuple[str, str]:
+
+def get_elapsed_time_s3_bucket_and_key(
+    flow_name: str, kfp_run_id: str
+) -> Tuple[str, str]:
     s3_path = os.path.join(
         os.getenv("METAFLOW_DATASTORE_SYSROOT_S3"),
         flow_name,
@@ -30,6 +33,7 @@ def get_elapsed_time_s3_bucket_and_key(flow_name: str, kfp_run_id: str) -> Tuple
     s3_path_parsed = urlparse(s3_path)
     bucket, key = s3_path_parsed.netloc, s3_path_parsed.path.lstrip("/")
     return bucket, key
+
 
 def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
     bucket, key = get_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
@@ -41,14 +45,18 @@ def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
         elapsed_time: float = 0.0
     else:
         s3_object: dict = s3.get_object(Bucket=bucket, Key=key)
-        elapsed_time: float = float(s3_object['Body'].read().decode("utf-8"))
+        elapsed_time: float = float(s3_object["Body"].read().decode("utf-8"))
     return elapsed_time
 
-def write_elapsed_time_s3_path(flow_name: str, kfp_run_id: str, elapsed_time: float) -> None:
+
+def write_elapsed_time_s3_path(
+    flow_name: str, kfp_run_id: str, elapsed_time: float
+) -> None:
     bucket, key = get_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
     s3: botocore.client.S3 = boto3.client("s3")
-    elapsed_time_binary_data = str(elapsed_time).encode('ascii')
+    elapsed_time_binary_data = str(elapsed_time).encode("ascii")
     s3.put_object(Body=elapsed_time_binary_data, Bucket=bucket, Key=key)
+
 
 # We separate out this function to ensure it can be unit-tested.
 def wait_for_s3_path(
