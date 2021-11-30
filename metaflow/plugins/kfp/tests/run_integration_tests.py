@@ -1,12 +1,12 @@
 import tempfile
-from os import listdir
+from os import error, listdir, environ
 from os.path import isfile, join
 
+import json
+import requests
 import yaml
 from subprocess_tee import run
-import json
 import re
-import requests
 from typing import List, Dict
 
 import pytest
@@ -44,8 +44,8 @@ non_standard_test_flows = [
     "raise_error_flow.py",
     "s3_sensor_flow.py",
     "s3_sensor_with_formatter_flow.py",
+    "validate_s3_sensor_flow.py",
     "toleration_and_affinity_flow.py",
-    "upload_to_s3_flow.py",
 ]
 
 
@@ -72,16 +72,12 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     file_name = f"s3-sensor-file-{uuid.uuid1()}.txt"
     file_name_for_formatter_test = f"s3-sensor-file-{uuid.uuid1()}.txt"
 
-    upload_to_s3_flow_cmd = (
-        f"{_python()} flows/upload_to_s3_flow.py --datastore=s3 kfp run "
-        f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
-    )
     s3_sensor_flow_cmd = (
-        f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run --wait-for-completion "
+        f"{_python()} flows/s3_sensor_flow.py --datastore=s3 kfp run "
         f"--file_name {file_name} --notify "
     )
     s3_sensor_with_formatter_flow_cmd = (
-        f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run --wait-for-completion "
+        f"{_python()} flows/s3_sensor_with_formatter_flow.py --datastore=s3 kfp run "
         f"--file_name_for_formatter_test {file_name_for_formatter_test} --notify "
     )
 
@@ -89,7 +85,6 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         f"--workflow-timeout 1800 " f"--experiment metaflow_test --tag test_t1 "
     )
 
-    upload_to_s3_flow_cmd += main_config_cmds
     s3_sensor_flow_cmd += main_config_cmds
     s3_sensor_with_formatter_flow_cmd += main_config_cmds
 
@@ -97,15 +92,25 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         image_cmds = (
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
         )
-        upload_to_s3_flow_cmd += image_cmds
         s3_sensor_flow_cmd += image_cmds
         s3_sensor_with_formatter_flow_cmd += image_cmds
 
-    exponential_backoff_from_platform_errors(upload_to_s3_flow_cmd, 0)
-    exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
-    exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
+    kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
+    kfp_run_id_formatter_flow, workflow_name_for_formatter_test = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
 
-    return
+    validate_s3_sensor_flow_cmd = (
+        f"{_python()} flows/validate_s3_sensor_flow.py --datastore=s3 kfp run "
+        f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
+        f"--workflow_name {workflow_name} --workflow_name_for_formatter_test {workflow_name_for_formatter_test} "
+        f"--wait-for-completion "
+    )
+    validate_s3_sensor_flow_cmd += main_config_cmds
+    if pytestconfig.getoption("image"):
+        image_cmds = (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
+        )
+        validate_s3_sensor_flow_cmd += image_cmds
+    exponential_backoff_from_platform_errors(validate_s3_sensor_flow_cmd, 0)
 
 
 # This test ensures that a flow fails correctly,
@@ -121,7 +126,7 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
         )
 
-    error_flow_id = exponential_backoff_from_platform_errors(test_cmd, 1)
+    error_flow_id, error_flow_workflow = exponential_backoff_from_platform_errors(test_cmd, 1)
     opsgenie_auth_headers = {
         "Content-Type": "application/json",
         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
@@ -238,8 +243,12 @@ def exponential_backoff_from_platform_errors(
     kfp_run_id = re.search("Metaflow run_id=(.*)\n", run_and_wait_process.stderr).group(
         1
     )
+    workflow_command = re.search("Argo workflow: (.*)\n", run_and_wait_process.stderr).group(
+        1
+    )
+    workflow_name = workflow_command.split(" ")[-1]
 
-    return kfp_run_id
+    return kfp_run_id, workflow_name
 
 
 def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
