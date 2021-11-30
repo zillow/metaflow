@@ -75,14 +75,6 @@ def upload_file_to_s3(file_name: str) -> None:
 
 def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
     workflow = get_workflow(workflow_name)
-    # wait for s3_sensor workflow to be created and
-    # fully initialized by Argo
-    while True:
-        if workflow and workflow["status"]:
-            break
-        print(f"Workflow {workflow_name}, waiting to retry...")
-        time.sleep(1)
-        workflow = get_workflow(workflow_name)
     for node in workflow["status"]["nodes"]:
         node_name: str = node[0]
         node_info: dict = node[1]
