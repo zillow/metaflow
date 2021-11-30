@@ -75,6 +75,13 @@ def upload_file_to_s3(file_name: str) -> None:
 
 def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
     workflow = get_workflow(workflow_name)
+
+    print("workflow: ", workflow)
+    print("type(workflow): ", type(workflow))
+
+    print("workflow[status]: ", workflow["status"])
+    print("type(workflow[status]): ", type(workflow["status"]))
+
     for node in workflow["status"]["nodes"]:
         node_name: str = node[0]
         node_info: dict = node[1]
