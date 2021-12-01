@@ -1,13 +1,14 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
 import boto3
+import botocore
 import time
 from subprocess import run, PIPE
 
 from os import environ
 from os.path import join
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, ParseResult
 
 from kubernetes import config
 from kubernetes.client import api_client
@@ -42,7 +43,7 @@ def get_dynamic_client() -> Resource:
 
 def get_workflow(workflow_name: str) -> ResourceInstance:
     namespace: str = environ.get("POD_NAMESPACE", default=None)
-    dynamic_client = get_dynamic_client()
+    dynamic_client: Resource = get_dynamic_client()
     workflow_api: ResourceInstance = dynamic_client.resources.get(
         api_version="argoproj.io/v1alpha1", kind="Workflow"
     )
@@ -54,7 +55,7 @@ def get_workflow(workflow_name: str) -> ResourceInstance:
 
 def delete_pod(pod_name: str) -> None:
     namespace: str = environ.get("POD_NAMESPACE", default=None)
-    dynamic_client = get_dynamic_client()
+    dynamic_client: Resource = get_dynamic_client()
     pod_api: ResourceInstance = dynamic_client.resources.get(
         api_version="v1", kind="Pod"
     )
@@ -67,14 +68,15 @@ def upload_file_to_s3(file_name: str) -> None:
     run(f"touch {file_name}", universal_newlines=True, stdout=PIPE, shell=True)
     # using environ with METAFLOW_DATASTORE_SYSROOT_S3 env var
     # since it is available at run time in the pods on Kubeflow
-    root = urlparse(environ["METAFLOW_DATASTORE_SYSROOT_S3"])
-    bucket, key = root.netloc, root.path.lstrip("/")
+    root: ParseResult = urlparse(environ["METAFLOW_DATASTORE_SYSROOT_S3"])
+    bucket: str = root.netloc
+    key: str = root.path.lstrip("/")
 
-    s3 = boto3.resource("s3")
+    s3: botocore.client.S3 = boto3.resource("s3")
     s3.meta.client.upload_file(f"./{file_name}", bucket, join(key, file_name))
 
-def delete_s3_sensor_pod_to_test_retry(workflow_name: str):
-    workflow = get_workflow(workflow_name)
+def delete_s3_sensor_pod_to_test_retry(workflow_name: str) -> None:
+    workflow: ResourceInstance = get_workflow(workflow_name)
     for node in workflow["status"]["nodes"]:
         node_name: str = node[0]
         node_info: dict = node[1]

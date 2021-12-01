@@ -819,7 +819,6 @@ class KubeflowPipelines(object):
                     s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
                         flow_parameters_json,
                         flow_variables,
-                        f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                     )
                     workflow_uid_op: Optional[
                         ContainerOp
@@ -834,7 +833,6 @@ class KubeflowPipelines(object):
                 s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
                     flow_parameters_json,
                     flow_variables,
-                    f"kfp-{dsl.RUN_ID_PLACEHOLDER}",
                 )
                 workflow_uid_op: Optional[ContainerOp] = self._create_workflow_uid_op(
                     s3_sensor_op.output if s3_sensor_op else "",
@@ -1028,7 +1026,6 @@ class KubeflowPipelines(object):
         self,
         flow_parameters_json: str,
         flow_variables: FlowVariables,
-        metaflow_run_id: str,
     ):
         s3_sensor_deco: Optional[FlowDecorator] = self.flow._flow_decorators.get(
             "s3_sensor"

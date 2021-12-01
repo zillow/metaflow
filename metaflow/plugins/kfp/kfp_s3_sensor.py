@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 from typing import Tuple
 
 
-def get_elapsed_time_s3_bucket_and_key(
+def construct_elapsed_time_s3_bucket_and_key(
     flow_name: str, kfp_run_id: str
 ) -> Tuple[str, str]:
     s3_path = os.path.join(
@@ -36,7 +36,7 @@ def get_elapsed_time_s3_bucket_and_key(
 
 
 def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
-    bucket, key = get_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
+    bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
     s3: botocore.client.S3 = boto3.client("s3")
 
     try:
@@ -52,7 +52,7 @@ def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
 def write_elapsed_time_s3_path(
     flow_name: str, kfp_run_id: str, elapsed_time: float
 ) -> None:
-    bucket, key = get_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
+    bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
     s3: botocore.client.S3 = boto3.client("s3")
     elapsed_time_binary_data = str(elapsed_time).encode("ascii")
     s3.put_object(Body=elapsed_time_binary_data, Bucket=bucket, Key=key)
@@ -61,8 +61,8 @@ def write_elapsed_time_s3_path(
 # We separate out this function to ensure it can be unit-tested.
 def wait_for_s3_path(
     path: str,
-    flow_name,
-    kfp_run_id,
+    flow_name: str,
+    kfp_run_id: str,
     timeout_seconds: int,
     polling_interval_seconds: int,
     path_formatter_code_encoded: str,
@@ -102,8 +102,8 @@ def wait_for_s3_path(
     s3: botocore.client.S3 = boto3.client("s3")
     start_time = time.time()
     while True:
-        current_time = time.time()
-        elapsed_time = current_time - start_time + previous_elapsed_time
+        current_time: float = time.time()
+        elapsed_time: float = current_time - start_time + previous_elapsed_time
         if elapsed_time > timeout_seconds:
             raise TimeoutError("Timed out while waiting for S3 key..")
 

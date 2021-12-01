@@ -7,7 +7,7 @@ import requests
 import yaml
 from subprocess_tee import run
 import re
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import pytest
 import time
@@ -126,7 +126,7 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
         )
 
-    error_flow_id, error_flow_workflow = exponential_backoff_from_platform_errors(test_cmd, 1)
+    error_flow_id, error_flow_workflow_name = exponential_backoff_from_platform_errors(test_cmd, 1)
     opsgenie_auth_headers = {
         "Content-Type": "application/json",
         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
@@ -203,7 +203,7 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
 
 def exponential_backoff_from_platform_errors(
     kfp_run_cmd: str, correct_return_code: int
-) -> str:
+) -> Tuple[str, str]:
     # Within this function, we use the special feature of subprocess_tee which allows us
     # to capture both stdout and stderr (akin to stdout=PIPE, stderr=PIPE in the regular subprocess.run)
     # as well as output to stdout and stderr (which users can see on the Gitlab logs). We check
