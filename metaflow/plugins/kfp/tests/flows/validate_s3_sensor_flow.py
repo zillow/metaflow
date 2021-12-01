@@ -1,6 +1,5 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
-import boto3
 import botocore
 import time
 from subprocess import run, PIPE
@@ -14,6 +13,8 @@ from kubernetes import config
 from kubernetes.client import api_client
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.resource import Resource, ResourceInstance
+
+from metaflow.plugins.aws.aws_client import get_aws_client
 
 """
 This test flow validates the execution of s3_sensor_flow.py and 
@@ -41,6 +42,7 @@ def get_dynamic_client() -> Resource:
     )
     return dynamic_client
 
+
 def get_workflow(workflow_name: str) -> ResourceInstance:
     namespace: str = environ.get("POD_NAMESPACE", default=None)
     dynamic_client: Resource = get_dynamic_client()
@@ -53,6 +55,7 @@ def get_workflow(workflow_name: str) -> ResourceInstance:
     )
     return workflow
 
+
 def delete_pod(pod_name: str) -> None:
     namespace: str = environ.get("POD_NAMESPACE", default=None)
     dynamic_client: Resource = get_dynamic_client()
@@ -64,6 +67,7 @@ def delete_pod(pod_name: str) -> None:
         namespace=namespace,
     )
 
+
 def upload_file_to_s3(file_name: str) -> None:
     run(f"touch {file_name}", universal_newlines=True, stdout=PIPE, shell=True)
     # using environ with METAFLOW_DATASTORE_SYSROOT_S3 env var
@@ -72,8 +76,9 @@ def upload_file_to_s3(file_name: str) -> None:
     bucket: str = root.netloc
     key: str = root.path.lstrip("/")
 
-    s3: botocore.client.S3 = boto3.resource("s3")
+    s3: botocore.client.BaseClient = get_aws_client("s3")
     s3.meta.client.upload_file(f"./{file_name}", bucket, join(key, file_name))
+
 
 def delete_s3_sensor_pod_to_test_retry(workflow_name: str) -> None:
     workflow: ResourceInstance = get_workflow(workflow_name)
@@ -86,6 +91,7 @@ def delete_s3_sensor_pod_to_test_retry(workflow_name: str) -> None:
     else:
         raise Exception("s3_sensor pod not found.")
     delete_pod(s3_sensor_pod_name)
+
 
 def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
     workflow = get_workflow(workflow_name)
@@ -108,6 +114,7 @@ def wait_for_s3_sensor_flow_completion(workflow_name: str) -> None:
     else:
         raise Exception(f"workflow {workflow_name} failed!")
 
+
 class ValidateS3SensorFlow(FlowSpec):
     file_name = Parameter(
         "file_name",
@@ -119,7 +126,7 @@ class ValidateS3SensorFlow(FlowSpec):
     workflow_name_for_formatter_test = Parameter("workflow_name_for_formatter_test")
 
     @step
-    def start(self):     
+    def start(self):
         delete_s3_sensor_pod_to_test_retry(self.workflow_name)
         delete_s3_sensor_pod_to_test_retry(self.workflow_name_for_formatter_test)
 

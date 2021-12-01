@@ -20,6 +20,8 @@ from urllib.parse import urlparse
 
 from typing import Tuple
 
+from metaflow.plugins.aws.aws_client import get_aws_client
+
 
 def construct_elapsed_time_s3_bucket_and_key(
     flow_name: str, kfp_run_id: str
@@ -37,7 +39,7 @@ def construct_elapsed_time_s3_bucket_and_key(
 
 def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
     bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
-    s3: botocore.client.S3 = boto3.client("s3")
+    s3: botocore.client.BaseClient = get_aws_client("s3")
 
     try:
         s3.head_object(Bucket=bucket, Key=key)
@@ -53,7 +55,7 @@ def write_elapsed_time_s3_path(
     flow_name: str, kfp_run_id: str, elapsed_time: float
 ) -> None:
     bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
-    s3: botocore.client.S3 = boto3.client("s3")
+    s3: botocore.client.BaseClient = get_aws_client("s3")
     elapsed_time_binary_data = str(elapsed_time).encode("ascii")
     s3.put_object(Body=elapsed_time_binary_data, Bucket=bucket, Key=key)
 
@@ -99,7 +101,7 @@ def wait_for_s3_path(
 
     previous_elapsed_time: float = read_elapsed_time_s3_path(flow_name, kfp_run_id)
 
-    s3: botocore.client.S3 = boto3.client("s3")
+    s3: botocore.client.BaseClient = get_aws_client("s3")
     start_time = time.time()
     while True:
         current_time: float = time.time()

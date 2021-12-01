@@ -95,8 +95,13 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         s3_sensor_flow_cmd += image_cmds
         s3_sensor_with_formatter_flow_cmd += image_cmds
 
-    kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(s3_sensor_flow_cmd, 0)
-    kfp_run_id_formatter_flow, workflow_name_for_formatter_test = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
+    kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(
+        s3_sensor_flow_cmd, 0
+    )
+    (
+        kfp_run_id_formatter_flow,
+        workflow_name_for_formatter_test,
+    ) = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
 
     validate_s3_sensor_flow_cmd = (
         f"{_python()} flows/validate_s3_sensor_flow.py --datastore=s3 kfp run "
@@ -126,7 +131,9 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
         )
 
-    error_flow_id, error_flow_workflow_name = exponential_backoff_from_platform_errors(test_cmd, 1)
+    error_flow_id, error_flow_workflow_name = exponential_backoff_from_platform_errors(
+        test_cmd, 1
+    )
     opsgenie_auth_headers = {
         "Content-Type": "application/json",
         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
@@ -243,9 +250,9 @@ def exponential_backoff_from_platform_errors(
     kfp_run_id = re.search("Metaflow run_id=(.*)\n", run_and_wait_process.stderr).group(
         1
     )
-    workflow_command = re.search("Argo workflow: (.*)\n", run_and_wait_process.stderr).group(
-        1
-    )
+    workflow_command = re.search(
+        "Argo workflow: (.*)\n", run_and_wait_process.stderr
+    ).group(1)
     workflow_name = workflow_command.split(" ")[-1]
 
     return kfp_run_id, workflow_name
