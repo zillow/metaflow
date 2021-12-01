@@ -21,6 +21,7 @@ from typing import Tuple
 
 from metaflow.plugins.aws.aws_client import get_aws_client
 
+
 def construct_elapsed_time_s3_bucket_and_key(
     flow_name: str, kfp_run_id: str
 ) -> Tuple[str, str]:
