@@ -77,7 +77,7 @@ def upload_file_to_s3(file_name: str) -> None:
     key: str = root.path.lstrip("/")
 
     s3: botocore.client.BaseClient = get_aws_client("s3")
-    s3.meta.client.upload_file(f"./{file_name}", bucket, join(key, file_name))
+    s3.upload_file(f"./{file_name}", bucket, join(key, file_name))
 
 
 def delete_s3_sensor_pod_to_test_retry(workflow_name: str) -> None:
