@@ -23,7 +23,7 @@ def formatter(path: str, flow_parameters: Dict[str, str]) -> str:
 
 
 @s3_sensor(
-    path=join("{datastore}", "{file_name_for_formatter_test}"),
+    path=join("{datastore}", "s3_sensor_key_files", "{file_name_for_formatter_test}"),
     timeout_seconds=600,
     polling_interval_seconds=5,
     path_formatter=formatter,

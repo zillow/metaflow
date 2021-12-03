@@ -95,18 +95,18 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         s3_sensor_flow_cmd += image_cmds
         s3_sensor_with_formatter_flow_cmd += image_cmds
 
-    kfp_run_id, workflow_name = exponential_backoff_from_platform_errors(
-        s3_sensor_flow_cmd, 0
+    kfp_run_id, s3_sensor_argo_workflow_name = run_cmd_with_backoff_from_platform_errors(
+        s3_sensor_flow_cmd, correct_return_code=0
     )
     (
         kfp_run_id_formatter_flow,
-        workflow_name_for_formatter_test,
-    ) = exponential_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, 0)
+        s3_sensor_with_formatter_argo_workflow_name,
+    ) = run_cmd_with_backoff_from_platform_errors(s3_sensor_with_formatter_flow_cmd, correct_return_code=0)
 
     validate_s3_sensor_flow_cmd = (
         f"{_python()} flows/validate_s3_sensor_flow.py --datastore=s3 kfp run "
         f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
-        f"--workflow_name {workflow_name} --workflow_name_for_formatter_test {workflow_name_for_formatter_test} "
+        f"--s3_sensor_argo_workflow_name {s3_sensor_argo_workflow_name} --s3_sensor_with_formatter_argo_workflow_name {s3_sensor_with_formatter_argo_workflow_name} "
         f"--wait-for-completion "
     )
     validate_s3_sensor_flow_cmd += main_config_cmds
@@ -115,100 +115,100 @@ def test_s3_sensor_flow(pytestconfig) -> None:
             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')} "
         )
         validate_s3_sensor_flow_cmd += image_cmds
-    exponential_backoff_from_platform_errors(validate_s3_sensor_flow_cmd, 0)
+    run_cmd_with_backoff_from_platform_errors(validate_s3_sensor_flow_cmd, correct_return_code=0)
 
 
 # This test ensures that a flow fails correctly,
 # and when it fails, an OpsGenie email is sent.
-def test_error_and_opsgenie_alert(pytestconfig) -> None:
-    test_cmd = (
-        f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--experiment metaflow_test --tag test_t1 --notify "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
+# def test_error_and_opsgenie_alert(pytestconfig) -> None:
+#     test_cmd = (
+#         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--experiment metaflow_test --tag test_t1 --notify "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
 
-    error_flow_id, error_flow_workflow_name = exponential_backoff_from_platform_errors(
-        test_cmd, 1
-    )
-    opsgenie_auth_headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
-    }
+#     error_flow_id, error_flow_workflow_name = run_cmd_with_backoff_from_platform_errors(
+#         test_cmd, correct_return_code=1
+#     )
+#     opsgenie_auth_headers = {
+#         "Content-Type": "application/json",
+#         "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
+#     }
 
-    # Look for the alert with the correct kfp_run_id in the description.
-    list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
-    list_alerts_response = requests.get(
-        list_alerts_endpoint, headers=opsgenie_auth_headers
-    )
-    assert list_alerts_response.status_code == 200
+#     # Look for the alert with the correct kfp_run_id in the description.
+#     list_alerts_endpoint = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
+#     list_alerts_response = requests.get(
+#         list_alerts_endpoint, headers=opsgenie_auth_headers
+#     )
+#     assert list_alerts_response.status_code == 200
 
-    list_alerts_response_json = json.loads(list_alerts_response.text)
-    # assert we have found the alert (there should only be one alert with that kfp_run_id)
-    assert len(list_alerts_response_json["data"]) == 1
-    alert_alias = list_alerts_response_json["data"][0]["alias"]
+#     list_alerts_response_json = json.loads(list_alerts_response.text)
+#     # assert we have found the alert (there should only be one alert with that kfp_run_id)
+#     assert len(list_alerts_response_json["data"]) == 1
+#     alert_alias = list_alerts_response_json["data"][0]["alias"]
 
-    close_alert_data = {
-        "user": "AIP Integration Testing Service",
-        "source": "AIP Integration Testing Service",
-        "note": "Closing ticket because the test is complete.",
-    }
-    close_alert_endpoint = (
-        f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
-    )
-    close_alert_response = requests.post(
-        close_alert_endpoint,
-        data=json.dumps(close_alert_data),
-        headers=opsgenie_auth_headers,
-    )
-    # Sometimes the response status code is 202, signaling
-    # the request has been accepted and is being queued for processing.
-    assert (
-        close_alert_response.status_code == 200
-        or close_alert_response.status_code == 202
-    )
+#     close_alert_data = {
+#         "user": "AIP Integration Testing Service",
+#         "source": "AIP Integration Testing Service",
+#         "note": "Closing ticket because the test is complete.",
+#     }
+#     close_alert_endpoint = (
+#         f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
+#     )
+#     close_alert_response = requests.post(
+#         close_alert_endpoint,
+#         data=json.dumps(close_alert_data),
+#         headers=opsgenie_auth_headers,
+#     )
+#     # Sometimes the response status code is 202, signaling
+#     # the request has been accepted and is being queued for processing.
+#     assert (
+#         close_alert_response.status_code == 200
+#         or close_alert_response.status_code == 202
+#     )
 
-    # Test logging of raise_error_flow
-    test_cmd = (
-        f"{_python()} flows/check_error_handling_flow.py "
-        f"--datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--experiment metaflow_test --tag test_t1 "
-        f"--error_flow_id={error_flow_id} "
-        f"--notify "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
-    exponential_backoff_from_platform_errors(test_cmd, 0)
+#     # Test logging of raise_error_flow
+#     test_cmd = (
+#         f"{_python()} flows/check_error_handling_flow.py "
+#         f"--datastore=s3 --with retry kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--experiment metaflow_test --tag test_t1 "
+#         f"--error_flow_id={error_flow_id} "
+#         f"--notify "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
+#     run_cmd_with_backoff_from_platform_errors(test_cmd, correct_return_code=0)
 
-    return
-
-
-@pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
-def test_flows(pytestconfig, flow_file_path: str) -> None:
-    full_path = join("flows", flow_file_path)
-
-    test_cmd = (
-        f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
-
-    exponential_backoff_from_platform_errors(test_cmd, 0)
-
-    return
+#     return
 
 
-def exponential_backoff_from_platform_errors(
+# @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
+# def test_flows(pytestconfig, flow_file_path: str) -> None:
+#     full_path = join("flows", flow_file_path)
+
+#     test_cmd = (
+#         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
+#         f"--wait-for-completion --workflow-timeout 1800 "
+#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
+
+#     run_cmd_with_backoff_from_platform_errors(test_cmd, correct_return_code=0)
+
+#     return
+
+
+def run_cmd_with_backoff_from_platform_errors(
     kfp_run_cmd: str, correct_return_code: int
 ) -> Tuple[str, str]:
     # Within this function, we use the special feature of subprocess_tee which allows us
@@ -250,12 +250,12 @@ def exponential_backoff_from_platform_errors(
     kfp_run_id = re.search("Metaflow run_id=(.*)\n", run_and_wait_process.stderr).group(
         1
     )
-    workflow_command = re.search(
+    argo_workflow_output_string = re.search(
         "Argo workflow: (.*)\n", run_and_wait_process.stderr
     ).group(1)
-    workflow_name = workflow_command.split(" ")[-1]
+    argo_workflow_name = argo_workflow_output_string.split(" ")[-1]
 
-    return kfp_run_id, workflow_name
+    return kfp_run_id, argo_workflow_name
 
 
 def exists_nvidia_accelerator(node_selector_term: Dict) -> bool:
@@ -281,74 +281,74 @@ def has_node_toleration(
     )
 
 
-def test_toleration_and_affinity_compile_only() -> None:
-    step_templates = {}
-    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
-        yaml_file_path = join(yaml_tmp_dir, "toleration_and_affinity_flow.yaml")
+# def test_toleration_and_affinity_compile_only() -> None:
+#     step_templates = {}
+#     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+#         yaml_file_path = join(yaml_tmp_dir, "toleration_and_affinity_flow.yaml")
 
-        compile_to_yaml_cmd = (
-            f"{_python()} flows/toleration_and_affinity_flow.py --datastore=s3 --with retry kfp run"
-            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
-        )
+#         compile_to_yaml_cmd = (
+#             f"{_python()} flows/toleration_and_affinity_flow.py --datastore=s3 --with retry kfp run"
+#             f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
+#         )
 
-        compile_to_yaml_process = run(
-            compile_to_yaml_cmd,
-            universal_newlines=True,
-            shell=True,
-        )
-        assert compile_to_yaml_process.returncode == 0
+#         compile_to_yaml_process = run(
+#             compile_to_yaml_cmd,
+#             universal_newlines=True,
+#             shell=True,
+#         )
+#         assert compile_to_yaml_process.returncode == 0
 
-        with open(f"{yaml_file_path}", "r") as stream:
-            try:
-                flow_yaml = yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                print(exc)
+#         with open(f"{yaml_file_path}", "r") as stream:
+#             try:
+#                 flow_yaml = yaml.safe_load(stream)
+#             except yaml.YAMLError as exc:
+#                 print(exc)
 
-        for step in flow_yaml["spec"]["templates"]:
-            # step name in yaml use "-" in place of "_"
-            step_templates[step["name"].replace("-", "_")] = step
+#         for step in flow_yaml["spec"]["templates"]:
+#             # step name in yaml use "-" in place of "_"
+#             step_templates[step["name"].replace("-", "_")] = step
 
-    # Test accelerator deco: Both affinity and toleration need to be added
-    assert any(
-        exists_nvidia_accelerator(node_selector_term)
-        for node_selector_term in step_templates["start"]["affinity"]["nodeAffinity"][
-            "requiredDuringSchedulingIgnoredDuringExecution"
-        ]["nodeSelectorTerms"]
-    )
-    assert has_node_toleration(
-        step_template=step_templates["start"],
-        key="k8s.amazonaws.com/accelerator",
-        value="nvidia-tesla-v100",
-    )
+#     # Test accelerator deco: Both affinity and toleration need to be added
+#     assert any(
+#         exists_nvidia_accelerator(node_selector_term)
+#         for node_selector_term in step_templates["start"]["affinity"]["nodeAffinity"][
+#             "requiredDuringSchedulingIgnoredDuringExecution"
+#         ]["nodeSelectorTerms"]
+#     )
+#     assert has_node_toleration(
+#         step_template=step_templates["start"],
+#         key="k8s.amazonaws.com/accelerator",
+#         value="nvidia-tesla-v100",
+#     )
 
-    # Test toleration generated from resource spec for CPU pods
-    assert not has_node_toleration(
-        step_template=step_templates["small_default_pod"],
-        key="node.k8s.zgtools.net/purpose",
-        value="high-memory",
-    )
-    assert not has_node_toleration(
-        step_template=step_templates["small_cpu_pod"],
-        key="node.k8s.zgtools.net/purpose",
-        value="high-memory",
-    )
-    assert not has_node_toleration(
-        step_template=step_templates["small_memory_pod"],
-        key="node.k8s.zgtools.net/purpose",
-        value="high-memory",
-    )
-    assert has_node_toleration(
-        step_template=step_templates["large_cpu_pod"],
-        key="node.k8s.zgtools.net/purpose",
-        value="high-memory",
-    )
-    assert has_node_toleration(
-        step_template=step_templates["large_memory_pod"],
-        key="node.k8s.zgtools.net/purpose",
-        value="high-memory",
-    )
-    assert has_node_toleration(
-        step_template=step_templates["large_memory_cpu_pod"],
-        key="node.k8s.zgtools.net/purpose",
-        value="high-memory",
-    )
+#     # Test toleration generated from resource spec for CPU pods
+#     assert not has_node_toleration(
+#         step_template=step_templates["small_default_pod"],
+#         key="node.k8s.zgtools.net/purpose",
+#         value="high-memory",
+#     )
+#     assert not has_node_toleration(
+#         step_template=step_templates["small_cpu_pod"],
+#         key="node.k8s.zgtools.net/purpose",
+#         value="high-memory",
+#     )
+#     assert not has_node_toleration(
+#         step_template=step_templates["small_memory_pod"],
+#         key="node.k8s.zgtools.net/purpose",
+#         value="high-memory",
+#     )
+#     assert has_node_toleration(
+#         step_template=step_templates["large_cpu_pod"],
+#         key="node.k8s.zgtools.net/purpose",
+#         value="high-memory",
+#     )
+#     assert has_node_toleration(
+#         step_template=step_templates["large_memory_pod"],
+#         key="node.k8s.zgtools.net/purpose",
+#         value="high-memory",
+#     )
+#     assert has_node_toleration(
+#         step_template=step_templates["large_memory_cpu_pod"],
+#         key="node.k8s.zgtools.net/purpose",
+#         value="high-memory",
+#     )
