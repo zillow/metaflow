@@ -74,7 +74,7 @@ def upload_file_to_s3(file_name: str) -> None:
     # using environ with METAFLOW_DATASTORE_SYSROOT_S3 env var
     # since it is available at run time in the pods on Kubeflow
     root: ParseResult = urlparse(
-        join(environ["METAFLOW_DATASTORE_SYSROOT_S3"], "s3_sensor_key_files")
+        join(environ["METAFLOW_DATASTORE_SYSROOT_S3"], "s3_sensor_test_key_files")
     )
     bucket: str = root.netloc
     key: str = root.path.lstrip("/")
