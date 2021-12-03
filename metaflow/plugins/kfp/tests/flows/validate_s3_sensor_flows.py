@@ -73,7 +73,9 @@ def upload_file_to_s3(file_name: str) -> None:
     run(f"touch {file_name}", universal_newlines=True, stdout=PIPE, shell=True)
     # using environ with METAFLOW_DATASTORE_SYSROOT_S3 env var
     # since it is available at run time in the pods on Kubeflow
-    root: ParseResult = urlparse(join(environ["METAFLOW_DATASTORE_SYSROOT_S3"], "s3_sensor_key_files"))
+    root: ParseResult = urlparse(
+        join(environ["METAFLOW_DATASTORE_SYSROOT_S3"], "s3_sensor_key_files")
+    )
     bucket: str = root.netloc
     key: str = root.path.lstrip("/")
 
@@ -126,12 +128,16 @@ class ValidateS3SensorFlows(FlowSpec):
     s3_sensor_argo_workflow_name = Parameter(
         "s3_sensor_argo_workflow_name",
     )
-    s3_sensor_with_formatter_argo_workflow_name = Parameter("s3_sensor_with_formatter_argo_workflow_name")
+    s3_sensor_with_formatter_argo_workflow_name = Parameter(
+        "s3_sensor_with_formatter_argo_workflow_name"
+    )
 
     @step
     def start(self):
         delete_s3_sensor_pod_to_test_retry(self.s3_sensor_argo_workflow_name)
-        delete_s3_sensor_pod_to_test_retry(self.s3_sensor_with_formatter_argo_workflow_name)
+        delete_s3_sensor_pod_to_test_retry(
+            self.s3_sensor_with_formatter_argo_workflow_name
+        )
 
         print("Waiting to upload file...")
         time.sleep(20)
@@ -147,7 +153,9 @@ class ValidateS3SensorFlows(FlowSpec):
     @step
     def end(self):
         wait_for_s3_sensor_flow_completion(self.s3_sensor_argo_workflow_name)
-        wait_for_s3_sensor_flow_completion(self.s3_sensor_with_formatter_argo_workflow_name)
+        wait_for_s3_sensor_flow_completion(
+            self.s3_sensor_with_formatter_argo_workflow_name
+        )
         print("S3SensorFlow is all done.")
 
 
