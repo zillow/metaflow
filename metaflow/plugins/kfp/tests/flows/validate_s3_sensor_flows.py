@@ -1,6 +1,7 @@
 from metaflow import FlowSpec, step, resources, s3_sensor, Parameter
 
 import botocore
+from botocore.exceptions import ClientError
 import time
 from subprocess import run, PIPE
 
@@ -76,7 +77,9 @@ def upload_file_to_s3(file_name: str) -> None:
     bucket: str = root.netloc
     key: str = root.path.lstrip("/")
 
-    s3: botocore.client.BaseClient = get_s3_client()
+    s3: botocore.client.BaseClient
+    s3_client_error: ClientError
+    s3, s3_client_error = get_s3_client()
     s3.upload_file(f"./{file_name}", bucket, join(key, file_name))
 
 
