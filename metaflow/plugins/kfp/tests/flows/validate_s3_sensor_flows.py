@@ -94,9 +94,9 @@ def delete_s3_sensor_pod_to_test_retry(argo_workflow_name: str) -> None:
 
 
 def wait_for_s3_sensor_flow_completion(argo_workflow_name: str) -> None:
-    argo_workflow = get_argo_workflow(argo_workflow_name)
+    argo_workflow: ResourceInstance = get_argo_workflow(argo_workflow_name)
     argo_workflow_status: str = argo_workflow["status"]["phase"]
-    start_time = time.time()
+    start_time: float = time.time()
 
     while argo_workflow_status not in {"Succeeded", "Skipped", "Failed", "Error"}:
         print(f"Waiting for workflow f{argo_workflow_name} to complete...")
@@ -121,9 +121,9 @@ class ValidateS3SensorFlows(FlowSpec):
     )
     file_name_for_formatter_test = Parameter("file_name_for_formatter_test")
     s3_sensor_argo_workflow_name = Parameter(
-        "workflow_name",
+        "s3_sensor_argo_workflow_name",
     )
-    s3_sensor_with_formatter_argo_workflow_name = Parameter("workflow_name_for_formatter_test")
+    s3_sensor_with_formatter_argo_workflow_name = Parameter("s3_sensor_with_formatter_argo_workflow_name")
 
     @step
     def start(self):
@@ -132,6 +132,7 @@ class ValidateS3SensorFlows(FlowSpec):
 
         print("Waiting to upload file...")
         time.sleep(20)
+
         print(f"Uploading {self.file_name} to S3...")
         upload_file_to_s3(self.file_name)
 

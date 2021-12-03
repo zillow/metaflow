@@ -15,7 +15,7 @@ import base64
 import json
 import marshal
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlparse, ParseResult
 
 from typing import Tuple
 
@@ -31,12 +31,15 @@ def construct_elapsed_time_s3_bucket_and_key(
         kfp_run_id,
         "_s3_sensor",
     )
-    s3_path_parsed = urlparse(s3_path)
-    bucket, key = s3_path_parsed.netloc, s3_path_parsed.path.lstrip("/")
+    s3_path_parsed: ParseResult = urlparse(s3_path)
+    bucket: str = s3_path_parsed.netloc
+    key: str = s3_path_parsed.path.lstrip("/")
     return bucket, key
 
 
 def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
+    bucket: str
+    key: str
     bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
     s3: botocore.client.BaseClient = get_s3_client("s3")
 
@@ -53,6 +56,8 @@ def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
 def write_elapsed_time_s3_path(
     flow_name: str, kfp_run_id: str, elapsed_time: float
 ) -> None:
+    bucket: str
+    key: str
     bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
     s3: botocore.client.BaseClient = get_s3_client("s3")
     elapsed_time_binary_data = str(elapsed_time).encode("ascii")
@@ -87,7 +92,7 @@ def wait_for_s3_path(
     else:
         if os_expandvars:
             # expand OS env variables
-            path = os.path.expandvars(path)
+            path: str = os.path.expandvars(path)
         # default variable substitution
         path: str = path.format(**flow_parameters)
 
@@ -95,13 +100,15 @@ def wait_for_s3_path(
     # we're looking for
     print(f"Waiting for path: {path}...")
 
-    parsed_path = urlparse(path)
+    parsed_path: ParseResult = urlparse(path)
+    bucket: str
+    key: str
     bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
 
     previous_elapsed_time: float = read_elapsed_time_s3_path(flow_name, kfp_run_id)
 
     s3: botocore.client.BaseClient = get_s3_client("s3")
-    start_time = time.time()
+    start_time: float = time.time()
     while True:
         current_time: float = time.time()
         elapsed_time: float = current_time - start_time + previous_elapsed_time
