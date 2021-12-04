@@ -11,7 +11,6 @@ import os
 import pathlib
 from typing import Dict
 import botocore
-from botocore.exceptions import ClientError
 import base64
 import json
 import marshal
@@ -38,13 +37,12 @@ def construct_elapsed_time_s3_bucket_and_key(
     return bucket, key
 
 
-def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
+def read_elapsed_time_s3_path(
+    s3: botocore.client.BaseClient, flow_name: str, kfp_run_id: str
+) -> float:
     bucket: str
     key: str
     bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
-    s3: botocore.client.BaseClient
-    s3_client_error: ClientError
-    s3, s3_client_error = get_s3_client()
 
     try:
         s3.head_object(Bucket=bucket, Key=key)
@@ -57,14 +55,9 @@ def read_elapsed_time_s3_path(flow_name: str, kfp_run_id: str) -> float:
 
 
 def write_elapsed_time_s3_path(
-    flow_name: str, kfp_run_id: str, elapsed_time: float
+    s3: botocore.client.BaseClient, flow_name: str, kfp_run_id: str, elapsed_time: float
 ) -> None:
-    bucket: str
-    key: str
     bucket, key = construct_elapsed_time_s3_bucket_and_key(flow_name, kfp_run_id)
-    s3: botocore.client.BaseClient
-    s3_client_error: ClientError
-    s3, s3_client_error = get_s3_client()
     elapsed_time_binary_data = str(elapsed_time).encode("ascii")
     s3.put_object(Body=elapsed_time_binary_data, Bucket=bucket, Key=key)
 
@@ -109,12 +102,11 @@ def wait_for_s3_path(
     bucket: str
     key: str
     bucket, key = parsed_path.netloc, parsed_path.path.lstrip("/")
-
-    previous_elapsed_time: float = read_elapsed_time_s3_path(flow_name, kfp_run_id)
-
     s3: botocore.client.BaseClient
-    s3_client_error: ClientError
-    s3, s3_client_error = get_s3_client()
+    s3, _ = get_s3_client()
+
+    previous_elapsed_time: float = read_elapsed_time_s3_path(s3, flow_name, kfp_run_id)
+
     start_time: float = time.time()
     while True:
         current_time: float = time.time()
@@ -130,7 +122,7 @@ def wait_for_s3_path(
             print(f"Object found at path {path}! Elapsed time: {elapsed_time}.")
             break
 
-        write_elapsed_time_s3_path(flow_name, kfp_run_id, elapsed_time)
+        write_elapsed_time_s3_path(s3, flow_name, kfp_run_id, elapsed_time)
         time.sleep(polling_interval_seconds)
 
     output_path = "/tmp/outputs/Output"
