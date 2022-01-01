@@ -4,6 +4,9 @@ import shutil
 import subprocess
 
 import click
+import kfp
+
+from typing import List, Optional
 
 from metaflow import current, decorators, parameters, JSONType
 from metaflow.datastore.datastore import TransformableObject
@@ -19,7 +22,7 @@ from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
     check_metadata_service_version,
 )
-from metaflow.plugins.kfp.kfp_constants import BASE_IMAGE
+from metaflow.plugins.kfp.kfp_constants import BASE_IMAGE, KFP_CLI_DEFAULT_SORT_BY
 from metaflow.plugins.kfp.kfp_step_init import save_step_environment_variables
 from metaflow.util import get_username
 
@@ -437,3 +440,127 @@ def make_flow(
         notify_on_error=notify_on_error,
         notify_on_success=notify_on_success,
     )
+
+
+# Session below are KFP commands for users' convenience.
+# They are mainly kfp cli code, but written here to take advantage of Metaflow configs
+
+
+@kubeflow_pipelines.command(
+    name="versions",
+    help="List pipeline versions available in cluster",
+)
+@click.option(
+    "--pipeline-name",
+    "pipeline_name",
+    default=None,
+    help="Pipeline name to check for. Exactly one of --pipeline-name or --pipeline-id is expected.",
+)
+@click.option(
+    "--pipeline-id",
+    "pipeline_id",
+    default=None,
+    help="Pipeline id to check for. Exactly one of --pipeline-name or --pipeline-id is expected.",
+)
+@click.option(
+    "--sort_by",
+    "sort_by",
+    default=KFP_CLI_DEFAULT_SORT_BY,
+    help="Pipeline name to check for",
+)
+def list_kfp_pipeline_versions_cli(
+    pipeline_name,
+    pipeline_id,
+    sort_by,
+):
+    """List pipeline versions associated with a pipeline name"""
+    if pipeline_name:
+        get_pipeline_versions(
+            pipeline_name=pipeline_name, sort_by=sort_by, verbose=True
+        )
+    elif pipeline_id:
+        get_pipeline_versions_by_id(
+            pipeline_id=pipeline_id, sort_by=sort_by, verbose=True
+        )
+    else:
+        raise ValueError("Exactly one of --pipeline-name or --pipeline-id is expected.")
+
+
+def get_pipeline_versions(
+    pipeline_name: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=False
+) -> List:
+    """"""
+    client = kfp.Client(userid=get_username())
+    pipeline_id = client.get_pipeline_id(pipeline_name)
+    return get_pipeline_versions_by_id(pipeline_id, sort_by=sort_by, verbose=verbose)
+
+
+def get_pipeline_versions_by_id(
+    pipeline_id: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=False
+) -> Optional[List]:
+    client = kfp.Client(userid=get_username())
+    versions = client.list_pipeline_versions(
+        pipeline_id=pipeline_id, sort_by=sort_by
+    ).versions
+
+    if verbose:
+        print(f"{len(versions)} versions found for pipeline {pipeline_id}.")
+        print(f"Versions sorted by {sort_by}.")
+
+        for version_count, version in enumerate(versions, start=1):
+            print(f"\n=== Version {version_count} ===")
+            for key, value in version.to_dict().items():
+                print(f"{key}: {value}")
+
+    return versions
+
+
+def trigger_flow(
+    pipeline_name: str,
+    experiment_name: str,
+    job_name: str,
+    pipeline_parameters: dict = None,
+    pipeline_version: str = None,
+):
+    userid: str = get_username()
+    client = kfp.Client(userid=userid)
+
+    pipeline_id = client.get_pipeline_id(name=pipeline_name)
+    return trigger_flow_by_id(
+        pipeline_id=pipeline_id,
+        experiment_name=experiment_name,
+        job_name=job_name,
+        pipeline_parameters=pipeline_parameters,
+        pipeline_version=pipeline_version,
+    )
+
+
+def trigger_flow_by_id(
+    pipeline_id: str,
+    experiment_name: str,
+    job_name: str,
+    pipeline_parameters: dict = None,
+    pipeline_version: str = None,
+):
+    userid: str = get_username()
+    client = kfp.Client(userid=userid)
+
+    if pipeline_parameters is None:
+        pipeline_parameters = {}
+
+    # TODO: detect existing experiments
+    experiment = client.create_experiment(
+        name=experiment_name,
+        description="Experiment flow trigger from same namespace",
+        namespace="aip-example-dev",  # TODO: Warn about permission issue early
+    )
+
+    pipeline_run = client.run_pipeline(
+        experiment_id=experiment.id,
+        job_name=job_name,
+        pipeline_id=pipeline_id,
+        params={"flow_parameters_json": json.dumps(pipeline_parameters)},
+        version_id=pipeline_version,
+    )
+
+    return pipeline_run
