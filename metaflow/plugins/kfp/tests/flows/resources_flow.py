@@ -19,7 +19,6 @@ from metaflow import (
     resources,
     current,
     Parameter,
-    JSONType,
 )
 
 
@@ -103,6 +102,8 @@ for label, env_name in labels.items():
 sub_dict = dict(x=1, y="hello")
 default_dict = dict(a=1, hello="world", sub=sub_dict)
 
+# introduce our own type to test that it works, because JSONType is special handled
+# and JSON serialized in kfp_cli.py
 class TestTypeClass(click.ParamType):
     name = "TestType"
 
