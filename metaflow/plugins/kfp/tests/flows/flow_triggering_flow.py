@@ -42,7 +42,7 @@ class FlowTriggeringFlow(FlowSpec):
             print("Run ID:", run_id)
             print("Run URL:", run_id_to_url(run_id))
 
-            check_kfp_run_status(run_id, timeout=180, wait_interval=10)
+            check_kfp_run_status(run_id, timeout=180)
 
         self.next(self.end)
 

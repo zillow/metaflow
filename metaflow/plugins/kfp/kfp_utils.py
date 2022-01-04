@@ -160,9 +160,11 @@ def check_kfp_run_status(
     else:
         run: kfp_server_api.ApiRun = client.get_run(run_id).run
 
-    finished = run.status.lower() in ['succeeded', 'failed', 'skipped', 'error']
+    finished = run.status.lower() in ["succeeded", "failed", "skipped", "error"]
     succeeded = run.status.lower() == "succeeded"
 
-    print(f"Run {run_id} {'finished' if finished else 'did not finish'} with status {run.status}")
+    print(
+        f"Run {run_id} {'finished' if finished else 'did not finish'} with status {run.status}"
+    )
 
     return succeeded, finished, run
