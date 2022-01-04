@@ -12,9 +12,9 @@ import posixpath
 
 try:  # Removing hard dependency on KFP for non-KFP plug-in usage
     import kfp
+    import kfp_server_api
 except:
     pass
-import kfp_server_api
 
 from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
 from metaflow.plugins.kfp.kfp_constants import KFP_CLI_DEFAULT_SORT_BY
