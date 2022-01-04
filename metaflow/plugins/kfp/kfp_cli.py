@@ -1,20 +1,13 @@
 import json
-import posixpath
 import shutil
 import subprocess
 
 import click
-import kfp
-
-from typing import List
-
-import kfp_server_api
 
 from metaflow import current, decorators, parameters, JSONType
 from metaflow.datastore.datastore import TransformableObject
 from metaflow.exception import CommandException, MetaflowException
 from metaflow.metaflow_config import (
-    KFP_RUN_URL_PREFIX,
     KFP_SDK_API_NAMESPACE,
     KFP_SDK_NAMESPACE,
     KFP_MAX_PARALLELISM,
@@ -24,21 +17,14 @@ from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
     check_metadata_service_version,
 )
-from metaflow.plugins.kfp.kfp_constants import BASE_IMAGE, KFP_CLI_DEFAULT_SORT_BY
+from metaflow.plugins.kfp.kfp_constants import BASE_IMAGE
 from metaflow.plugins.kfp.kfp_step_init import save_step_environment_variables
+from metaflow.plugins.kfp.kfp_utils import run_id_to_url
 from metaflow.util import get_username
 
 
 class IncorrectMetadataServiceVersion(MetaflowException):
     headline = "Incorrect version for metaflow service"
-
-
-def run_id_to_url(run_id: str):
-    return posixpath.join(
-        KFP_RUN_URL_PREFIX,
-        "_/pipeline/#/runs/details",
-        run_id,
-    )
 
 
 @click.group()
@@ -446,153 +432,3 @@ def make_flow(
         notify_on_error=notify_on_error,
         notify_on_success=notify_on_success,
     )
-
-
-# Session below are KFP commands for users' convenience.
-# They are mainly kfp cli code, but written here to take advantage of Metaflow configs
-
-
-@kubeflow_pipelines.command(
-    name="versions",
-    help="List pipeline versions available in cluster",
-)
-@click.option(
-    "--pipeline-name",
-    "pipeline_name",
-    default=None,
-    help="Pipeline name to check for. Exactly one of --pipeline-name or --pipeline-id is expected.",
-)
-@click.option(
-    "--pipeline-id",
-    "pipeline_id",
-    default=None,
-    help="Pipeline id to check for. Exactly one of --pipeline-name or --pipeline-id is expected.",
-)
-@click.option(
-    "--sort_by",
-    "sort_by",
-    default=KFP_CLI_DEFAULT_SORT_BY,
-    help="Pipeline name to check for",
-)
-def list_kfp_pipeline_versions_cli(
-    pipeline_name,
-    pipeline_id,
-    sort_by,
-):
-    """List pipeline versions associated with a pipeline name.
-
-    A lazy way to query pipeline.
-    TODO: Design question: this function technically has nothing to do with the flow being called on
-      - should this function be removed?
-    """
-    if pipeline_name:
-        get_pipeline_versions(
-            pipeline_name=pipeline_name, sort_by=sort_by, verbose=True
-        )
-    elif pipeline_id:
-        get_pipeline_versions_by_id(
-            pipeline_id=pipeline_id, sort_by=sort_by, verbose=True
-        )
-    else:
-        raise ValueError("Exactly one of --pipeline-name or --pipeline-id is expected.")
-
-
-def _get_kfp_client():
-    return kfp.Client(userid=f"{get_username()}@zillowgroup.com")
-
-
-def get_pipeline_versions(
-    pipeline_name: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=True
-) -> List[kfp_server_api.ApiPipeline]:
-    """Get kfp pipeline version by name. See get_pipeline_versions_by_id for details."""
-    client = _get_kfp_client()
-    pipeline_id = client.get_pipeline_id(pipeline_name)
-    return get_pipeline_versions_by_id(pipeline_id, sort_by=sort_by, verbose=verbose)
-
-
-def get_pipeline_versions_by_id(
-    pipeline_id: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=True
-) -> List[kfp_server_api.ApiPipeline]:
-    """Get kfp pipeline version by id.
-    pipeline_id: Pipeline id in corresponding KFP server
-    sort_by: Can be format of “field_name”, “field_name asc” or “field_name desc”
-      (Example, “name asc” or “id desc”). Ascending by default.
-    verbose: Print pipeline info if True.
-      Default to True since this function is intended to be used interactively (human facing).
-    """
-    client = _get_kfp_client()
-    versions = client.list_pipeline_versions(
-        pipeline_id=pipeline_id, sort_by=sort_by
-    ).versions
-
-    if verbose:
-        print(f"{len(versions)} versions found for pipeline {pipeline_id}.")
-        print(f"Versions sorted by {sort_by}.")
-
-        for version_count, version in enumerate(versions, start=1):
-            print(f"\n=== Version {version_count} ===")
-            for key, value in version.to_dict().items():
-                print(f"{key}: {value}")
-
-    return versions
-
-
-def trigger_flow(
-    pipeline_name: str,
-    triggerred_flow_name: str,
-    namespace: str,
-    experiment_name: str = None,
-    pipeline_parameters: dict = None,
-    pipeline_version: str = None,
-) -> str:
-    """Trigger KFP flow by pipeline name. See trigger_flow_by_id for more details."""
-
-    client = _get_kfp_client()
-
-    pipeline_id = client.get_pipeline_id(name=pipeline_name)
-    return trigger_flow_by_id(
-        pipeline_id=pipeline_id,
-        experiment_name=experiment_name,
-        namespace=namespace,
-        triggerred_flow_name=triggerred_flow_name,
-        pipeline_parameters=pipeline_parameters,
-        pipeline_version=pipeline_version,
-    )
-
-
-def trigger_flow_by_id(
-    pipeline_id: str,
-    triggerred_flow_name: str,
-    namespace: str,
-    experiment_name: str = None,
-    pipeline_parameters: dict = None,
-    pipeline_version: str = None,
-) -> str:
-    """Trigger KFP flow by pipeline id.
-    pipeline_id: Pipeline id for which a new run should be triggered.
-    experiment_name: Experiment where the triggered run should be placed.
-    job_name: Job name of the flow being triggered.
-
-    Return run id of created run. To reconstruct url see run_id_to_url function.
-    """
-    client = _get_kfp_client()
-
-    if pipeline_parameters is None:
-        pipeline_parameters = {}
-
-    # Not checking for experiment existence: kfp client does not recreate experiment if exists
-    experiment: kfp_server_api.ApiExperiment = client.create_experiment(
-        name=experiment_name,
-        description="Experiment flow trigger from same namespace",
-        namespace=namespace,  # TODO: Warn about permission issue early
-    )
-
-    pipeline_run: kfp_server_api.ApiRun = client.run_pipeline(
-        experiment_id=experiment.id,
-        job_name=triggerred_flow_name,
-        pipeline_id=pipeline_id,
-        params={"flow_parameters_json": json.dumps(pipeline_parameters)},
-        version_id=pipeline_version,
-    )
-
-    return pipeline_run.id

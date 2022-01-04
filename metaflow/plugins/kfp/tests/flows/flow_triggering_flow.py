@@ -8,7 +8,7 @@ except:
     os.system(
         "pip install -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ zillow-kfp"
     )
-from metaflow.plugins.kfp.kfp_cli import trigger_flow, run_id_to_url
+from metaflow.plugins.kfp.kfp_utils import run_id_to_url, trigger_flow
 
 
 class FlowTriggeringFlow(FlowSpec):
