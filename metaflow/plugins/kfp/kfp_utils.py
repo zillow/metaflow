@@ -7,12 +7,13 @@ They are technically not metaflow code.
 """
 
 import json
-import logging
-import time
 from typing import List
 import posixpath
 
-import kfp
+try:  # Removing hard dependency on KFP for non-KFP plug-in usage
+    import kfp
+except:
+    pass
 import kfp_server_api
 
 from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
