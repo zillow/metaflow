@@ -8,16 +8,26 @@ except:
     os.system(
         "pip install -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ zillow-kfp"
     )
-from metaflow.plugins.kfp.kfp_utils import run_id_to_url, trigger_flow
+
+from metaflow.plugins.kfp.kfp_utils import (
+    run_id_to_url,
+    trigger_flow,
+    check_kfp_run_status,
+)
 
 
 class FlowTriggeringFlow(FlowSpec):
     trigger_enabled = Parameter("trigger_enabled", default=False)
     triggered_by = Parameter(name="triggered_by", default=None)
-    triggered_flow_namespace = Parameter(name="namespace", default="aip-metaflow-sandbox")
+    triggered_flow_namespace = Parameter(
+        name="namespace", default="aip-metaflow-sandbox"
+    )
 
     @step
     def start(self):
+        if self.triggered_by:
+            print(f"This flow is triggered by run {self.triggered_by}")
+
         if self.trigger_enabled:
             print("Triggering Downstream Flow...")
             run_id = trigger_flow(
@@ -31,8 +41,8 @@ class FlowTriggeringFlow(FlowSpec):
             )
             print("Run ID:", run_id)
             print("Run URL:", run_id_to_url(run_id))
-        else:
-            print(f"This flow is triggered by run {self.triggered_by}")
+
+            check_kfp_run_status(run_id, timeout=180, wait_interval=10)
 
         self.next(self.end)
 

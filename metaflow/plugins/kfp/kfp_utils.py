@@ -7,6 +7,8 @@ They are technically not metaflow code.
 """
 
 import json
+import logging
+import time
 from typing import List
 import posixpath
 
@@ -45,6 +47,8 @@ def get_pipeline_versions_by_id(
       (Example, “name asc” or “id desc”). Ascending by default.
     verbose: Print pipeline info if True.
       Default to True since this function is intended to be used interactively (human facing).
+      For similar reason `print` is used over logging.info to avoid silencing output by default
+      logging level.
     """
     client = _get_kfp_client()
     versions = client.list_pipeline_versions(
@@ -130,3 +134,35 @@ def run_id_to_url(run_id: str):
         "_/pipeline/#/runs/details",
         run_id,
     )
+
+
+def check_kfp_run_status(
+    run_id: str, timeout: int = -1
+) -> (bool, bool, kfp_server_api.ApiRun):
+    """Check for KFP run status.
+
+    If timeout (in second) is positive integers this function waits for flow to complete first.
+    Return tuple containing
+    - finished or not (bool)
+    - success or not (bool)
+    - run info (kfp_server_api.ApiRun)
+
+    TODO before merge: Print v.s. Logging
+        - KFP client use logging.info which may be silenced by default
+        - metaflow log formatter for splunk digestion?
+    """
+    client: kfp.Client = _get_kfp_client()
+    if timeout > 0:
+        print(f"Waiting for run {run_id} to finish. Timeout: {timeout}")
+        run: kfp_server_api.ApiRun = client.wait_for_run_completion(
+            run_id, timeout=timeout
+        ).run
+    else:
+        run: kfp_server_api.ApiRun = client.get_run(run_id).run
+
+    finished = run.status.lower() in ['succeeded', 'failed', 'skipped', 'error']
+    succeeded = run.status.lower() == "succeeded"
+
+    print(f"Run {run_id} {'finished' if finished else 'did not finish'} with status {run.status}")
+
+    return succeeded, finished, run
