@@ -13,13 +13,18 @@ import posixpath
 import kfp
 import kfp_server_api
 
-from metaflow.metaflow_config import KFP_RUN_URL_PREFIX
+from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
 from metaflow.plugins.kfp.kfp_constants import KFP_CLI_DEFAULT_SORT_BY
 from metaflow.util import get_username
 
 
 def _get_kfp_client():
-    return kfp.Client(userid=f"{get_username()}@zillowgroup.com")
+    kfp_client_user = get_username()
+    if KFP_USER_DOMAIN:
+        kfp_client_user += f"@{KFP_USER_DOMAIN}"
+    else:  # FIXME: The KFP_USER_DOMAIN value might not be available in cluster
+        kfp_client_user += "@zillowgroup.com"
+    return kfp.Client(userid=kfp_client_user)
 
 
 def get_pipeline_versions(

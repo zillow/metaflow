@@ -12,19 +12,22 @@ from metaflow.plugins.kfp.kfp_utils import run_id_to_url, trigger_flow
 
 
 class FlowTriggeringFlow(FlowSpec):
-    triggered_by = Parameter(name="triggered", default=None)
-    triggered_flow_namespace = Parameter(name="triggered", default="aip-metaflow-sandbox")
+    trigger_enabled = Parameter("trigger_enabled", default=False)
+    triggered_by = Parameter(name="triggered_by", default=None)
+    triggered_flow_namespace = Parameter(name="namespace", default="aip-metaflow-sandbox")
 
     @step
     def start(self):
-        if not self.triggered_by:
+        if self.trigger_enabled:
             print("Triggering Downstream Flow...")
             run_id = trigger_flow(
                 pipeline_name="FlowTriggeringFlow",
                 experiment_name="default",
                 namespace=self.triggered_flow_namespace,
-                triggerred_flow_name="Flow triggered by upstream",
-                pipeline_parameters={"triggered_by": current.run_id},
+                triggerred_flow_name=f"FlowTriggeringFlow triggered by run {current.run_id}",
+                pipeline_parameters={
+                    "triggered_by": current.run_id,
+                },
             )
             print("Run ID:", run_id)
             print("Run URL:", run_id_to_url(run_id))
