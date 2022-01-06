@@ -25,7 +25,7 @@ setup(name='zillow-metaflow',
         'coverage'
       ],
       extras_require = {
-        'kfp': 'zillow-kfp',
+        'kfp': 'zillow-kfp==1.0.43.dev43+1.8.10',
         # Use an extras here as there is no "extras_tests_require" functionality :(
         'kfp-tests': ['pytest', 'pytest-xdist', 'pytest-cov', 'subprocess-tee']
       })
