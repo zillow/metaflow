@@ -7,9 +7,12 @@ They are technically not metaflow code.
 """
 import datetime
 import json
+import logging
 import time
-from typing import List, Optional
+from typing import List, Optional, Callable
 import posixpath
+
+import math
 
 try:  # Removing hard dependency on KFP for non-KFP plug-in usage
     import kfp
@@ -18,7 +21,10 @@ except:
     pass
 
 from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
-from metaflow.plugins.kfp.kfp_constants import KFP_CLI_DEFAULT_SORT_BY
+from metaflow.plugins.kfp.kfp_constants import (
+    KFP_CLI_DEFAULT_SORT_BY,
+    KFP_CLI_DEFAULT_RETRY,
+)
 from metaflow.util import get_username
 
 
@@ -29,6 +35,16 @@ def _get_kfp_client():
     else:  # FIXME: The KFP_USER_DOMAIN value might not be available in cluster
         kfp_client_user += "@zillowgroup.com"
     return kfp.Client(userid=kfp_client_user)
+
+
+def _retry(func: Callable, max_attempt: int, **kwargs):
+    for attempt in range(1, max_attempt + 1):
+        try:
+            return func(kwargs)
+        except Exception as e:
+            logging.exception(f"Function {func.__name__} failed on attempt {attempt}")
+            if attempt == max_attempt:
+                raise e
 
 
 def get_pipeline_versions(
@@ -78,6 +94,7 @@ def run_kubeflow_pipeline(
     kubeflow_experiment_name: Optional[str] = None,
     kubeflow_pipeline_version: Optional[str] = None,
     parameters: Optional[dict] = None,
+    max_retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> kfp_server_api.ApiRun:
     """Trigger KFP flow by pipeline name. See run_kubeflow_pipeline_by_id for more details."""
     client: kfp.Client = _get_kfp_client()
@@ -89,6 +106,7 @@ def run_kubeflow_pipeline(
         kubeflow_namespace=kubeflow_namespace,
         kubeflow_pipeline_version=kubeflow_pipeline_version,
         parameters=parameters,
+        max_retry=max_retry,
     )
 
 
@@ -99,6 +117,7 @@ def run_kubeflow_pipeline_by_id(
     kubeflow_experiment_name: Optional[str] = None,
     kubeflow_pipeline_version: Optional[str] = None,
     parameters: Optional[dict] = None,
+    max_retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> kfp_server_api.ApiRun:
     """Trigger KFP flow by pipeline id.
     pipeline_id: Pipeline id for which a new run should be triggered.
@@ -108,28 +127,28 @@ def run_kubeflow_pipeline_by_id(
     Return run id of created run. To reconstruct url see run_id_to_url function.
     """
 
-    # TODO: retry on failure
+    def create_experimen():
+        return client.create_experiment(
+            name=kubeflow_experiment_name,
+            description="Experiment flow trigger from same namespace",
+            namespace=kubeflow_namespace,  # TODO: Warn about permission issue early
+        )
 
-    client = _get_kfp_client()
+    def run_pipeline():
+        return client.run_pipeline(
+            experiment_id=experiment.id,
+            job_name=triggered_run_name,
+            pipeline_id=kubeflow_pipeline_id,
+            params={"flow_parameters_json": json.dumps(parameters)},
+            version_id=kubeflow_pipeline_version,
+        )
 
     if parameters is None:
         parameters = {}
 
-    # Not checking for experiment existence: kfp client does not recreate experiment if exists
-    experiment: kfp_server_api.ApiExperiment = client.create_experiment(
-        name=kubeflow_experiment_name,
-        description="Experiment flow trigger from same namespace",
-        namespace=kubeflow_namespace,  # TODO: Warn about permission issue early
-    )
-
-    pipeline_run: kfp_server_api.ApiRun = client.run_pipeline(
-        experiment_id=experiment.id,
-        job_name=triggered_run_name,
-        pipeline_id=kubeflow_pipeline_id,
-        params={"flow_parameters_json": json.dumps(parameters)},
-        version_id=kubeflow_pipeline_version,
-    )
-
+    client = _get_kfp_client()
+    experiment: kfp_server_api.ApiExperiment = _retry(create_experimen, max_retry)
+    pipeline_run: kfp_server_api.ApiRun = _retry(run_pipeline, max_retry)
     print(f"Triggered run {pipeline_run.id} - {run_id_to_url(pipeline_run.id)}")
     return pipeline_run
 
@@ -152,15 +171,17 @@ def is_finished_run(api_run: kfp_server_api.ApiRun):
     ]
 
 
-def get_kfp_run(run_id):
-    client: kfp.Client = _get_kfp_client()
-    return client.get_run(run_id).run
+def get_kfp_run(run_id, retry=KFP_CLI_DEFAULT_RETRY, client: kfp.Client = None):
+    client: kfp.Client = client or _get_kfp_client()
+    return _retry(client.get_run, max_attempt=retry, run_id=run_id).run
 
 
 def wait_for_kfp_run_completion(
     run_id: str,
     wait_timeout: [int, datetime.timedelta] = 0,
-    check_interval: int = 10,
+    min_check_delay: int = 5,
+    max_check_delay: int = 30,
+    retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> kfp_server_api.ApiRun:
     """Check for KFP run status.
 
@@ -175,8 +196,18 @@ def wait_for_kfp_run_completion(
         - metaflow log formatter for splunk digestion?
     """
 
+    def get_delay(secs_since_start, min_delay, max_delay):
+        # this sigmoid function reaches
+        # - 0.1 after 11 minutes
+        # - 0.5 after 15 minutes
+        # - 1.0 after 23 minutes
+        # in other words, the user will see very frequent updates
+        # during the first 10 minutes
+        sigmoid = 1.0 / (1.0 + math.exp(-0.01 * secs_since_start + 9.0))
+        return min_delay + sigmoid * max_delay
+
     client: kfp.Client = _get_kfp_client()
-    run: kfp_server_api.ApiRun = client.get_run(run_id).run
+    run: kfp_server_api.ApiRun = get_kfp_run(run_id=run_id, retry=retry, client=client)
 
     if not is_finished_run(run) != "succeeded" and wait_timeout:
         if isinstance(wait_timeout, datetime.timedelta):
@@ -192,12 +223,16 @@ def wait_for_kfp_run_completion(
             )
             if elapsed_time > wait_timeout:
                 raise TimeoutError(f"Timeout while waiting for run {run_id} to finish.")
-            time.sleep(check_interval)
-            run = client.get_run(run_id=run_id).run
+            time.sleep(
+                get_delay(
+                    elapsed_time, min_delay=min_check_delay, max_delay=max_check_delay
+                )
+            )
+            run = get_kfp_run(run_id=run_id, retry=retry, client=client)
 
     return run
 
 
-def terminate_run(run_id: str, **kwargs):
+def terminate_run(run_id: str, retry: int = KFP_CLI_DEFAULT_RETRY, **kwargs):
     run_service_api = kfp_server_api.RunServiceApi()
-    return run_service_api.terminate_run(run_id, **kwargs)
+    return _retry(run_service_api.terminate_run, retry, run_id=run_id, **kwargs)
