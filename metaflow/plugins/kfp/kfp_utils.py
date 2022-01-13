@@ -5,9 +5,10 @@ Frequently used KFP client interactions, including support for:
 Code here exists mainly for user's convenience, to take advantage of Metaflow configs.
 They are technically not metaflow code.
 """
-
+import datetime
 import json
-from typing import List
+import time
+from typing import List, Optional
 import posixpath
 
 try:  # Removing hard dependency on KFP for non-KFP plug-in usage
@@ -22,7 +23,7 @@ from metaflow.util import get_username
 
 
 def _get_kfp_client():
-    kfp_client_user = get_username()
+    kfp_client_user = get_username()  # TODO: Security concerns?
     if KFP_USER_DOMAIN:
         kfp_client_user += f"@{KFP_USER_DOMAIN}"
     else:  # FIXME: The KFP_USER_DOMAIN value might not be available in cluster
@@ -31,33 +32,35 @@ def _get_kfp_client():
 
 
 def get_pipeline_versions(
-    pipeline_name: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=True
+    kubeflow_pipeline_name: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=True
 ) -> List[kfp_server_api.ApiPipeline]:
     """Get kfp pipeline version by name. See get_pipeline_versions_by_id for details."""
-    client = _get_kfp_client()
-    pipeline_id = client.get_pipeline_id(pipeline_name)
-    return get_pipeline_versions_by_id(pipeline_id, sort_by=sort_by, verbose=verbose)
+    client: kfp.Client = _get_kfp_client()
+    kubeflow_pipeline_id = client.get_pipeline_id(kubeflow_pipeline_name)
+    return get_pipeline_versions_by_id(
+        kubeflow_pipeline_id=kubeflow_pipeline_id, sort_by=sort_by, verbose=verbose
+    )
 
 
 def get_pipeline_versions_by_id(
-    pipeline_id: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=True
+    kubeflow_pipeline_id: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=True
 ) -> List[kfp_server_api.ApiPipeline]:
     """Get kfp pipeline version by id.
     pipeline_id: Pipeline id in corresponding KFP server
     sort_by: Can be format of “field_name”, “field_name asc” or “field_name desc”
-      (Example, “name asc” or “id desc”). Ascending by default.
+      (Example, “name asc” or “id desc”). Ascending by default. See list_pipeline_versions
     verbose: Print pipeline info if True.
       Default to True since this function is intended to be used interactively (human facing).
       For similar reason `print` is used over logging.info to avoid silencing output by default
       logging level.
     """
-    client = _get_kfp_client()
+    client: kfp.Client = _get_kfp_client()
     versions = client.list_pipeline_versions(
-        pipeline_id=pipeline_id, sort_by=sort_by
+        pipeline_id=kubeflow_pipeline_id, sort_by=sort_by
     ).versions
 
     if verbose:
-        print(f"{len(versions)} versions found for pipeline {pipeline_id}.")
+        print(f"{len(versions)} versions found for pipeline {kubeflow_pipeline_id}.")
         print(f"Versions sorted by {sort_by}.")
 
         for version_count, version in enumerate(versions, start=1):
@@ -68,37 +71,35 @@ def get_pipeline_versions_by_id(
     return versions
 
 
-def trigger_flow(
-    pipeline_name: str,
-    triggerred_flow_name: str,
-    namespace: str,
-    experiment_name: str = None,
-    pipeline_parameters: dict = None,
-    pipeline_version: str = None,
-) -> str:
-    """Trigger KFP flow by pipeline name. See trigger_flow_by_id for more details."""
-
-    client = _get_kfp_client()
-
-    pipeline_id = client.get_pipeline_id(name=pipeline_name)
-    return trigger_flow_by_id(
-        pipeline_id=pipeline_id,
-        experiment_name=experiment_name,
-        namespace=namespace,
-        triggerred_flow_name=triggerred_flow_name,
-        pipeline_parameters=pipeline_parameters,
-        pipeline_version=pipeline_version,
+def run_kubeflow_pipeline(
+    kubeflow_pipeline_name: str,
+    triggered_run_name: str,
+    kubeflow_namespace: str,
+    kubeflow_experiment_name: Optional[str] = None,
+    kubeflow_pipeline_version: Optional[str] = None,
+    parameters: Optional[dict] = None,
+) -> kfp_server_api.ApiRun:
+    """Trigger KFP flow by pipeline name. See run_kubeflow_pipeline_by_id for more details."""
+    client: kfp.Client = _get_kfp_client()
+    kubeflow_pipeline_id: str = client.get_pipeline_id(name=kubeflow_pipeline_name)
+    return run_kubeflow_pipeline_by_id(
+        kubeflow_pipeline_id=kubeflow_pipeline_id,
+        triggered_run_name=triggered_run_name,
+        kubeflow_experiment_name=kubeflow_experiment_name,
+        kubeflow_namespace=kubeflow_namespace,
+        kubeflow_pipeline_version=kubeflow_pipeline_version,
+        parameters=parameters,
     )
 
 
-def trigger_flow_by_id(
-    pipeline_id: str,
-    triggerred_flow_name: str,
-    namespace: str,
-    experiment_name: str = None,
-    pipeline_parameters: dict = None,
-    pipeline_version: str = None,
-) -> str:
+def run_kubeflow_pipeline_by_id(
+    kubeflow_pipeline_id: str,
+    triggered_run_name: str,
+    kubeflow_namespace: str,
+    kubeflow_experiment_name: Optional[str] = None,
+    kubeflow_pipeline_version: Optional[str] = None,
+    parameters: Optional[dict] = None,
+) -> kfp_server_api.ApiRun:
     """Trigger KFP flow by pipeline id.
     pipeline_id: Pipeline id for which a new run should be triggered.
     experiment_name: Experiment where the triggered run should be placed.
@@ -106,27 +107,31 @@ def trigger_flow_by_id(
 
     Return run id of created run. To reconstruct url see run_id_to_url function.
     """
+
+    # TODO: retry on failure
+
     client = _get_kfp_client()
 
-    if pipeline_parameters is None:
-        pipeline_parameters = {}
+    if parameters is None:
+        parameters = {}
 
     # Not checking for experiment existence: kfp client does not recreate experiment if exists
     experiment: kfp_server_api.ApiExperiment = client.create_experiment(
-        name=experiment_name,
+        name=kubeflow_experiment_name,
         description="Experiment flow trigger from same namespace",
-        namespace=namespace,  # TODO: Warn about permission issue early
+        namespace=kubeflow_namespace,  # TODO: Warn about permission issue early
     )
 
     pipeline_run: kfp_server_api.ApiRun = client.run_pipeline(
         experiment_id=experiment.id,
-        job_name=triggerred_flow_name,
-        pipeline_id=pipeline_id,
-        params={"flow_parameters_json": json.dumps(pipeline_parameters)},
-        version_id=pipeline_version,
+        job_name=triggered_run_name,
+        pipeline_id=kubeflow_pipeline_id,
+        params={"flow_parameters_json": json.dumps(parameters)},
+        version_id=kubeflow_pipeline_version,
     )
 
-    return pipeline_run.id
+    print(f"Triggered run {pipeline_run.id} - {run_id_to_url(pipeline_run.id)}")
+    return pipeline_run
 
 
 def run_id_to_url(run_id: str):
@@ -137,13 +142,30 @@ def run_id_to_url(run_id: str):
     )
 
 
-def check_kfp_run_status(
-    run_id: str, timeout: int = -1
-) -> (bool, bool, kfp_server_api.ApiRun):
+def is_finished_run(api_run: kfp_server_api.ApiRun):
+    run_status = api_run.status
+    return run_status and run_status.lower() in [
+        "succeeded",
+        "failed",
+        "skipped",
+        "error",
+    ]
+
+
+def get_kfp_run(run_id):
+    client: kfp.Client = _get_kfp_client()
+    return client.get_run(run_id).run
+
+
+def wait_for_kfp_run_completion(
+    run_id: str,
+    wait_timeout: [int, datetime.timedelta] = 0,
+    check_interval: int = 10,
+) -> kfp_server_api.ApiRun:
     """Check for KFP run status.
 
-    If timeout (in second) is positive integers this function waits for flow to complete first.
-    Return tuple containing
+    If timeout (in second) is positive this function waits for flow to complete.
+    Raise timeout if run is not finished after <timeout> seconds
     - finished or not (bool)
     - success or not (bool)
     - run info (kfp_server_api.ApiRun)
@@ -152,20 +174,30 @@ def check_kfp_run_status(
         - KFP client use logging.info which may be silenced by default
         - metaflow log formatter for splunk digestion?
     """
+
     client: kfp.Client = _get_kfp_client()
-    if timeout > 0:
-        print(f"Waiting for run {run_id} to finish. Timeout: {timeout}")
-        run: kfp_server_api.ApiRun = client.wait_for_run_completion(
-            run_id, timeout=timeout
-        ).run
-    else:
-        run: kfp_server_api.ApiRun = client.get_run(run_id).run
+    run: kfp_server_api.ApiRun = client.get_run(run_id).run
 
-    finished = run.status.lower() in ["succeeded", "failed", "skipped", "error"]
-    succeeded = run.status.lower() == "succeeded"
+    if not is_finished_run(run) != "succeeded" and wait_timeout:
+        if isinstance(wait_timeout, datetime.timedelta):
+            wait_timeout = wait_timeout.total_seconds()
 
-    print(
-        f"Run {run_id} {'finished' if finished else 'did not finish'} with status {run.status}"
-    )
+        # A mimic of kfp.Client.wait_for_run_completion with customized print
+        print(f"Waiting for run {run_id} to finish. Timeout: {wait_timeout} second(s)")
+        start_time = datetime.datetime.now()
+        while not is_finished_run(run):
+            elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
+            print(
+                f"Waiting for the run {run_id} to complete... {elapsed_time}s / {wait_timeout}s"
+            )
+            if elapsed_time > wait_timeout:
+                raise TimeoutError(f"Timeout while waiting for run {run_id} to finish.")
+            time.sleep(check_interval)
+            run = client.get_run(run_id=run_id).run
 
-    return succeeded, finished, run
+    return run
+
+
+def terminate_run(run_id: str, **kwargs):
+    run_service_api = kfp_server_api.RunServiceApi()
+    return run_service_api.terminate_run(run_id, **kwargs)
