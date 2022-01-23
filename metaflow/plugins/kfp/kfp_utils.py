@@ -8,11 +8,11 @@ They are technically not metaflow code.
 import datetime
 import json
 import logging
-import time
-from typing import List, Optional, Callable
-import posixpath
-
 import math
+import posixpath
+import sys
+import time
+from typing import Callable, List, Optional
 
 try:  # Removing hard dependency on KFP for non-KFP plug-in usage
     import kfp
@@ -21,11 +21,30 @@ except:
     pass
 
 from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
-from metaflow.plugins.kfp.kfp_constants import (
-    KFP_CLI_DEFAULT_SORT_BY,
-    KFP_CLI_DEFAULT_RETRY,
-)
+from metaflow.plugins.kfp.kfp_constants import (KFP_CLI_DEFAULT_RETRY, KFP_CLI_DEFAULT_SORT_BY)
 from metaflow.util import get_username
+
+
+def get_kfp_logger():
+    """ Setup logger for KFP plugin
+
+    With expected usage from Jupyter notebook and console in mind,
+    INFO level logs need to show up in Jupyter notebook output cell and consoles.
+    Therefore some default setting below:
+        Default logging level: logging.DEBUG
+        Default log handler: StreamHandler pointing to stdout.
+    Users retain the ability to alter logger behavior using logging module.
+    """
+    kfp_logger = logging.getLogger("metaflow.kfp")
+    if not kfp_logger.hasHandlers():
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setLevel(logging.DEBUG)
+        kfp_logger.addHandler(stdout_handler)
+    kfp_logger.setLevel(logging.DEBUG)
+    return kfp_logger
+
+
+logger = get_kfp_logger()
 
 
 def _get_kfp_client():
@@ -65,10 +84,8 @@ def get_pipeline_versions_by_id(
     pipeline_id: Pipeline id in corresponding KFP server
     sort_by: Can be format of “field_name”, “field_name asc” or “field_name desc”
       (Example, “name asc” or “id desc”). Ascending by default. See list_pipeline_versions
-    verbose: Print pipeline info if True.
+    verbose: Log pipeline info if True.
       Default to True since this function is intended to be used interactively (human facing).
-      For similar reason `print` is used over logging.info to avoid silencing output by default
-      logging level.
     """
     client: kfp.Client = _get_kfp_client()
     versions = client.list_pipeline_versions(
@@ -76,13 +93,13 @@ def get_pipeline_versions_by_id(
     ).versions
 
     if verbose:
-        print(f"{len(versions)} versions found for pipeline {kubeflow_pipeline_id}.")
-        print(f"Versions sorted by {sort_by}.")
+        logger.info(f"{len(versions)} versions found for pipeline {kubeflow_pipeline_id}.")
+        logger.info(f"Versions sorted by {sort_by}.")
 
         for version_count, version in enumerate(versions, start=1):
-            print(f"\n=== Version {version_count} ===")
+            logger.info(f"\n=== Version {version_count} ===")
             for key, value in version.to_dict().items():
-                print(f"{key}: {value}")
+                logger.info(f"{key}: {value}")
 
     return versions
 
@@ -127,7 +144,7 @@ def run_kubeflow_pipeline_by_id(
     Return run id of created run. To reconstruct url see run_id_to_url function.
     """
 
-    def create_experimen():
+    def create_experiment():
         return client.create_experiment(
             name=kubeflow_experiment_name,
             description="Experiment flow trigger from same namespace",
@@ -147,9 +164,9 @@ def run_kubeflow_pipeline_by_id(
         parameters = {}
 
     client = _get_kfp_client()
-    experiment: kfp_server_api.ApiExperiment = _retry(create_experimen, max_retry)
+    experiment: kfp_server_api.ApiExperiment = _retry(create_experiment, max_retry)
     pipeline_run: kfp_server_api.ApiRun = _retry(run_pipeline, max_retry)
-    print(f"Triggered run {pipeline_run.id} - {run_id_to_url(pipeline_run.id)}")
+    logger.info(f"Triggered run {pipeline_run.id} - {run_id_to_url(pipeline_run.id)}")
     return pipeline_run
 
 
@@ -191,9 +208,8 @@ def wait_for_kfp_run_completion(
     - success or not (bool)
     - run info (kfp_server_api.ApiRun)
 
-    TODO before merge: Print v.s. Logging
-        - KFP client use logging.info which may be silenced by default
-        - metaflow log formatter for splunk digestion?
+    TODO: UX concerns for async calls
+        - How async calls work in notebook?
     """
 
     def get_delay(secs_since_start, min_delay, max_delay):
@@ -213,12 +229,12 @@ def wait_for_kfp_run_completion(
         if isinstance(wait_timeout, datetime.timedelta):
             wait_timeout = wait_timeout.total_seconds()
 
-        # A mimic of kfp.Client.wait_for_run_completion with customized print
-        print(f"Waiting for run {run_id} to finish. Timeout: {wait_timeout} second(s)")
+        # A mimic of kfp.Client.wait_for_run_completion with customized logging
+        logger.info(f"Waiting for run {run_id} to finish. Timeout: {wait_timeout} second(s)")
         start_time = datetime.datetime.now()
         while not is_finished_run(run):
             elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
-            print(
+            logger.info(
                 f"Waiting for the run {run_id} to complete... {elapsed_time}s / {wait_timeout}s"
             )
             if elapsed_time > wait_timeout:
@@ -234,5 +250,6 @@ def wait_for_kfp_run_completion(
 
 
 def terminate_run(run_id: str, retry: int = KFP_CLI_DEFAULT_RETRY, **kwargs):
+    logging.info(f"Terminating run {run_id}")
     run_service_api = kfp_server_api.RunServiceApi()
     return _retry(run_service_api.terminate_run, retry, run_id=run_id, **kwargs)
