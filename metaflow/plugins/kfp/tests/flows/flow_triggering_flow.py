@@ -19,8 +19,9 @@ class FlowTriggeringFlow(FlowSpec):
     @step
     def start(self):
         os.system(
-            "pip install -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python"
-            "/simple/ zillow-kfp"
+            "pip install "
+            "-i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ "
+            "zillow-kfp kfp-server-api"
         )
 
         if self.triggered_by:
@@ -29,10 +30,10 @@ class FlowTriggeringFlow(FlowSpec):
         if self.trigger_enabled:
             print("Triggering Downstream Flow...")
             run = run_kubeflow_pipeline(
-                kubeflow_pipeline_name="FlowTriggeringFlow",
-                kubeflow_experiment_name="default",
+                pipeline_name="FlowTriggeringFlow",
                 kubeflow_namespace=self.triggered_flow_namespace,
                 triggered_run_name=f"FlowTriggeringFlow triggered by run {current.run_id}",
+                kubeflow_experiment_name="default",
                 parameters={
                     "triggered_by": current.run_id,
                 },

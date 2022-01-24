@@ -4,6 +4,11 @@ Frequently used KFP client interactions, including support for:
 
 Code here exists mainly for user's convenience, to take advantage of Metaflow configs.
 They are technically not metaflow code.
+
+TODO:
+    - (yunw)(AIP-5671): Async version for trigger and wait
+    - (yunw)(AIP-5672): Helper function for user to check access to a certain namespace.
+      potentially using `kubectl auth can-i`
 """
 import datetime
 import json
@@ -37,8 +42,8 @@ def get_kfp_logger():
     With expected usage from Jupyter notebook and console in mind,
     INFO level logs need to show up in Jupyter notebook output cell and consoles.
     Therefore some default setting below:
-        Default logging level: logging.DEBUG
-        Default log handler: StreamHandler pointing to stdout.
+        - Default logging level at logging.DEBUG
+        - Default to a StreamHandler pointing to stdout.
     Users retain the ability to alter logger behavior using logging module.
     """
     kfp_logger = logging.getLogger("metaflow.kfp")
@@ -54,7 +59,7 @@ logger = get_kfp_logger()
 
 
 def _get_kfp_client():
-    kfp_client_user = get_username()  # TODO: Security concerns?
+    kfp_client_user = get_username()
     if KFP_USER_DOMAIN:
         kfp_client_user += f"@{KFP_USER_DOMAIN}"
     else:  # FIXME: The KFP_USER_DOMAIN value might not be available in cluster
@@ -87,11 +92,12 @@ def get_pipeline_versions_by_id(
     kubeflow_pipeline_id: str, sort_by=KFP_CLI_DEFAULT_SORT_BY, verbose=True
 ) -> List[ApiPipeline]:
     """Get kfp pipeline version by id.
-    pipeline_id: Pipeline id in corresponding KFP server
+
+    kubeflow_pipeline_id: Pipeline id in corresponding KFP server
     sort_by: Can be format of “field_name”, “field_name asc” or “field_name desc”
-      (Example, “name asc” or “id desc”). Ascending by default. See list_pipeline_versions
+        (Example, “name asc” or “id desc”). Ascending by default. See list_pipeline_versions
     verbose: Log pipeline info if True.
-      Default to True since this function is intended to be used interactively (human facing).
+        Default to True since this function is intended to be used interactively (human facing).
     """
     client: KFPClient = _get_kfp_client()
     versions = client.list_pipeline_versions(
@@ -113,38 +119,39 @@ def get_pipeline_versions_by_id(
 
 
 def run_kubeflow_pipeline(
-    kubeflow_pipeline_name: str,
-    triggered_run_name: str,
+    pipeline_name: str,
     kubeflow_namespace: str,
+    triggered_run_name: str,
     kubeflow_experiment_name: Optional[str] = None,
-    kubeflow_pipeline_version: Optional[str] = None,
+    pipeline_version_id: Optional[str] = None,
     parameters: Optional[dict] = None,
     max_retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> ApiRun:
     """Trigger KFP flow by pipeline name. See run_kubeflow_pipeline_by_id for more details."""
     client: KFPClient = _get_kfp_client()
-    kubeflow_pipeline_id: str = client.get_pipeline_id(name=kubeflow_pipeline_name)
+    kubeflow_pipeline_id: str = client.get_pipeline_id(name=pipeline_name)
     return run_kubeflow_pipeline_by_id(
-        kubeflow_pipeline_id=kubeflow_pipeline_id,
-        triggered_run_name=triggered_run_name,
-        kubeflow_experiment_name=kubeflow_experiment_name,
+        pipeline_id=kubeflow_pipeline_id,
         kubeflow_namespace=kubeflow_namespace,
-        kubeflow_pipeline_version=kubeflow_pipeline_version,
+        triggered_run_name=triggered_run_name,
+        experiment_name=kubeflow_experiment_name,
+        pipeline_version_id=pipeline_version_id,
         parameters=parameters,
         max_retry=max_retry,
     )
 
 
 def run_kubeflow_pipeline_by_id(
-    kubeflow_pipeline_id: str,
-    triggered_run_name: str,
+    pipeline_id: str,
     kubeflow_namespace: str,
-    kubeflow_experiment_name: Optional[str] = None,
-    kubeflow_pipeline_version: Optional[str] = None,
+    triggered_run_name: str,
+    experiment_name: Optional[str] = None,
+    pipeline_version_id: Optional[str] = None,
     parameters: Optional[dict] = None,
     max_retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> ApiRun:
     """Trigger KFP flow by pipeline id.
+
     pipeline_id: Pipeline id for which a new run should be triggered.
     experiment_name: Experiment where the triggered run should be placed.
     job_name: Job name of the flow being triggered.
@@ -154,18 +161,18 @@ def run_kubeflow_pipeline_by_id(
 
     def create_experiment():
         return client.create_experiment(
-            name=kubeflow_experiment_name,
+            name=experiment_name,
             description="Experiment flow trigger from same namespace",
-            namespace=kubeflow_namespace,  # TODO: Warn about permission issue early
+            namespace=kubeflow_namespace,
         )
 
     def run_pipeline():
         return client.run_pipeline(
             experiment_id=experiment.id,
             job_name=triggered_run_name,
-            pipeline_id=kubeflow_pipeline_id,
+            pipeline_id=pipeline_id,
             params={"flow_parameters_json": json.dumps(parameters)},
-            version_id=kubeflow_pipeline_version,
+            version_id=pipeline_version_id,
         )
 
     if parameters is None:
@@ -216,19 +223,25 @@ def wait_for_kfp_run_completion(
     - success or not (bool)
     - run info (kfp_server_api.ApiRun)
 
-    TODO: UX concerns for async calls
-        - How async calls work in notebook?
+    Status check frequency will be close to min_check_delay for the first 11 minutes,
+    and gradually approaches max_check_delay after 23 minutes.
+
+    A close mimic to async is to use get_kfp_run above.
+    Implementation for async is not prioritized until specifically requested.
+
+    TODO(yunw)(AIP-5671): Async version
     """
 
     def get_delay(secs_since_start, min_delay, max_delay):
-        # this sigmoid function reaches
-        # - 0.1 after 11 minutes
-        # - 0.5 after 15 minutes
-        # - 1.0 after 23 minutes
-        # in other words, the user will see very frequent updates
-        # during the first 10 minutes
+        """
+        this sigmoid function reaches
+        - 0.1 after 11 minutes
+        - 0.5 after 15 minutes
+        - 1.0 after 23 minutes
+        in other words, the the delay is close to min_delay during the first 10 minutes
+        """
         sigmoid = 1.0 / (1.0 + math.exp(-0.01 * secs_since_start + 9.0))
-        return min_delay + sigmoid * max_delay
+        return min_delay + sigmoid * (max_delay - min_delay)
 
     client: KFPClient = _get_kfp_client()
     run: ApiRun = get_kfp_run(run_id=run_id, retry=retry, client=client)
