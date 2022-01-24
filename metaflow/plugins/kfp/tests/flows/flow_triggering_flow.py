@@ -1,15 +1,8 @@
+import os
+
 from metaflow import FlowSpec, step, Parameter, current
-
-try:
-    import kfp
-except:
-    import os
-
-    os.system(
-        "pip install -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ zillow-kfp"
-    )
-
 from metaflow.plugins.kfp.kfp_utils import (
+    get_kfp_run,
     run_id_to_url,
     run_kubeflow_pipeline,
     wait_for_kfp_run_completion,
@@ -25,6 +18,11 @@ class FlowTriggeringFlow(FlowSpec):
 
     @step
     def start(self):
+        os.system(
+            "pip install -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python"
+            "/simple/ zillow-kfp"
+        )
+
         if self.triggered_by:
             print(f"This flow is triggered by run {self.triggered_by}")
 
@@ -42,7 +40,11 @@ class FlowTriggeringFlow(FlowSpec):
             print("Run ID:", run.id)
             print("Run URL:", run_id_to_url(run.id))
 
-            wait_for_kfp_run_completion(run.id, wait_timeout=180)
+            run = get_kfp_run(run.id)
+            print(run.status)
+
+            run = wait_for_kfp_run_completion(run.id, wait_timeout=180)
+            print(run.status)
 
         self.next(self.end)
 

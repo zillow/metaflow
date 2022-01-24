@@ -26,6 +26,7 @@ setup(name='zillow-metaflow',
       ],
       extras_require = {
         'kfp': 'zillow-kfp',
+        'kfp_server_api': 'kfp_server_api',
         # Use an extras here as there is no "extras_tests_require" functionality :(
         'kfp-tests': ['pytest', 'pytest-xdist', 'pytest-cov', 'subprocess-tee']
       })
