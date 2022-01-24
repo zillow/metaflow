@@ -1,7 +1,7 @@
 import os
 
 from metaflow import FlowSpec, step, Parameter, current
-from metaflow.plugins.kfp.kfp_utils import (
+from metaflow.plugins.kfp import (
     get_kfp_run,
     run_id_to_url,
     run_kubeflow_pipeline,
