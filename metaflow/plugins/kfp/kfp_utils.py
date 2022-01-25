@@ -19,6 +19,13 @@ import sys
 import time
 from typing import Callable, List, Optional
 
+from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
+from metaflow.plugins.kfp.kfp_constants import (
+    KFP_CLI_DEFAULT_RETRY,
+    KFP_CLI_DEFAULT_SORT_BY,
+)
+from metaflow.util import get_username
+
 try:  # Extra required dependency specific to kfp plug-in may not exists
     from kfp import Client as KFPClient
     from kfp_server_api import ApiExperiment, ApiPipeline, ApiRun, RunServiceApi
@@ -27,13 +34,6 @@ except ImportError:  # Silence import errors in type hint
     ApiPipeline = None
     ApiRun = None
     RunServiceApi = None
-
-from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
-from metaflow.plugins.kfp.kfp_constants import (
-    KFP_CLI_DEFAULT_RETRY,
-    KFP_CLI_DEFAULT_SORT_BY,
-)
-from metaflow.util import get_username
 
 
 def get_kfp_logger():
@@ -210,7 +210,7 @@ def get_kfp_run(run_id, retry=KFP_CLI_DEFAULT_RETRY, client: KFPClient = None):
 def wait_for_kfp_run_completion(
     run_id: str,
     wait_timeout: [int, datetime.timedelta] = 0,
-    min_check_delay: int = 5,
+    min_check_delay: int = 10,
     max_check_delay: int = 30,
     retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> ApiRun:
@@ -257,7 +257,7 @@ def wait_for_kfp_run_completion(
         while not is_finished_run(run):
             elapsed_time = (datetime.datetime.now() - start_time).total_seconds()
             logger.info(
-                f"Waiting for the run {run_id} to complete... {elapsed_time}s / {wait_timeout}s"
+                f"Waiting for the run {run_id} to complete... {elapsed_time:.2f}s / {wait_timeout}s"
             )
             if elapsed_time > wait_timeout:
                 raise TimeoutError(f"Timeout while waiting for run {run_id} to finish.")

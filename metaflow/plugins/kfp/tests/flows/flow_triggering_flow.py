@@ -1,23 +1,34 @@
 import os
-import time
+
+try:
+    import kfp_server_api
+    import kfp
+except ImportError:
+    print("Installing extra dependencies `zillow-kfp` and `kfp-server-api`")
+    os.system(
+        "pip install --quiet --disable-pip-version-check --no-cache-dir "
+        "-i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ "
+        "zillow-kfp kfp-server-api"
+    )
+    os.environ["FLOW_TRIGGERING_FLOW_DEP_INSTALLED"] = "true"
+    print("Extra dependencies installed")
+    import kfp_server_api
+    import kfp
 
 from metaflow import FlowSpec, Parameter, current, step
-
-os.system(
-    "pip install --quiet --disable-pip-version-check "
-    "-i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ "
-    "zillow-kfp kfp-server-api"
-)
 from metaflow.plugins.kfp import (  # noqa
     get_kfp_run,
+    logger,
     run_id_to_url,
     run_kubeflow_pipeline,
     wait_for_kfp_run_completion,
 )
 from metaflow.plugins.kfp.kfp_utils import _get_kfp_client  # noqa
+from metaflow.mflog import LOG_SOURCES
 
 
 TEST_PIPELINE_NAME = "metaflow-unit-test-flow-triggering-flow"
+logger.handlers.clear()  # Avoid double printint logs  # TODO (yunw) address logging story
 
 
 class FlowTriggeringFlow(FlowSpec):
@@ -87,10 +98,7 @@ class FlowTriggeringFlow(FlowSpec):
     @step
     def test_trigger_and_wait(self):
         if self.trigger_enabled:
-            # Workaround: Base image used for testing may not have `zillow-kfp` or `kfp-server-api`
-            # Actual user should have these packages installed in their base image
-
-            print("Triggering Downstream Flow...")
+            print("\nTesting run_kubeflow_pipeline")
             run = run_kubeflow_pipeline(
                 pipeline_name=TEST_PIPELINE_NAME,
                 kubeflow_namespace=self.triggered_flow_namespace,
@@ -102,16 +110,39 @@ class FlowTriggeringFlow(FlowSpec):
                 # Specify version so that multiple instance of tests can be triggered
                 pipeline_version_id=self.version_id,
             )
-
             print("Run ID:", run.id)
             print("Run URL:", run_id_to_url(run.id))
 
-            time.sleep(10)
-            run = get_kfp_run(run.id)
-            print(run.status)
+            print("\nTesting timeout exception for wait_for_kfp_run_completion")
+            try:
+                run = wait_for_kfp_run_completion(run_id=run.id, wait_timeout=10)
+            except TimeoutError:
+                print("Timeout before flow ends throws timeout exception correctly")
+            else:
+                raise AssertionError("Timeout error not thrown as expected.")
 
+            print("\nTesting get_kfp_run")
+            run = get_kfp_run(run.id)
+            print(f"Run Status of {run.id}:", run.status)
+
+            print("\nTesting wait_for_kfp_run_completion without triggering timeout")
             run = wait_for_kfp_run_completion(run_id=run.id, wait_timeout=180)
-            print(run.status)
+            print(f"Run Status of {run.id}:", run.status)
+
+            print("\nDemo that datastore of downstream job can be accessed")
+            from metaflow.datastore.s3 import S3DataStore
+            S3DataStore.datastore_root = "s3://aip-example-sandbox/metaflow-prototype"
+            s3_datastore = S3DataStore(
+                self.__class__.__name__,
+                run_id=f"kfp-{run.id}",
+                step_name="start",
+                task_id="kfp1"
+            )
+            metadata = s3_datastore.load_metadata("data")
+            log_stdout = s3_datastore.load_logs(LOG_SOURCES, "stdout")
+
+            print("\nMetadata: \n", metadata)
+            print("\nStdout: \n", log_stdout)
 
         self.next(self.end)
 
