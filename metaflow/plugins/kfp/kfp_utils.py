@@ -62,7 +62,7 @@ def _get_kfp_client():
     kfp_client_user = get_username()
     if KFP_USER_DOMAIN:
         kfp_client_user += f"@{KFP_USER_DOMAIN}"
-    else:  # FIXME: The KFP_USER_DOMAIN value might not be available in cluster
+    else:  # FIXME(yunw)(AIP-5686): The KFP_USER_DOMAIN value should be available in flow
         kfp_client_user += "@zillowgroup.com"
     return KFPClient(userid=kfp_client_user)
 
@@ -200,6 +200,11 @@ def is_finished_run(api_run: ApiRun):
         "skipped",
         "error",
     ]
+
+
+def is_successful_run(api_run: ApiRun):
+    run_status = api_run.status
+    return run_status.lower() == "succeeded"
 
 
 def get_kfp_run(run_id, retry=KFP_CLI_DEFAULT_RETRY, client: KFPClient = None):

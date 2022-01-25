@@ -18,6 +18,7 @@ except ImportError:
 from metaflow import FlowSpec, Parameter, current, step
 from metaflow.plugins.kfp import (  # noqa
     get_kfp_run,
+    is_successful_run,
     logger,
     run_id_to_url,
     run_kubeflow_pipeline,
@@ -99,7 +100,7 @@ class FlowTriggeringFlow(FlowSpec):
     def test_trigger_and_wait(self):
         if self.trigger_enabled:
             print("\nTesting run_kubeflow_pipeline")
-            run = run_kubeflow_pipeline(
+            run: kfp_server_api.ApiRun = run_kubeflow_pipeline(
                 pipeline_name=TEST_PIPELINE_NAME,
                 kubeflow_namespace=self.triggered_flow_namespace,
                 triggered_run_name=f"FlowTriggeringFlow triggered by run {current.run_id}",
@@ -128,15 +129,17 @@ class FlowTriggeringFlow(FlowSpec):
             print("\nTesting wait_for_kfp_run_completion without triggering timeout")
             run = wait_for_kfp_run_completion(run_id=run.id, wait_timeout=180)
             print(f"Run Status of {run.id}:", run.status)
+            assert is_successful_run(run)
 
             print("\nDemo that datastore of downstream job can be accessed")
             from metaflow.datastore.s3 import S3DataStore
+
             S3DataStore.datastore_root = "s3://aip-example-sandbox/metaflow-prototype"
             s3_datastore = S3DataStore(
                 self.__class__.__name__,
                 run_id=f"kfp-{run.id}",
                 step_name="start",
-                task_id="kfp1"
+                task_id="kfp1",
             )
             metadata = s3_datastore.load_metadata("data")
             log_stdout = s3_datastore.load_logs(LOG_SOURCES, "stdout")
@@ -149,7 +152,7 @@ class FlowTriggeringFlow(FlowSpec):
     @step
     def end(self):
         if self.trigger_enabled:
-            print(f"Deleting vesrion {self.version_id}")
+            print(f"Deleting version {self.version_id}")
             client = _get_kfp_client()
             client.delete_pipeline_version(self.version_id)
 
