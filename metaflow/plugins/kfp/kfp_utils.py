@@ -70,7 +70,7 @@ def _get_kfp_client():
 def _retry(func: Callable, max_attempt: int, **kwargs):
     for attempt in range(1, max_attempt + 1):
         try:
-            return func(kwargs)
+            return func(**kwargs)
         except Exception as e:
             logging.exception(f"Function {func.__name__} failed on attempt {attempt}")
             if attempt == max_attempt:
@@ -125,7 +125,7 @@ def run_kubeflow_pipeline(
     kubeflow_experiment_name: Optional[str] = None,
     pipeline_version_id: Optional[str] = None,
     parameters: Optional[dict] = None,
-    max_retry: int = KFP_CLI_DEFAULT_RETRY,
+    retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> ApiRun:
     """Trigger KFP flow by pipeline name. See run_kubeflow_pipeline_by_id for more details."""
     client: KFPClient = _get_kfp_client()
@@ -137,7 +137,7 @@ def run_kubeflow_pipeline(
         experiment_name=kubeflow_experiment_name,
         pipeline_version_id=pipeline_version_id,
         parameters=parameters,
-        max_retry=max_retry,
+        retry=retry,
     )
 
 
@@ -148,7 +148,7 @@ def run_kubeflow_pipeline_by_id(
     experiment_name: Optional[str] = None,
     pipeline_version_id: Optional[str] = None,
     parameters: Optional[dict] = None,
-    max_retry: int = KFP_CLI_DEFAULT_RETRY,
+    retry: int = KFP_CLI_DEFAULT_RETRY,
 ) -> ApiRun:
     """Trigger KFP flow by pipeline id.
 
@@ -162,7 +162,6 @@ def run_kubeflow_pipeline_by_id(
     def create_experiment():
         return client.create_experiment(
             name=experiment_name,
-            description="Experiment flow trigger from same namespace",
             namespace=kubeflow_namespace,
         )
 
@@ -179,8 +178,8 @@ def run_kubeflow_pipeline_by_id(
         parameters = {}
 
     client = _get_kfp_client()
-    experiment: ApiExperiment = _retry(create_experiment, max_retry)
-    pipeline_run: ApiRun = _retry(run_pipeline, max_retry)
+    experiment: ApiExperiment = _retry(create_experiment, max_attempt=retry)
+    pipeline_run: ApiRun = _retry(run_pipeline, max_attempt=retry)
     logger.info(f"Triggered run {pipeline_run.id} - {run_id_to_url(pipeline_run.id)}")
     return pipeline_run
 
@@ -246,7 +245,7 @@ def wait_for_kfp_run_completion(
     client: KFPClient = _get_kfp_client()
     run: ApiRun = get_kfp_run(run_id=run_id, retry=retry, client=client)
 
-    if not is_finished_run(run) != "succeeded" and wait_timeout:
+    if not is_finished_run(run) and wait_timeout:
         if isinstance(wait_timeout, datetime.timedelta):
             wait_timeout = wait_timeout.total_seconds()
 
@@ -275,4 +274,6 @@ def wait_for_kfp_run_completion(
 def terminate_run(run_id: str, retry: int = KFP_CLI_DEFAULT_RETRY, **kwargs):
     logging.info(f"Terminating run {run_id}")
     run_service_api = RunServiceApi()
-    return _retry(run_service_api.terminate_run, retry, run_id=run_id, **kwargs)
+    return _retry(
+        run_service_api.terminate_run, max_attempt=retry, run_id=run_id, **kwargs
+    )
