@@ -17,8 +17,6 @@ except ImportError:
 
 from metaflow import FlowSpec, Parameter, current, step
 from metaflow.plugins.kfp import (  # noqa
-    get_kfp_run,
-    is_successful_run,
     logger,
     run_id_to_url,
     run_kubeflow_pipeline,
@@ -100,7 +98,7 @@ class FlowTriggeringFlow(FlowSpec):
     def test_trigger_and_wait(self):
         if self.trigger_enabled:
             print("\nTesting run_kubeflow_pipeline")
-            run: kfp_server_api.ApiRun = run_kubeflow_pipeline(
+            run_id: str = run_kubeflow_pipeline(
                 pipeline_name=TEST_PIPELINE_NAME,
                 kubeflow_namespace=self.triggered_flow_namespace,
                 triggered_run_name=f"FlowTriggeringFlow triggered by run {current.run_id}",
@@ -110,26 +108,22 @@ class FlowTriggeringFlow(FlowSpec):
                 },
                 # Specify version so that multiple instance of tests can be triggered
                 pipeline_version_id=self.version_id,
+                # TODO: consider adding wait in this func - Sheena
             )
-            print("Run ID:", run.id)
-            print("Run URL:", run_id_to_url(run.id))
+            print("Run ID:", run_id)
+            print("Run URL:", run_id_to_url(run_id))
 
             print("\nTesting timeout exception for wait_for_kfp_run_completion")
             try:
-                run = wait_for_kfp_run_completion(run_id=run.id, wait_timeout=10)
+                run = wait_for_kfp_run_completion(run_id=run_id, wait_timeout=10)
             except TimeoutError:
                 print("Timeout before flow ends throws timeout exception correctly")
             else:
                 raise AssertionError("Timeout error not thrown as expected.")
 
-            print("\nTesting get_kfp_run")
-            run = get_kfp_run(run.id)
-            print(f"Run Status of {run.id}:", run.status)
-
             print("\nTesting wait_for_kfp_run_completion without triggering timeout")
-            run = wait_for_kfp_run_completion(run_id=run.id, wait_timeout=180)
-            print(f"Run Status of {run.id}:", run.status)
-            assert is_successful_run(run)
+            status: str = wait_for_kfp_run_completion(run_id=run_id, wait_timeout=180)
+            print(f"Run Status of {run_id}:", status)
 
             print("\nDemo that datastore of downstream job can be accessed")
             from metaflow.datastore.s3 import S3DataStore
@@ -137,7 +131,7 @@ class FlowTriggeringFlow(FlowSpec):
             S3DataStore.datastore_root = "s3://aip-example-sandbox/metaflow-prototype"
             s3_datastore = S3DataStore(
                 self.__class__.__name__,
-                run_id=f"kfp-{run.id}",
+                run_id=f"kfp-{run_id}",
                 step_name="start",
                 task_id="kfp1",
             )

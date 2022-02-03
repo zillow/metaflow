@@ -27,5 +27,4 @@ STDERR_FILE = "mflog_stderr"
 STDOUT_PATH = os.path.join(LOGS_DIR, STDOUT_FILE)
 STDERR_PATH = os.path.join(LOGS_DIR, STDERR_FILE)
 
-KFP_CLI_DEFAULT_SORT_BY = "created_at desc"
 KFP_CLI_DEFAULT_RETRY = 3
