@@ -285,3 +285,11 @@ def wait_for_kfp_run_completion(
             _assert_run_success(run)
 
     return run.status
+
+
+def terminate_run(run_id: str, retry: int = KFP_CLI_DEFAULT_RETRY, **kwargs):
+    logging.info(f"Terminating run {run_id}")
+    run_service_api = RunServiceApi()
+    return _retry(
+        run_service_api.terminate_run, max_attempt=retry, run_id=run_id, **kwargs
+    )
