@@ -7,9 +7,9 @@
 # Steps to build and push new versions of this image:
 # 1. Go to Github and create a personal access token that allows you to write packages
 # link: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
-# 2. cd in this directory, and build the image: docker build .
+# 2. cd in this directory, and build the image: `docker build .`
 # 3. run `docker images` -> note the image ID of the image you just created
-# 4. run `docker tag [image_id] ghcr.io/zillow/metaflow/metaflow-zillow:[version]
+# 4. run `docker tag [image_id] ghcr.io/zillow/metaflow/metaflow-zillow:[version]`
 # 5. push to Github: `docker push ghcr.io/zillow/metaflow/metaflow-zillow`
 
 FROM python:3.9.0
