@@ -3,7 +3,7 @@
 # Defaults for running MF on KFP
 import os
 
-# Link to package: 
+# Link to package:
 # https://github.com/zillow/metaflow/pkgs/container/metaflow%2Fmetaflow-zillow
 BASE_IMAGE = "ghcr.io/zillow/metaflow/metaflow-zillow:2.1"
 
