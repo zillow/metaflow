@@ -1,4 +1,4 @@
-# Used to create the hsezhiyan/metaflow-zillow:2.1 image.
+# Used to create the ghcr.io/zillow/metaflow/metaflow-zillow:2.1 image.
 # The image is used in two places:
 #   1. In metaflow/plugins/kfp/kfp_constants.py, where it is used as a base image
 #      when the user does not provide their own base image with python flow.py kfp run --base-image...
