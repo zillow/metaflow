@@ -158,13 +158,13 @@ def run_kubeflow_pipeline_by_id(
         triggered_run_name = (
             f"Triggered {pipeline.name} {datetime.datetime.strftime(time_format)}"
         )
-    if len(triggered_run_name) > 64:  # Run name longer than 64 char causes kfp run time error
+    if len(triggered_run_name) > 64:  # Name >64 char causes kfp run time error
         triggered_run_name = triggered_run_name[:63]
 
     if not experiment_name:
         pipeline: ApiPipeline = _retry(client.get_pipeline, pipeline_id=pipeline_id)
         experiment_name = f"triggered-{pipeline.name}"
-    if len(experiment_name) > 64:  # Experiment name longer than 64 char causes kfp run time error
+    if len(experiment_name) > 64:  # Name >64 char causes kfp run time error
         experiment_name = experiment_name[0:63]
 
     experiment: ApiExperiment = _retry(
@@ -201,10 +201,16 @@ def _assert_run_success(run: ApiRun):
     if not run.status:
         # None status usually occurs when run is recently started and has not been scheduled
         # Raise different error, allowing user to catch them.
-        raise ValueError(f"Run status not available. Flow might not have been scheduled.")
+        raise ValueError(
+            f"Run status not available. Run might not have been scheduled."
+        )
     else:
-        assert run.status.lower() != "failed", f"Run {run.id} failed with error {run.error}."
-        assert run.status.lower() == "succeeded", f"Run {run.id} finished with non-successful state {run.status}."
+        assert (
+            run.status.lower() != "failed"
+        ), f"Run {run.id} failed with error {run.error}."
+        assert (
+            run.status.lower() == "succeeded"
+        ), f"Run {run.id} finished with non-successful state {run.status}."
 
 
 def check_kfp_run_status(
