@@ -22,7 +22,7 @@ from metaflow.plugins.kfp import (  # noqa
     run_kubeflow_pipeline,
     wait_for_kfp_run_completion,
 )
-from metaflow.plugins.kfp.kfp_utils import _get_kfp_client  # noqa
+from metaflow.plugins.kfp.kfp_utils import _get_kfp_client, _upload_pipeline  # noqa
 from metaflow.mflog import LOG_SOURCES
 
 
@@ -31,9 +31,9 @@ logger.handlers.clear()  # Avoid double printint logs  # TODO (yunw) address log
 
 
 class FlowTriggeringFlow(FlowSpec):
-    trigger_enabled = Parameter("trigger_enabled", default=False)
-    triggered_by = Parameter(name="triggered_by", default=None)
-    triggered_flow_namespace = Parameter(
+    trigger_enabled: bool = Parameter("trigger_enabled", default=False)
+    triggered_by: str = Parameter(name="triggered_by", default=None)
+    triggered_flow_namespace: str = Parameter(
         name="namespace", default="aip-metaflow-sandbox"
     )
 
@@ -43,55 +43,9 @@ class FlowTriggeringFlow(FlowSpec):
             print(f"This flow is triggered by run {self.triggered_by}")
 
         if self.trigger_enabled:  # Upload pipeline
-
-            def _self_upload_as_pipeline():
-                """Upload this flow to keep version consistency
-
-                Flow triggering flow only triggers uploaded flows.
-                This function is a workaround to unit test on consistent downstream pipeline
-                version.
-
-                Warning: This function is not recommended for production usage
-                    Users are recommended to upload pipeline though CICD to take advantage of
-                    testing
-                """
-                print("Uploading downstream pipeline for test")
-
-                import tempfile
-                from datetime import datetime
-
-                import kfp_server_api
-
-                with tempfile.TemporaryDirectory() as dir_path:
-                    pipeline_file_path = f"{dir_path}/pipeline.yaml"
-                    print(f"Compiling test flow to local file {pipeline_file_path}...")
-                    os.system(
-                        f"python '{__file__}' kfp run --yaml-only --pipeline-path '"
-                        f"{pipeline_file_path}'"
-                    )
-
-                    print("Uploading pipeline...")
-                    client = _get_kfp_client()
-                    try:
-                        pipeline: kfp_server_api.ApiPipeline = client.upload_pipeline(
-                            pipeline_package_path=pipeline_file_path,
-                            pipeline_name=TEST_PIPELINE_NAME,
-                        )
-                        self.pipeline_id = pipeline.id
-                        self.create_at = pipeline.created_at
-                        self.version_id = pipeline.default_version.id
-                    except kfp_server_api.exceptions.ApiException:
-                        version: kfp_server_api.ApiPipelineVersion = client.upload_pipeline_version(
-                            pipeline_package_path=pipeline_file_path,
-                            pipeline_version_name=f"flow_triggering_flow_{datetime.now()}",
-                            pipeline_name=TEST_PIPELINE_NAME,
-                        )
-                        self.pipeline_id = version.resource_references[0].key.id
-                        self.version_id = version.id
-                        self.create_at = version.created_at
-                    print(f"Uploaded test pipeline version {self.version_id}.")
-
-            _self_upload_as_pipeline()
+            self.pipeline_id, self.version_id = _upload_pipeline(
+                flow_file_path=__file__, pipeline_name=TEST_PIPELINE_NAME
+            )
         self.next(self.test_trigger_and_wait)
 
     @step
@@ -108,7 +62,6 @@ class FlowTriggeringFlow(FlowSpec):
                 },
                 # Specify version so that multiple instance of tests can be triggered
                 pipeline_version_id=self.version_id,
-                # TODO: consider adding wait in this func - Sheena
             )
             print("Run ID:", run_id)
             print("Run URL:", run_id_to_url(run_id))

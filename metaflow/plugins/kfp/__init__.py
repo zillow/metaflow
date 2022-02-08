@@ -2,7 +2,7 @@ from .kfp_utils import (
     # Helper functions
     logger,
     run_id_to_url,
-    run_id_to_metaflow_format,
+    to_metaflow_run_id,
     # Trigger / stop run
     run_kubeflow_pipeline,
     run_kubeflow_pipeline_by_id,

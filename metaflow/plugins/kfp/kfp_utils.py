@@ -4,27 +4,17 @@ Frequently used KFP client interactions, including support for:
 
 Code here exists mainly for user's convenience, to take advantage of Metaflow configs.
 They are technically not metaflow code.
-
-TODO:
-    - Pre-release:
-        + remove requirement for name when running pipeline
-        + default experiment name
-        + wait for completion in run pipeline
-        + optionally error on failure
-        - add triggering info to metadata
-        - Add example - use metaflow client for metadata retrieval
-    - (yunw)(AIP-5671): Async version for trigger and wait
-    - (yunw)(AIP-5672): Helper function for user to check access to a certain namespace.
-      potentially using `kubectl auth can-i`
 """
 import datetime
 import json
 import logging
+import os
+
 import math
 import posixpath
 import sys
 import time
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 from metaflow.metaflow_config import KFP_RUN_URL_PREFIX, KFP_USER_DOMAIN
 from metaflow.plugins.kfp.kfp_constants import KFP_CLI_DEFAULT_RETRY
@@ -32,12 +22,22 @@ from metaflow.util import get_username
 
 try:  # Extra required dependency specific to kfp plug-in may not exists
     from kfp import Client as KFPClient
-    from kfp_server_api import ApiExperiment, ApiPipeline, ApiRun, RunServiceApi
+    from kfp_server_api import (
+        ApiExperiment,
+        ApiPipeline,
+        ApiPipelineVersion,
+        ApiRun,
+        RunServiceApi,
+    )
+    import kfp_server_api
 except ImportError:  # Silence import errors in type hint
     KFPClient = None
+    ApiExperiment = None
     ApiPipeline = None
+    ApiPipelineVersion = None
     ApiRun = None
     RunServiceApi = None
+    kfp_server_api = None
 
 
 def _get_kfp_logger():
@@ -96,7 +96,7 @@ def run_id_to_url(run_id: str):
     )
 
 
-def run_id_to_metaflow_format(run_id: str):
+def to_metaflow_run_id(run_id: str):
     """Return metaflow run id useful for querying metadata, datastore, log etc."""
     return f"kfp-{run_id}" if not run_id.startswith("kfp-") else run_id
 
@@ -108,7 +108,7 @@ def run_kubeflow_pipeline(
     kubeflow_experiment_name: Optional[str] = None,
     pipeline_version_id: Optional[str] = None,
     parameters: Optional[dict] = None,
-    wait_timeout: Optional[int, datetime.timedelta] = 0,
+    wait_timeout: Optional[Union[int, datetime.timedelta]] = 0,
     **kwarg,  # Other parameters for wait function
 ) -> str:
     """Trigger KFP flow by pipeline name. See run_kubeflow_pipeline_by_id for more details."""
@@ -299,3 +299,56 @@ def terminate_run(run_id: str, retry: int = KFP_CLI_DEFAULT_RETRY, **kwargs):
     return _retry(
         run_service_api.terminate_run, max_attempt=retry, run_id=run_id, **kwargs
     )
+
+
+def _upload_pipeline(flow_file_path: str, pipeline_name: Optional[str] = None):
+    """Upload this flow to keep version consistency
+
+    ** NOT OFFICIALLY SUPPORTED FOR USER - FOR TESTING ONLY **
+    * User experience is not polished.
+    * Test for this function is not complete
+    Users are recommended to upload pipeline though paved CICD instead.
+
+    Flow triggering flow only triggers uploaded flows.
+    This function is a workaround for testing,
+    to ensure downstream pipeline code is updated per test trigger.
+    """
+    if not pipeline_name:
+        file_base_name = os.path.basename(flow_file_path)
+        pipeline_name = os.path.splitext(file_base_name)[0]
+    pipeline_name = pipeline_name[: min(63, len(pipeline_name) - 1)]
+
+    print("Uploading downstream pipeline for test")
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as dir_path:
+        pipeline_file_path = f"{dir_path}/pipeline.yaml"
+        print(f"Compiling test flow to local file {pipeline_file_path}...")
+        os.system(
+            f"python '{flow_file_path}' kfp run --yaml-only --pipeline-path '"
+            f"{pipeline_file_path}'"
+        )
+
+        print("Uploading pipeline...")
+        client = _get_kfp_client()
+        try:
+            pipeline: ApiPipeline = _retry(
+                func=client.upload_pipeline,
+                pipeline_package_path=pipeline_file_path,
+                pipeline_name=pipeline_name,
+            )
+            pipeline_id = pipeline.id
+            version_id = pipeline.default_version.id
+        except kfp_server_api.exceptions.ApiException:
+            version: ApiPipelineVersion = _retry(
+                func=client.upload_pipeline_version,
+                pipeline_package_path=pipeline_file_path,
+                pipeline_version_name=f"flow_triggering_flow_{datetime.datetime.now()}",
+                pipeline_name=pipeline_name,
+            )
+            pipeline_id = version.resource_references[0].key.id
+            version_id = version.id
+        print(f"Uploaded test pipeline {pipeline_id} version {version_id}.")
+
+    return pipeline_id, version_id
