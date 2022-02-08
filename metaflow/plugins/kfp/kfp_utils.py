@@ -108,7 +108,7 @@ def run_kubeflow_pipeline(
     kubeflow_experiment_name: Optional[str] = None,
     pipeline_version_id: Optional[str] = None,
     parameters: Optional[dict] = None,
-    wait_timeout: Optional[Union[int, datetime.timedelta]] = 0,
+    wait_timeout: Union[int, float, datetime.timedelta] = 0,
     **kwarg,  # Other parameters for wait function
 ) -> str:
     """Trigger KFP flow by pipeline name. See run_kubeflow_pipeline_by_id for more details."""
@@ -133,7 +133,7 @@ def run_kubeflow_pipeline_by_id(
     experiment_name: Optional[str] = None,
     pipeline_version_id: Optional[str] = None,
     parameters: Optional[dict] = None,
-    wait_timeout: Optional[int, datetime.timedelta] = 0,
+    wait_timeout: Union[int, float, datetime.timedelta] = 0,
     **kwarg,  # Other parameters for wait function
 ) -> str:
     """Trigger KFP flow by pipeline id.
@@ -184,7 +184,7 @@ def run_kubeflow_pipeline_by_id(
         f"Triggered run {triggered_run_name}({pipeline_run.id}) - {run_id_to_url(pipeline_run.id)}"
     )
 
-    if wait_timeout > 0:
+    if wait_timeout:  # int, float and datetime.timedelta all evaluates to False when 0
         wait_for_kfp_run_completion(
             run_id=pipeline_run.id, wait_timeout=wait_timeout, **kwarg
         )
@@ -228,7 +228,7 @@ def check_kfp_run_status(
 
 def wait_for_kfp_run_completion(
     run_id: str,
-    wait_timeout: [int, datetime.timedelta] = 0,
+    wait_timeout: Union[int, float, datetime.timedelta] = 0,
     min_check_delay: int = 10,
     max_check_delay: int = 30,
     assert_success: bool = True,
