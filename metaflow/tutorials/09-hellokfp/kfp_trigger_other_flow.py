@@ -40,11 +40,16 @@ class KfpTriggerOtherFlow(FlowSpec):
         )  # logs run_id and run_url automatically.
 
         print("Inspecting data of triggered run")
+
         # See https://docs.metaflow.org/metaflow/client for more run inspection methods
         metaflow_run_id: str = to_metaflow_run_id(kfp_run_id)
         start_step = Step(f"{flow_name}/{metaflow_run_id}/start")
-        print("Triggered flow completes at:", start_step.task.data.finished_at)
-        print("stdout of start step:\n", start_step.task.data.stdout)
+
+        # Data `<var_name>` can be saved to artifact using `self.<var_name> = <value>`
+        # Data of each step in triggered flow can then be retrieved as below.
+        print("Value of start.alpha in triggered flow:", start_step.task.data.alpha)
+        print("Value of start.beta in triggered flow:", start_step.task.data.beta)
+        print("stdout of start step:\n", start_step.task.stdout)
 
         self.next(self.end)
 
