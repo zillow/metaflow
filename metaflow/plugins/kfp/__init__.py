@@ -5,7 +5,6 @@ from .kfp_utils import (
     to_metaflow_run_id,
     # Trigger / stop run
     run_kubeflow_pipeline,
-    run_kubeflow_pipeline_by_id,
     terminate_run,
     # Inspect run
     check_kfp_run_status,

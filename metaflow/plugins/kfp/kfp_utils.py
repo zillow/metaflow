@@ -102,33 +102,9 @@ def to_metaflow_run_id(run_id: str):
 
 
 def run_kubeflow_pipeline(
-    pipeline_name: str,
     kubeflow_namespace: str,
-    triggered_run_name: Optional[str] = None,
-    kubeflow_experiment_name: Optional[str] = None,
-    pipeline_version_id: Optional[str] = None,
-    parameters: Optional[dict] = None,
-    wait_timeout: Union[int, float, datetime.timedelta] = 0,
-    **kwarg,  # Other parameters for wait function
-) -> str:
-    """Trigger KFP flow by pipeline name. See run_kubeflow_pipeline_by_id for more details."""
-    client: KFPClient = _get_kfp_client()
-    kubeflow_pipeline_id: str = client.get_pipeline_id(name=pipeline_name)
-    return run_kubeflow_pipeline_by_id(
-        pipeline_id=kubeflow_pipeline_id,
-        kubeflow_namespace=kubeflow_namespace,
-        triggered_run_name=triggered_run_name,
-        experiment_name=kubeflow_experiment_name,
-        pipeline_version_id=pipeline_version_id,
-        parameters=parameters,
-        wait_timeout=wait_timeout,
-        **kwarg,
-    )
-
-
-def run_kubeflow_pipeline_by_id(
-    pipeline_id: str,
-    kubeflow_namespace: str,
+    pipeline_name: Optional[str] = None,
+    pipeline_id: Optional[str] = None,
     triggered_run_name: Optional[str] = None,
     experiment_name: Optional[str] = None,
     pipeline_version_id: Optional[str] = None,
@@ -147,21 +123,27 @@ def run_kubeflow_pipeline_by_id(
 
     TODO(yunw)(Ticket todo): Add reference id for chain of runs
     """
+    if pipeline_name is None and pipeline_id is None:
+        raise ValueError("Exactly one of `pipeline_name` or `pipeline_id` is needed")
+
     if parameters is None:
         parameters = {}
 
     client = _get_kfp_client()
 
-    if not triggered_run_name:
+    if pipeline_id is None:
+        pipeline_id = client.get_pipeline_id(name=pipeline_name)
+
+    if triggered_run_name is None:
         pipeline: ApiPipeline = _retry(client.get_pipeline, pipeline_id=pipeline_id)
-        time_format = "%Y-%m-%d %H-%M-%S"
+        time_format: str = "%Y-%m-%d %H-%M-%S"
         triggered_run_name = (
             f"Triggered {pipeline.name} {datetime.datetime.strftime(time_format)}"
         )
     if len(triggered_run_name) > 64:  # Name >64 char causes kfp run time error
         triggered_run_name = triggered_run_name[:63]
 
-    if not experiment_name:
+    if experiment_name is None:
         pipeline: ApiPipeline = _retry(client.get_pipeline, pipeline_id=pipeline_id)
         experiment_name = f"triggered-{pipeline.name}"
     if len(experiment_name) > 64:  # Name >64 char causes kfp run time error
@@ -198,7 +180,7 @@ def _is_finished_run(run: ApiRun):
 
 
 def _assert_run_success(run: ApiRun):
-    if not run.status:
+    if run.status is None:
         # None status usually occurs when run is recently started and has not been scheduled
         # Raise different error, allowing user to catch them.
         raise ValueError(
@@ -313,7 +295,7 @@ def _upload_pipeline(flow_file_path: str, pipeline_name: Optional[str] = None):
     This function is a workaround for testing,
     to ensure downstream pipeline code is updated per test trigger.
     """
-    if not pipeline_name:
+    if pipeline_name is None:
         file_base_name = os.path.basename(flow_file_path)
         pipeline_name = os.path.splitext(file_base_name)[0]
     pipeline_name = pipeline_name[: min(63, len(pipeline_name) - 1)]

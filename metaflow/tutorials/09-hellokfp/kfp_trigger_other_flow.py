@@ -26,7 +26,7 @@ class KfpTriggerOtherFlow(FlowSpec):
         flow_name: str = "ParameterFlow"
 
         print("Launching a downstream pipeline and wait for its completion...")
-        kfp_run_id = run_kubeflow_pipeline(
+        kfp_run_id: str = run_kubeflow_pipeline(
             pipeline_name=kfp_pipeline_name,
             kubeflow_namespace="aip-example-dev",
             parameters={
@@ -41,7 +41,7 @@ class KfpTriggerOtherFlow(FlowSpec):
 
         print("Inspecting data of triggered run")
         # See https://docs.metaflow.org/metaflow/client for more run inspection methods
-        metaflow_run_id = to_metaflow_run_id(kfp_run_id)
+        metaflow_run_id: str = to_metaflow_run_id(kfp_run_id)
         start_step = Step(f"{flow_name}/{metaflow_run_id}/start")
         print("Triggered flow completes at:", start_step.task.data.finished_at)
         print("stdout of start step:\n", start_step.task.data.stdout)
