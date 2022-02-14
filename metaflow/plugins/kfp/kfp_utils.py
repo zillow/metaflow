@@ -300,12 +300,12 @@ def _upload_pipeline(flow_file_path: str, pipeline_name: Optional[str] = None):
         pipeline_name = os.path.splitext(file_base_name)[0]
     pipeline_name = pipeline_name[: min(63, len(pipeline_name) - 1)]
 
-    print("Uploading downstream pipeline for test")
+    print("Uploading downstream pipeline")
 
     import tempfile
 
     with tempfile.TemporaryDirectory() as dir_path:
-        pipeline_file_path = f"{dir_path}/pipeline.yaml"
+        pipeline_file_path = f"{dir_path}/temp_test_pipeline.yaml"
         print(f"Compiling test flow to local file {pipeline_file_path}...")
         os.system(
             f"python '{flow_file_path}' kfp run --yaml-only --pipeline-path '"
