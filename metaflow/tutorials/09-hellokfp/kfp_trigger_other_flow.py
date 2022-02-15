@@ -5,15 +5,15 @@ from metaflow.plugins.kfp import run_kubeflow_pipeline, to_metaflow_run_id
 class KfpTriggerOtherFlow(FlowSpec):
 
     alpha: float = Parameter(
-        'alpha',
-        help='param with default',
+        "alpha",
+        help="param with default",
         default=0.01,
     )
 
     @step
     def start(self):
         print("Run some batch training and scoring job here")
-        self.beta: float = 0.5  # Potential output from modeling
+        self.beta: float = 20  # Potential output from modeling
         print(f"beta = {self.beta}")
         self.next(self.run_dependency_and_wait)
 
