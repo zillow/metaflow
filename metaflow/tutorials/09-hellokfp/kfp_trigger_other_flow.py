@@ -13,7 +13,7 @@ class KfpTriggerOtherFlow(FlowSpec):
     @step
     def start(self):
         print("Run some batch training and scoring job here")
-        self.beta: float = 20  # Potential output from modeling
+        self.beta: int = 20  # Potential output from modeling
         print(f"beta = {self.beta}")
         self.next(self.run_dependency_and_wait)
 
