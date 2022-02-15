@@ -1,9 +1,9 @@
-import os
-
 try:
     import kfp_server_api
     import kfp
 except ImportError:
+    import os
+
     print("Installing extra dependencies `zillow-kfp` and `kfp-server-api`")
     os.system(
         "pip install --quiet --disable-pip-version-check --no-cache-dir "
