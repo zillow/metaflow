@@ -138,7 +138,7 @@ def run_kubeflow_pipeline(
         pipeline: ApiPipeline = _retry(client.get_pipeline, pipeline_id=pipeline_id)
         time_format: str = "%Y-%m-%d %H-%M-%S"
         triggered_run_name = (
-            f"Triggered {pipeline.name} {datetime.datetime.strftime(time_format)}"
+            f"Triggered {pipeline.name} {datetime.datetime.now().strftime(time_format)}"
         )
     if len(triggered_run_name) > 64:  # Name >64 char causes kfp run time error
         triggered_run_name = triggered_run_name[:63]
