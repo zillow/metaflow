@@ -188,9 +188,6 @@ def _assert_run_success(run: ApiRun):
         )
     else:
         assert (
-            run.status.lower() != "failed"
-        ), f"Run {run.id} failed with error {run.error}."
-        assert (
             run.status.lower() == "succeeded"
         ), f"Run {run.id} finished with non-successful state {run.status}."
 
