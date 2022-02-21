@@ -8,9 +8,9 @@ from metaflow.plugins.kfp import (  # noqa
 from metaflow.plugins.kfp.kfp_utils import (
     _get_kfp_client,
     _upload_pipeline,
-    to_metaflow_run_id
+    to_metaflow_run_id,
 )  # noqa
-from metaflow.mflog import LOG_SOURCES
+from metaflow.metaflow_config import KFP_SDK_NAMESPACE
 
 
 TEST_PIPELINE_NAME = "metaflow-unit-test-flow-triggering-flow"
@@ -18,11 +18,9 @@ logger.handlers.clear()  # Avoid double printint logs  # TODO (yunw) address log
 
 
 class FlowTriggeringFlow(FlowSpec):
+    # Avoid infinite self trigger
     trigger_enabled: bool = Parameter("trigger_enabled", default=False)
     triggered_by: str = Parameter(name="triggered_by", default=None)
-    triggered_flow_namespace: str = Parameter(
-        name="namespace", default="aip-metaflow-sandbox"
-    )
 
     @step
     def start(self):
@@ -41,7 +39,7 @@ class FlowTriggeringFlow(FlowSpec):
             print("\nTesting run_kubeflow_pipeline")
             run_id: str = run_kubeflow_pipeline(
                 pipeline_name=TEST_PIPELINE_NAME,
-                kubeflow_namespace=self.triggered_flow_namespace,
+                kubeflow_namespace=KFP_SDK_NAMESPACE,
                 triggered_run_name=f"FlowTriggeringFlow triggered by run {current.run_id}",
                 kubeflow_experiment_name="default",
                 parameters={
@@ -64,6 +62,11 @@ class FlowTriggeringFlow(FlowSpec):
             print("\nTesting wait_for_kfp_run_completion without triggering timeout")
             status: str = wait_for_kfp_run_completion(run_id=run_id, wait_timeout=180)
             print(f"Run Status of {run_id}:", status)
+
+            # Test parameter is passed correctly
+            metaflow_run_id: str = to_metaflow_run_id(run_id)
+            start_step = Step(f"{self.__class__.__name__}/{metaflow_run_id}/start")
+            assert start_step.task.data.triggered_by == current.run_id
 
         self.next(self.end)
 
