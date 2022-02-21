@@ -1,28 +1,15 @@
-try:
-    import kfp_server_api
-    import kfp
-except ImportError:
-    import os
-
-    print("Installing extra dependencies `zillow-kfp` and `kfp-server-api`")
-    os.system(
-        "pip install --quiet --disable-pip-version-check --no-cache-dir "
-        "-i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple/ "
-        "zillow-kfp kfp-server-api"
-    )
-    os.environ["FLOW_TRIGGERING_FLOW_DEP_INSTALLED"] = "true"
-    print("Extra dependencies installed")
-    import kfp_server_api
-    import kfp
-
-from metaflow import FlowSpec, Parameter, current, step
+from metaflow import FlowSpec, Parameter, Step, current, step
 from metaflow.plugins.kfp import (  # noqa
     logger,
     run_id_to_url,
     run_kubeflow_pipeline,
     wait_for_kfp_run_completion,
 )
-from metaflow.plugins.kfp.kfp_utils import _get_kfp_client, _upload_pipeline  # noqa
+from metaflow.plugins.kfp.kfp_utils import (
+    _get_kfp_client,
+    _upload_pipeline,
+    to_metaflow_run_id
+)  # noqa
 from metaflow.mflog import LOG_SOURCES
 
 
@@ -68,7 +55,7 @@ class FlowTriggeringFlow(FlowSpec):
 
             print("\nTesting timeout exception for wait_for_kfp_run_completion")
             try:
-                run = wait_for_kfp_run_completion(run_id=run_id, wait_timeout=10)
+                wait_for_kfp_run_completion(run_id=run_id, wait_timeout=1)
             except TimeoutError:
                 print("Timeout before flow ends throws timeout exception correctly")
             else:
@@ -77,22 +64,6 @@ class FlowTriggeringFlow(FlowSpec):
             print("\nTesting wait_for_kfp_run_completion without triggering timeout")
             status: str = wait_for_kfp_run_completion(run_id=run_id, wait_timeout=180)
             print(f"Run Status of {run_id}:", status)
-
-            print("\nDemo that datastore of downstream job can be accessed")
-            from metaflow.datastore.s3 import S3DataStore
-
-            S3DataStore.datastore_root = "s3://aip-example-sandbox/metaflow-prototype"
-            s3_datastore = S3DataStore(
-                self.__class__.__name__,
-                run_id=f"kfp-{run_id}",
-                step_name="start",
-                task_id="kfp1",
-            )
-            metadata = s3_datastore.load_metadata("data")
-            log_stdout = s3_datastore.load_logs(LOG_SOURCES, "stdout")
-
-            print("\nMetadata: \n", metadata)
-            print("\nStdout: \n", log_stdout)
 
         self.next(self.end)
 
