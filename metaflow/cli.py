@@ -28,12 +28,6 @@ from .datastore import DATASTORES, FlowDataStore, TaskDataStoreSet, TaskDataStor
 
 from .runtime import NativeRuntime
 from .package import MetaflowPackage
-<<<<<<< HEAD
-from .plugins import ENVIRONMENTS, LOGGING_SIDECARS, METADATA_PROVIDERS, MONITOR_SIDECARS
-from .metaflow_config import DEFAULT_DATASTORE, DEFAULT_ENVIRONMENT, DEFAULT_EVENT_LOGGER, \
-    DEFAULT_METADATA, DEFAULT_MONITOR, DEFAULT_PACKAGE_SUFFIXES, \
-    METAFLOW_COVERAGE_OMIT, METAFLOW_COVERAGE_SOURCE
-=======
 from .plugins import (
     ENVIRONMENTS,
     LOGGING_SIDECARS,
@@ -47,8 +41,9 @@ from .metaflow_config import (
     DEFAULT_METADATA,
     DEFAULT_MONITOR,
     DEFAULT_PACKAGE_SUFFIXES,
+    METAFLOW_COVERAGE_OMIT,
+    METAFLOW_COVERAGE_SOURCE
 )
->>>>>>> master
 from .metaflow_environment import MetaflowEnvironment
 from .pylint_wrapper import PyLint
 from .event_logger import EventLogger
@@ -58,16 +53,9 @@ from .mflog import mflog, LOG_SOURCES
 from .unbounded_foreach import UBF_CONTROL, UBF_TASK
 
 
-<<<<<<< HEAD
-
-ERASE_TO_EOL = '\033[K'
-HIGHLIGHT = 'red'
-INDENT = ' ' * 4
-=======
 ERASE_TO_EOL = "\033[K"
 HIGHLIGHT = "red"
 INDENT = " " * 4
->>>>>>> master
 
 LOGGER_TIMESTAMP = "magenta"
 LOGGER_COLOR = "green"
@@ -534,14 +522,7 @@ def step(
         raise CommandException("Step *%s* doesn't exist." % step_name)
     if not func.is_step:
         raise CommandException("Function *%s* is not a step." % step_name)
-<<<<<<< HEAD
-    echo('Executing a step, *%s*' % step_name,
-         fg='magenta',
-         bold=False,
-         err=False)
-=======
     echo("Executing a step, *%s*" % step_name, fg="magenta", bold=False)
->>>>>>> master
 
     if decospecs:
         decorators._attach_decorators_to_step(func, decospecs)
@@ -584,12 +565,8 @@ def step(
 
     echo("Success", fg="green", bold=True, indent=True)
 
-<<<<<<< HEAD
-    echo('Success', fg='green', bold=True, indent=True, err=False)
     if ctx.obj.coverage:
         cov.stop()
-=======
->>>>>>> master
 
 @parameters.add_custom_parameters(deploy_mode=False)
 @cli.command(help="Internal command to initialize a run.")
@@ -948,10 +925,9 @@ def start(
     if use_r():
         version = metaflow_r_version()
 
-<<<<<<< HEAD
-    echo('Metaflow %s' % version, fg='magenta', bold=True, nl=False)
-    echo(" executing *%s*" % ctx.obj.flow.name, fg='magenta', nl=False)
-    echo(" for *%s*" % resolve_identity(), fg='magenta')
+    echo("Metaflow %s" % version, fg="magenta", bold=True, nl=False)
+    echo(" executing *%s*" % ctx.obj.flow.name, fg="magenta", nl=False)
+    echo(" for *%s*" % resolve_identity(), fg="magenta")
 
     if coverage:
         from coverage import Coverage
@@ -961,11 +937,6 @@ def start(
                        omit=METAFLOW_COVERAGE_OMIT.split(",") if METAFLOW_COVERAGE_OMIT else None,
                        branch=True)
         cov.start()
-=======
-    echo("Metaflow %s" % version, fg="magenta", bold=True, nl=False)
-    echo(" executing *%s*" % ctx.obj.flow.name, fg="magenta", nl=False)
-    echo(" for *%s*" % resolve_identity(), fg="magenta")
->>>>>>> master
 
     cli_args._set_top_kwargs(ctx.params)
     ctx.obj.coverage = coverage

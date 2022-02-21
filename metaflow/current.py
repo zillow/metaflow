@@ -1,12 +1,7 @@
-<<<<<<< HEAD
-from metaflow import FlowSpec
-
-=======
 from collections import namedtuple
 import os
 
 Parallel = namedtuple("Parallel", ["main_ip", "num_nodes", "node_index"])
->>>>>>> master
 
 
 class Current(object):
@@ -21,22 +16,6 @@ class Current(object):
         self._username = None
         self._is_running = False
 
-<<<<<<< HEAD
-    def _set_env(self,
-                 flow=None,
-                 flow_name=None,
-                 run_id=None,
-                 step_name=None,
-                 task_id=None,
-                 retry_count=None,
-                 origin_run_id=None,
-                 namespace=None,
-                 username=None,
-                 is_running=True):
-
-        self._flow = flow
-        self._flow_name = flow_name
-=======
         def _raise(ex):
             raise ex
 
@@ -60,7 +39,6 @@ class Current(object):
             self._flow_name = flow.name
             self.__class__.graph = property(fget=lambda _, flow=flow: flow._graph_info)
 
->>>>>>> master
         self._run_id = run_id
         self._step_name = step_name
         self._task_id = task_id
@@ -83,10 +61,6 @@ class Current(object):
     @property
     def is_running_flow(self):
         return self._is_running
-
-    @property
-    def flow(self) -> FlowSpec:
-        return self._flow
 
     @property
     def flow_name(self):
