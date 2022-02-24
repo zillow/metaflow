@@ -1,5 +1,6 @@
 from metaflow import FlowSpec, Parameter, Step, current, step
-from metaflow.plugins.kfp import (  # noqa
+from metaflow.metaflow_config import KFP_SDK_NAMESPACE
+from metaflow.plugins.kfp import (
     logger,
     run_id_to_url,
     run_kubeflow_pipeline,
@@ -9,12 +10,11 @@ from metaflow.plugins.kfp.kfp_utils import (
     _get_kfp_client,
     _upload_pipeline,
     to_metaflow_run_id,
-)  # noqa
-from metaflow.metaflow_config import KFP_SDK_NAMESPACE
-
+)
+import datetime
 
 TEST_PIPELINE_NAME = "metaflow-unit-test-flow-triggering-flow"
-logger.handlers.clear()  # Avoid double printint logs  # TODO (yunw) address logging story
+logger.handlers.clear()  # Avoid double printint logs TODO (yunw) address logging story
 
 
 class FlowTriggeringFlow(FlowSpec):
@@ -24,6 +24,7 @@ class FlowTriggeringFlow(FlowSpec):
 
     @step
     def start(self):
+        """Upload a downstream pipeline to be triggered"""
         if self.triggered_by:
             print(f"This flow is triggered by run {self.triggered_by}")
 
@@ -31,10 +32,11 @@ class FlowTriggeringFlow(FlowSpec):
             self.pipeline_id, self.version_id = _upload_pipeline(
                 flow_file_path=__file__, pipeline_name=TEST_PIPELINE_NAME
             )
-        self.next(self.test_trigger_and_wait)
+        self.next(self.end)
 
     @step
-    def test_trigger_and_wait(self):
+    def end(self):
+        """Trigger downstream pipeline and test triggering behaviors"""
         if self.trigger_enabled:
             print("\nTesting run_kubeflow_pipeline")
             run_id: str = run_kubeflow_pipeline(
@@ -45,7 +47,7 @@ class FlowTriggeringFlow(FlowSpec):
                 parameters={
                     "triggered_by": current.run_id,
                 },
-                # Specify version so that multiple instance of tests can be triggered
+                # Specify version to avoid interaction among multiple test runs
                 pipeline_version_id=self.version_id,
             )
             print("Run ID:", run_id)
@@ -53,27 +55,25 @@ class FlowTriggeringFlow(FlowSpec):
 
             print("\nTesting timeout exception for wait_for_kfp_run_completion")
             try:
-                wait_for_kfp_run_completion(run_id=run_id, wait_timeout=1)
+                wait_for_kfp_run_completion(run_id=run_id, wait_timeout=0.1)
             except TimeoutError:
                 print("Timeout before flow ends throws timeout exception correctly")
             else:
                 raise AssertionError("Timeout error not thrown as expected.")
 
-            print("\nTesting wait_for_kfp_run_completion without triggering timeout")
-            status: str = wait_for_kfp_run_completion(run_id=run_id, wait_timeout=180)
+            print("\nTest wait_for_kfp_run_completion without triggering timeout")
+            status: str = wait_for_kfp_run_completion(
+                run_id=run_id,
+                wait_timeout=datetime.timedelta(minutes=3),
+            )
             print(f"Run Status of {run_id}:", status)
 
-            # Test parameter is passed correctly
+            print("\nTest parameter is passed correctly")
             metaflow_run_id: str = to_metaflow_run_id(run_id)
             start_step = Step(f"{self.__class__.__name__}/{metaflow_run_id}/start")
             assert start_step.task.data.triggered_by == current.run_id
 
-        self.next(self.end)
-
-    @step
-    def end(self):
-        if self.trigger_enabled:
-            print(f"Deleting version {self.version_id}")
+            print(f"\nDeleting {TEST_PIPELINE_NAME} pipeline version {self.version_id}")
             client = _get_kfp_client()
             client.delete_pipeline_version(self.version_id)
 
