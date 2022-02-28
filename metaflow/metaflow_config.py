@@ -85,15 +85,6 @@ DATATOOLS_S3ROOT = from_conf(
 )
 # Local datatools root location
 DATATOOLS_LOCALROOT = from_conf(
-<<<<<<< HEAD
-    'METAFLOW_DATATOOLS_LOCALROOT',
-        '%s/%s' % (from_conf('METAFLOW_DATASTORE_SYSROOT_LOCAL'), DATATOOLS_SUFFIX)
-            if from_conf('METAFLOW_DATASTORE_SYSROOT_LOCAL') else None)
-
-# S3 endpoint url
-S3_ENDPOINT_URL = from_conf('METAFLOW_S3_ENDPOINT_URL', None)
-S3_VERIFY_CERTIFICATE = from_conf('METAFLOW_S3_VERIFY_CERTIFICATE', None)
-=======
     "METAFLOW_DATATOOLS_LOCALROOT",
     os.path.join(from_conf("METAFLOW_DATASTORE_SYSROOT_LOCAL"), DATATOOLS_SUFFIX)
     if from_conf("METAFLOW_DATASTORE_SYSROOT_LOCAL")
@@ -120,7 +111,6 @@ S3_VERIFY_CERTIFICATE = from_conf("METAFLOW_S3_VERIFY_CERTIFICATE", None)
 # though as this may increase failures. Note that this is the number of *retries*
 # so setting it to 0 means each operation will be tried once.
 S3_RETRY_COUNT = int(from_conf("METAFLOW_S3_RETRY_COUNT", 7))
->>>>>>> master
 
 ###
 # Datastore local cache
@@ -227,10 +217,6 @@ KUBERNETES_CONTAINER_REGISTRY = (
 ###
 # Conda package root location on S3
 CONDA_PACKAGE_S3ROOT = from_conf(
-<<<<<<< HEAD
-    'METAFLOW_CONDA_PACKAGE_S3ROOT',
-        '%s/conda' % from_conf('METAFLOW_DATASTORE_SYSROOT_S3'))
-=======
     "METAFLOW_CONDA_PACKAGE_S3ROOT",
     "%s/conda" % from_conf("METAFLOW_DATASTORE_SYSROOT_S3"),
 )
@@ -239,7 +225,6 @@ CONDA_PACKAGE_S3ROOT = from_conf(
 # Mamba promises faster package dependency resolution times, which
 # should result in an appreciable speedup in flow environment initialization.
 CONDA_DEPENDENCY_RESOLVER = from_conf("METAFLOW_CONDA_DEPENDENCY_RESOLVER", "conda")
->>>>>>> master
 
 ###
 # Debug configuration
@@ -312,25 +297,6 @@ def get_version(pkg):
 # PINNED_CONDA_LIBS are the libraries that metaflow depends on for execution
 # and are needed within a conda environment
 def get_pinned_conda_libs(python_version):
-<<<<<<< HEAD
-    if python_version.startswith("3.5"):
-        return {
-            'click': '7.1.2',
-            'requests': '2.24.0',
-            'boto3': '1.9.88',
-            'coverage': '4.5.1'
-        }
-    else:
-        return {
-            'click': '7.1.2',
-            'requests': '2.24.0',
-            'boto3': '1.14.47',
-            'coverage': '4.5.4'
-        }
-
-
-# Check if there is a an extension to Metaflow to load and override everything
-=======
     return {
         "requests": ">=2.21.0",
         "boto3": ">=1.14.0",
@@ -340,7 +306,6 @@ def get_pinned_conda_libs(python_version):
 METAFLOW_EXTENSIONS_ADDL_SUFFIXES = set([])
 
 # Check if there are extensions to Metaflow to load and override everything
->>>>>>> master
 try:
     from metaflow.extension_support import get_modules
 
