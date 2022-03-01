@@ -52,20 +52,20 @@ DEFAULT_MONITOR = from_conf("METAFLOW_DEFAULT_MONITOR", "nullSidecarMonitor")
 DEFAULT_PACKAGE_SUFFIXES = from_conf("METAFLOW_DEFAULT_PACKAGE_SUFFIXES", ".py,.R,.RDS")
 DEFAULT_AWS_CLIENT_PROVIDER = from_conf("METAFLOW_DEFAULT_AWS_CLIENT_PROVIDER", "boto3")
 
-METAFLOW_USER = from_conf('METAFLOW_USER')
+METAFLOW_USER = from_conf("METAFLOW_USER")
 
 ##
 # KFP configuration
 ###
-KFP_SDK_NAMESPACE = from_conf('KFP_SDK_NAMESPACE', 'kubeflow')
-KFP_SDK_API_NAMESPACE = from_conf('KFP_SDK_API_NAMESPACE', 'kubeflow')
-KFP_TTL_SECONDS_AFTER_FINISHED = from_conf('KFP_TTL_SECONDS_AFTER_FINISHED', None)
-KFP_USER_DOMAIN = from_conf('KFP_USER_DOMAIN', '')
+KFP_SDK_NAMESPACE = from_conf("KFP_SDK_NAMESPACE", "kubeflow")
+KFP_SDK_API_NAMESPACE = from_conf("KFP_SDK_API_NAMESPACE", "kubeflow")
+KFP_TTL_SECONDS_AFTER_FINISHED = from_conf("KFP_TTL_SECONDS_AFTER_FINISHED", None)
+KFP_USER_DOMAIN = from_conf("KFP_USER_DOMAIN", "")
 # Note: `KFP_RUN_URL_PREFIX` is the URL prefix for KFP runs on your KFP cluster. The prefix includes
 # all parts of the URL except the run_id at the end which we append once the run is created.
 # For eg, this would look like: "https://<your-kf-cluster-url>/pipeline/#/runs/details/"
-KFP_RUN_URL_PREFIX = from_conf('KFP_RUN_URL_PREFIX', "")
-KFP_MAX_PARALLELISM = int(from_conf('KFP_MAX_PARALLELISM', 10))
+KFP_RUN_URL_PREFIX = from_conf("KFP_RUN_URL_PREFIX", "")
+KFP_MAX_PARALLELISM = int(from_conf("KFP_MAX_PARALLELISM", 10))
 
 ###
 # Datastore configuration
@@ -259,9 +259,6 @@ if AWS_SANDBOX_ENABLED:
     BATCH_METADATA_SERVICE_URL = AWS_SANDBOX_INTERNAL_SERVICE_URL
     METADATA_SERVICE_HEADERS["x-api-key"] = AWS_SANDBOX_API_KEY
     SFN_STATE_MACHINE_PREFIX = from_conf("METAFLOW_AWS_SANDBOX_STACK_NAME")
-
-METAFLOW_COVERAGE_SOURCE = from_conf("METAFLOW_COVERAGE_SOURCE", "metaflow")
-METAFLOW_COVERAGE_OMIT = from_conf("METAFLOW_COVERAGE_OMIT")
 
 
 # MAX_ATTEMPTS is the maximum number of attempts, including the first

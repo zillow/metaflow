@@ -153,7 +153,12 @@ from .aws.step_functions.schedule_decorator import ScheduleDecorator
 from .project_decorator import ProjectDecorator
 from .kfp.s3_sensor_decorator import S3SensorDecorator
 
-FLOW_DECORATORS = [CondaFlowDecorator, ScheduleDecorator, ProjectDecorator, S3SensorDecorator]
+FLOW_DECORATORS = [
+    CondaFlowDecorator,
+    ScheduleDecorator,
+    ProjectDecorator,
+    S3SensorDecorator,
+]
 _merge_lists(FLOW_DECORATORS, _ext_plugins["FLOW_DECORATORS"], "name")
 
 # Cards

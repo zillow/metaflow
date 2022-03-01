@@ -41,8 +41,6 @@ from .metaflow_config import (
     DEFAULT_METADATA,
     DEFAULT_MONITOR,
     DEFAULT_PACKAGE_SUFFIXES,
-    METAFLOW_COVERAGE_OMIT,
-    METAFLOW_COVERAGE_SOURCE
 )
 from .metaflow_environment import MetaflowEnvironment
 from .pylint_wrapper import PyLint
@@ -506,15 +504,6 @@ def step(
     if opt_namespace is not None:
         namespace(opt_namespace or None)
 
-    if ctx.obj.coverage:
-        from coverage import Coverage
-        cov = Coverage(data_suffix=True,
-                       auto_data=True,
-                       source=METAFLOW_COVERAGE_SOURCE.split(","),
-                       omit=METAFLOW_COVERAGE_OMIT.split(",") if METAFLOW_COVERAGE_OMIT else None,
-                       branch=True)
-        cov.start()
-
     func = None
     try:
         func = getattr(ctx.obj.flow, step_name)
@@ -565,8 +554,6 @@ def step(
 
     echo("Success", fg="green", bold=True, indent=True)
 
-    if ctx.obj.coverage:
-        cov.stop()
 
 @parameters.add_custom_parameters(deploy_mode=False)
 @cli.command(help="Internal command to initialize a run.")
@@ -929,17 +916,7 @@ def start(
     echo(" executing *%s*" % ctx.obj.flow.name, fg="magenta", nl=False)
     echo(" for *%s*" % resolve_identity(), fg="magenta")
 
-    if coverage:
-        from coverage import Coverage
-        cov = Coverage(data_suffix=True,
-                       auto_data=True,
-                       source=METAFLOW_COVERAGE_SOURCE.split(","),
-                       omit=METAFLOW_COVERAGE_OMIT.split(",") if METAFLOW_COVERAGE_OMIT else None,
-                       branch=True)
-        cov.start()
-
     cli_args._set_top_kwargs(ctx.params)
-    ctx.obj.coverage = coverage
     ctx.obj.echo = echo
     ctx.obj.echo_always = echo_always
     ctx.obj.graph = FlowGraph(ctx.obj.flow.__class__)
@@ -1024,9 +1001,6 @@ def start(
         ctx.obj.package = None
     if ctx.invoked_subcommand is None:
         ctx.invoke(check)
-
-    if coverage:
-        cov.stop()
 
 
 def _reconstruct_cli(params):
