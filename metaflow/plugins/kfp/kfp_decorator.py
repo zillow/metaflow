@@ -76,10 +76,12 @@ class KfpInternalDecorator(StepDecorator):
     def __init__(self, attributes=None, statically_defined=False):
         super(KfpInternalDecorator, self).__init__(attributes, statically_defined)
 
-    def step_init(self, flow, graph, step, decos, environment, datastore, logger):
+    def step_init(
+        self, flow, graph, step_name, decorators, environment, flow_datastore, logger
+    ):
         if self.attributes["preceding_component"] is not None:
-            node = graph[step]
-            if step == "start":
+            node = graph[step_name]
+            if step_name == "start":
                 raise KfpException(
                     "A @kfp preceding_component cannot be on the start step."
                 )
@@ -89,7 +91,7 @@ class KfpInternalDecorator(StepDecorator):
                     "The incoming step of a @kfp with a preceding_component must be linear."
                 )
 
-        self.datastore = datastore
+        self.flow_datastore = flow_datastore
         self.logger = logger
 
         # Add env vars from the optional @environment decorator.
@@ -97,7 +99,7 @@ class KfpInternalDecorator(StepDecorator):
         # ref: step function is also handling environment decorator ad-hoc
         # See plugins/aws/step_functions/step_functions.StepFunctions._batch
         env_deco = [
-            deco for deco in graph[step].decorators if deco.name == "environment"
+            deco for deco in graph[step_name].decorators if deco.name == "environment"
         ]
         if env_deco:
             os.environ.update(env_deco[0].attributes["vars"].items())
@@ -208,7 +210,7 @@ class KfpInternalDecorator(StepDecorator):
                     graph,
                     step_name,
                     current.run_id,
-                    self.datastore,
+                    self.flow_datastore,
                     self.logger,
                 ) as split_contexts:
                     foreach_splits: Dict = split_contexts.build_foreach_splits(flow)

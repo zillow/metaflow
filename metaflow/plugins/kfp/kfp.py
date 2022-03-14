@@ -127,7 +127,7 @@ class KubeflowPipelines(object):
         code_package,
         code_package_url,
         metadata,
-        datastore,
+        flow_datastore,
         environment,
         event_logger,
         monitor,
@@ -155,7 +155,7 @@ class KubeflowPipelines(object):
         self.code_package = code_package
         self.code_package_url = code_package_url
         self.metadata = metadata
-        self.datastore = datastore
+        self.flow_datastore = flow_datastore
         self.environment = environment
         self.event_logger = event_logger
         self.monitor = monitor

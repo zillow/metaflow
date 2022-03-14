@@ -3,7 +3,7 @@ import os
 from typing import Callable, Dict, List
 
 from metaflow import S3, FlowSpec, current
-from metaflow.datastore import MetaflowDataStore
+from metaflow.datastore import FlowDataStore, S3Storage
 from metaflow.graph import DAGNode, FlowGraph
 from metaflow.plugins.kfp.kfp_constants import (
     KFP_METAFLOW_FOREACH_SPLITS_PATH,
@@ -55,7 +55,7 @@ class KfpForEachSplits(object):
         graph: FlowGraph,
         step_name: str,
         run_id: str,
-        datastore: MetaflowDataStore,
+        flow_datastore: FlowDataStore,
         logger: Callable,
     ):
         self.graph = graph
@@ -63,7 +63,7 @@ class KfpForEachSplits(object):
         self.run_id = run_id
         self.logger = logger
         self.node = graph[step_name]
-        self.flow_root = datastore.make_path(graph.name, run_id)
+        self.flow_datastore = flow_datastore
         self.step_to_task_id: Dict[str, str] = graph_to_task_ids(graph)
         self.s3 = S3()
 
@@ -126,7 +126,8 @@ class KfpForEachSplits(object):
         foreach_splits_path = self._build_foreach_splits_path(
             parent_context_step_name, context_node_task_id
         )
-        input_context = json.loads(self.s3.get(foreach_splits_path).text)
+        s3_datastore: S3Storage = self.flow_datastore._storage_impl
+        input_context = json.loads(s3_datastore.load_bytes([foreach_splits_path])[0])
 
         return input_context["foreach_splits"]
 
@@ -182,19 +183,32 @@ class KfpForEachSplits(object):
             json.dump(foreach_splits, file)
 
     def upload_foreach_splits_to_flow_root(self, foreach_splits: Dict):
-        foreach_splits_path = self._build_foreach_splits_path(
-            self.step_name, current.task_id
+        # Only S3_datastore is supported for KFP plug-in.
+        # Safely assume _storage_impl is of type S3Storage here
+        s3_datastore: S3Storage = self.flow_datastore._storage_impl
+        s3_datastore.save_bytes(
+            path_and_bytes_iter=[
+                (
+                    self._build_foreach_splits_path(self.step_name, current.task_id),
+                    json.dumps(foreach_splits),
+                )
+            ],
+            overwrite=True,
+            len_hint=1,
         )
-        self.s3.put(foreach_splits_path, json.dumps(foreach_splits))
 
     @staticmethod
     def get_step_task_id(task_id: str, passed_in_split_indexes: str) -> str:
         return f"{task_id}.{passed_in_split_indexes}".strip(".")
 
     def _build_foreach_splits_path(self, step_name: str, task_id: str) -> str:
-        #  returns: s3://<flow_root>/foreach_splits/{task_id}.{step_name}.json
-        s3_path = os.path.join(
-            os.path.join(self.flow_root, "foreach_splits"),
+        """Generate file path for foreach splits"""
+        # Save to `s3://<ds_root>/<flow>/<run_id>/foreach_splits/{task_id}.{step_name}.json`
+        #   S3Storage.datastore_root: `s3://<ds_root>`
+        #   Key: `<flow>/<run_id>/foreach_splits/{task_id}.{step_name}.json`
+        return os.path.join(
+            self.flow_datastore.flow_name,
+            current.run_id,
+            "foreach_splits",
             f"{task_id}.{step_name}.json",
         )
-        return s3_path
