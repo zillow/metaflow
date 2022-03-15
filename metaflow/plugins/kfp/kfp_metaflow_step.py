@@ -1,27 +1,25 @@
-import pathlib
-from typing import List
-
-import os
 import json
 import logging
+import os
+import pathlib
 from subprocess import Popen
 from typing import Dict, List
 
-import click
-
-from metaflow.mflog import bash_capture_logs, export_mflog_env_vars, BASH_SAVE_LOGS
+from metaflow._vendor import click
+from metaflow.mflog import BASH_SAVE_LOGS, bash_capture_logs, export_mflog_env_vars
 from metaflow.plugins.kfp.kfp_constants import (
-    STEP_ENVIRONMENT_VARIABLES,
-    LOGS_DIR,
-    STDOUT_PATH,
-    STDERR_PATH,
-    TASK_ID_ENV_NAME,
-    SPLIT_INDEX_ENV_NAME,
     INPUT_PATHS_ENV_NAME,
-    RETRY_COUNT,
     KFP_METAFLOW_FOREACH_SPLITS_PATH,
+    LOGS_DIR,
     PRECEDING_COMPONENT_INPUTS_PATH,
+    RETRY_COUNT,
+    SPLIT_INDEX_ENV_NAME,
+    STDERR_PATH,
+    STDOUT_PATH,
+    STEP_ENVIRONMENT_VARIABLES,
+    TASK_ID_ENV_NAME,
 )
+
 from ... import R
 
 

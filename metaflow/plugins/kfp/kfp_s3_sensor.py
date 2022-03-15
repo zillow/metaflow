@@ -14,8 +14,8 @@ from typing import Dict, Tuple
 from urllib.parse import ParseResult, urlparse
 
 import botocore
-import click
 
+from metaflow._vendor import click
 from metaflow.datatools.s3util import get_s3_client
 
 

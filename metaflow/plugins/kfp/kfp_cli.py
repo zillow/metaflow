@@ -2,14 +2,13 @@ import json
 import shutil
 import subprocess
 
-import click
-
-from metaflow import current, decorators, parameters, JSONType
+from metaflow import JSONType, current, decorators, parameters
+from metaflow._vendor import click
 from metaflow.exception import CommandException, MetaflowException
 from metaflow.metaflow_config import (
+    KFP_MAX_PARALLELISM,
     KFP_SDK_API_NAMESPACE,
     KFP_SDK_NAMESPACE,
-    KFP_MAX_PARALLELISM,
     from_conf,
 )
 from metaflow.package import MetaflowPackage

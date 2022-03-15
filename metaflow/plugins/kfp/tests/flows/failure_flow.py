@@ -3,16 +3,7 @@ import signal
 import subprocess
 import time
 
-from metaflow import (
-    FlowSpec,
-    step,
-    retry,
-    catch,
-    timeout,
-    current,
-    Step,
-    Parameter,
-)
+from metaflow import FlowSpec, Parameter, Step, catch, current, retry, step, timeout
 from metaflow.exception import MetaflowExceptionWrapper
 
 
