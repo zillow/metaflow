@@ -25,8 +25,8 @@ setup(
         "pylint",
     ],
     extras_require={
-        'kfp': ['zillow-kfp', 'kfp-server-api'],
+        "kfp": ["zillow-kfp", "kfp-server-api"],
         # Use an extras here as there is no "extras_tests_require" functionality :(
-        'kfp-tests': ['pytest', 'pytest-xdist', 'pytest-cov', 'subprocess-tee']
-    }
+        "kfp-tests": ["pytest", "pytest-xdist", "pytest-cov", "subprocess-tee"],
+    },
 )

@@ -63,7 +63,6 @@ def log(msg, formatter=None, context=None, real_bad=False, real_good=False):
 
 
 def run_test(formatter, context, debug, checks, env_base):
-
     def run_cmd(mode):
         cmd = [context["python"], "-B", "test_flow.py"]
         cmd.extend(context["top_options"])

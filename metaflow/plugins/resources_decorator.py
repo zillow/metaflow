@@ -83,6 +83,7 @@ class ResourcesDecorator(StepDecorator):
     volume_dir: str
         Default "/opt/metaflow_volume"
     """
+
     name = "resources"
 
     # Actual defaults are set in .aws.batch.batch_decorator.BatchDecorator and
@@ -93,14 +94,12 @@ class ResourcesDecorator(StepDecorator):
         "cpu": None,
         "gpu": None,
         "memory": None,
-
         # Only AWS Batch supported attributes
-        'shared_memory': None,
-
+        "shared_memory": None,
         # Only KFP supported attributes
         "gpu_vendor": None,
         "local_storage": None,
         "volume": None,
         "volume_mode": "ReadWriteOnce",
-        "volume_dir": "/opt/metaflow_volume"
+        "volume_dir": "/opt/metaflow_volume",
     }
