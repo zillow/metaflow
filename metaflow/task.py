@@ -417,7 +417,6 @@ class MetaflowTask(object):
         # 4. initialize the current singleton
         current._set_env(
             flow=self.flow,
-            flow_name=self.flow.name,
             run_id=run_id,
             step_name=step_name,
             task_id=task_id,
