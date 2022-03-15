@@ -1,5 +1,5 @@
 import os
-from collections import Callable
+from typing import Callable
 
 from metaflow.graph import DAGNode, FlowGraph
 from metaflow.plugins.kfp.kfp_constants import (
