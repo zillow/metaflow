@@ -6,6 +6,7 @@ Parallel = namedtuple("Parallel", ["main_ip", "num_nodes", "node_index"])
 
 class Current(object):
     def __init__(self):
+        self._flow = None
         self._flow_name = None
         self._run_id = None
         self._step_name = None
@@ -36,6 +37,7 @@ class Current(object):
         is_running=True,
     ):
         if flow is not None:
+            self._flow = flow
             self._flow_name = flow.name
             self.__class__.graph = property(fget=lambda _, flow=flow: flow._graph_info)
 
@@ -61,6 +63,10 @@ class Current(object):
     @property
     def is_running_flow(self):
         return self._is_running
+
+    @property
+    def flow(self):
+        return self._flow
 
     @property
     def flow_name(self):

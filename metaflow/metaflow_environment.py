@@ -112,7 +112,7 @@ class MetaflowEnvironment(object):
         cmds = [
             mflog_bash_cmd,
             "mflog 'Setting up task environment.'",
-            "%s -m pip install click requests boto3 -qqq" % self._python(),
+            "%s -m pip install requests boto3 -qqq" % self._python(),
             "mkdir metaflow",
             "cd metaflow",
             "mkdir .metaflow",  # mute local datastore creation log
