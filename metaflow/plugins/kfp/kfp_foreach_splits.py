@@ -127,7 +127,10 @@ class KfpForEachSplits(object):
             parent_context_step_name, context_node_task_id
         )
         s3_datastore: S3Storage = self.flow_datastore._storage_impl
-        input_context = json.loads(s3_datastore.load_bytes([foreach_splits_path])[0])
+        with s3_datastore.load_bytes([foreach_splits_path]) as loaded:
+            for _, local_file_path, _ in loaded:  # Expect only one file per split index
+                with open(local_file_path, "r") as f:
+                    input_context = json.load(f)
 
         return input_context["foreach_splits"]
 
@@ -208,7 +211,7 @@ class KfpForEachSplits(object):
         #   Key: `<flow>/<run_id>/foreach_splits/{task_id}.{step_name}.json`
         return os.path.join(
             self.flow_datastore.flow_name,
-            current.run_id,
+            self.run_id,
             "foreach_splits",
             f"{task_id}.{step_name}.json",
         )

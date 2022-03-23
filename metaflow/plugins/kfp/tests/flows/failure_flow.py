@@ -66,6 +66,7 @@ class FailureFlow(FlowSpec):
             f"{current.flow_name}/{current.run_id}/user_failure"
         )
         expected_logs = self.retry_log.format(retry_count=1)
+        print(user_failure_step.tasks())
         logs = user_failure_step.task.stdout
         print("\n=== logs for task {task} ===")
         print(logs)
