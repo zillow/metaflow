@@ -8,7 +8,7 @@ from typing import Dict, List
 from metaflow._vendor import click
 from metaflow.mflog import (
     BASH_SAVE_LOGS,
-    capture_output_to_mflog,
+    bash_capture_logs,
     export_mflog_env_vars,
 )
 from metaflow.plugins.kfp.kfp_constants import (
@@ -199,9 +199,6 @@ def _command(
         stderr_path=STDERR_PATH,
     )
 
-    step_cmds: List[str] = ["echo 'Task is starting.'", step_cli]
-    step_expr: str = capture_output_to_mflog(" && ".join(step_cmds))
-
     if volume_dir:
         clean_volume_cmd: str = f"rm -rf {os.path.join(volume_dir, '*')}"
     else:
@@ -214,7 +211,7 @@ def _command(
     cmd_str: str = (
         f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
-        f"&& {step_expr};"
+        f"&& {bash_capture_logs(step_cli)};"
     )
 
     # after the task has finished, we save its exit code (fail/success)
