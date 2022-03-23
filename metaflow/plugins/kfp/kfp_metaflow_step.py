@@ -6,7 +6,11 @@ from subprocess import Popen
 from typing import Dict, List
 
 from metaflow._vendor import click
-from metaflow.mflog import BASH_SAVE_LOGS, bash_capture_logs, export_mflog_env_vars
+from metaflow.mflog import (
+    BASH_SAVE_LOGS,
+    capture_output_to_mflog,
+    export_mflog_env_vars,
+)
 from metaflow.plugins.kfp.kfp_constants import (
     INPUT_PATHS_ENV_NAME,
     KFP_METAFLOW_FOREACH_SPLITS_PATH,
@@ -196,7 +200,7 @@ def _command(
     )
 
     step_cmds: List[str] = ["echo 'Task is starting.'", step_cli]
-    step_expr: str = bash_capture_logs(" && ".join(step_cmds))
+    step_expr: str = capture_output_to_mflog(" && ".join(step_cmds))
 
     if volume_dir:
         clean_volume_cmd: str = f"rm -rf {os.path.join(volume_dir, '*')}"

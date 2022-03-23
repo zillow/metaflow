@@ -112,8 +112,9 @@ class KfpInternalDecorator(StepDecorator):
         flow,
         graph,
         retry_count,
-        max_retries,
+        max_user_code_retries,
         ubf_context,
+        inputs,
     ):
         """
         Analogous to step_functions_decorator.py
@@ -154,10 +155,11 @@ class KfpInternalDecorator(StepDecorator):
         Analogous to step_functions_decorator.py
         Invoked from Task.run_step within the KFP container
         """
-        if self.metadata.TYPE == "local":
-            # Note that the datastore is *always* Amazon S3 (see
-            # runtime_task_created function).
-            sync_local_metadata_to_datastore(DATASTORE_LOCAL_DIR, self.task_datastore)
+        # TODO(yunw): Is this part of code needed? - Error: 'KfpInternalDecorator' object has no attribute 'metadata'
+        # if self.metadata.TYPE == "local":
+        #     # Note that the datastore is *always* Amazon S3 (see
+        #     # runtime_task_created function).
+        #     sync_local_metadata_to_datastore(DATASTORE_LOCAL_DIR, self.task_datastore)
 
         if not is_task_ok:
             # The task finished with an exception - execution won't
