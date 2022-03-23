@@ -959,7 +959,8 @@ def start(
         datastore_root = ctx.obj.datastore_impl.get_datastore_root_from_config(
             ctx.obj.echo
         )
-    if datastore_root is None:
+
+    if datastore_root is None and ctx.invoked_subcommand != "kfp":
         raise CommandException(
             "Could not find the location of the datastore -- did you correctly set the "
             "METAFLOW_DATASTORE_SYSROOT_%s environment variable?" % datastore.upper()
