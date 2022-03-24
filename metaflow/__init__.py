@@ -186,7 +186,7 @@ del globals()["_n"]
 import pkg_resources
 
 try:
-    __version__ = pkg_resources.get_distribution("metaflow").version
+    __version__ = pkg_resources.get_distribution("zillow-metaflow").version
 except:
     # this happens on remote environments since the job package
     # does not have a version
