@@ -167,14 +167,7 @@ def get_username():
     could not be determined.
     """
     # note: the order of the list matters
-<<<<<<< HEAD
-    if METAFLOW_USER:
-        return METAFLOW_USER
-
-    ENVVARS = ['METAFLOW_USER', 'SUDO_USER', 'USERNAME', 'USER']
-=======
     ENVVARS = ["METAFLOW_USER", "SUDO_USER", "USERNAME", "USER"]
->>>>>>> 2.5.4
     for var in ENVVARS:
         user = os.environ.get(var)
         if user and user != "root":
