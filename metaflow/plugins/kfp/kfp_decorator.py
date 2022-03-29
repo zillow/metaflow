@@ -1,16 +1,11 @@
 import json
 import os
-import tarfile
 from typing import Dict, List, NamedTuple
-from urllib.parse import urlparse
 
-from metaflow import current, util
-from metaflow.datastore import TaskDataStore
+from metaflow import current
 from metaflow.decorators import StepDecorator
 from metaflow.exception import MetaflowException
 from metaflow.metadata import MetaDatum
-from metaflow.metadata.util import sync_local_metadata_to_datastore
-from metaflow.metaflow_config import DATASTORE_LOCAL_DIR
 from metaflow.plugins.kfp.kfp_constants import PRECEDING_COMPONENT_INPUTS_PATH
 from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
 from metaflow.sidecar import SidecarSubProcess
@@ -147,6 +142,21 @@ class KfpInternalDecorator(StepDecorator):
 
         self._save_logs_sidecar = SidecarSubProcess("save_logs_periodically")
 
+    def task_post_step(
+        self, step_name, flow, graph, retry_count, max_user_code_retries
+    ):
+        preceding_component_inputs: List[str] = json.loads(
+            os.environ["PRECEDING_COMPONENT_INPUTS"]
+        )
+        if len(preceding_component_inputs) > 0:
+            with open(PRECEDING_COMPONENT_INPUTS_PATH, "w") as file:
+                # Get fields from running Flow and persist as json to local FS
+                fields_dictionary = {
+                    key: flow.__getattribute__(key)
+                    for key in preceding_component_inputs
+                }
+                json.dump(fields_dictionary, file)
+
     def task_finished(
         self,
         step_name,
@@ -171,18 +181,6 @@ class KfpInternalDecorator(StepDecorator):
             # continue so no need to do anything here.
             pass
         else:
-            preceding_component_inputs: List[str] = json.loads(
-                os.environ["PRECEDING_COMPONENT_INPUTS"]
-            )
-            if len(preceding_component_inputs) > 0:
-                with open(PRECEDING_COMPONENT_INPUTS_PATH, "w") as file:
-                    # Get fields from running Flow and persist as json to local FS
-                    fields_dictionary = {
-                        key: flow.__getattribute__(key)
-                        for key in preceding_component_inputs
-                    }
-                    json.dump(fields_dictionary, file)
-
             if graph[step_name].type == "foreach":
                 # Save context to S3 for downstream DAG steps to access this
                 # step's foreach_splits
