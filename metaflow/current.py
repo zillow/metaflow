@@ -1,4 +1,5 @@
 from collections import namedtuple
+from .flowspec import FlowSpec
 import os
 
 Parallel = namedtuple("Parallel", ["main_ip", "num_nodes", "node_index"])
@@ -65,7 +66,7 @@ class Current(object):
         return self._is_running
 
     @property
-    def flow(self):
+    def flow(self) -> FlowSpec:
         return self._flow
 
     @property

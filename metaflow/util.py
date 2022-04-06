@@ -166,6 +166,9 @@ def get_username():
     Return the name of the current user, or None if the current user
     could not be determined.
     """
+    if METAFLOW_USER:
+        return METAFLOW_USER
+
     # note: the order of the list matters
     ENVVARS = ["METAFLOW_USER", "SUDO_USER", "USERNAME", "USER"]
     for var in ENVVARS:

@@ -123,6 +123,7 @@ class KfpForEachSplits(object):
             parent_context_step_name, current_node, passed_in_split_indexes
         )
 
+        # datastore version of `input_context = json.loads(self.s3.get(foreach_splits_path).text)`
         foreach_splits_path = self._build_foreach_splits_prefix(
             parent_context_step_name, context_node_task_id
         )
@@ -189,10 +190,13 @@ class KfpForEachSplits(object):
         # Only S3_datastore is supported for KFP plug-in.
         # Safely assume _storage_impl is of type S3Storage here
         s3_datastore: S3Storage = self.flow_datastore._storage_impl
+        foreach_splits_path: str = self._build_foreach_splits_prefix(
+            self.step_name, current.task_id
+        )
         s3_datastore.save_bytes(
             path_and_bytes_iter=[
                 (
-                    self._build_foreach_splits_prefix(self.step_name, current.task_id),
+                    foreach_splits_path,
                     json.dumps(foreach_splits),
                 )
             ],
