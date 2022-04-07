@@ -77,7 +77,11 @@ class KfpInternalDecorator(StepDecorator):
                     "A @kfp preceding_component cannot be on the start step."
                 )
 
-            linear_types = (  # Excluding "join" type to avoid complexity of merge_artifacts
+            # Only support linear/start types to avoid complex merge_artifacts & inputs in "join" type
+            #   If we have A->C and B->C where C is a join type with preceding component,
+            #   ideally merge_artifacts should happen before C.preceding_component,
+            #   but this behavior is not yet implemented.
+            linear_types = (
                 "linear",
                 "start",
             )
