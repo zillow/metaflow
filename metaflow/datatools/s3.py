@@ -304,12 +304,13 @@ class S3(object):
             s3root: (optional) An S3 root URL for all operations. If this is
                     not specified, all operations require a full S3 URL.
         These options are supported in both the modes:
-            tmproot: (optional) Root path for temporary files (default: '.')
+            tmproot: (optional) Root path for temporary files
+                     (default: METAFLOW_ARTIFACT_LOCALROOT else '.')
         """
 
         if not boto_found:
             raise MetaflowException("You need to install 'boto3' in order to use S3.")
-        
+
         if tmproot is None:
             artifact_localroot = from_conf("METAFLOW_ARTIFACT_LOCALROOT")
             tmproot = artifact_localroot if artifact_localroot else "."
