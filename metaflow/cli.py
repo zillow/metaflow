@@ -799,6 +799,8 @@ def run(
     if user_namespace is not None:
         namespace(user_namespace or None)
 
+    print("running brought to you by Chris")
+
     before_run(obj, tags, decospecs + obj.environment.decospecs())
 
     runtime = NativeRuntime(
