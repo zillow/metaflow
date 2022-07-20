@@ -6,7 +6,7 @@ include:
     ref: *include_ref
     file: '/blocks/python.yml'
   - project: *include_name
-    ref: *include_ref
+    ref: 'alexla/AIP-6392' # *include_ref
     file: '/blocks/git.yml'
 
 variables:
