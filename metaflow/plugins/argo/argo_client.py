@@ -57,6 +57,26 @@ class ArgoClient(object):
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
 
+    def get_workflow(self, name):
+        print("gettin that workflow!")
+        try:
+            return self._client.CustomObjectsApi().get_namespaced_custom_object(
+                group=self._group,
+                version=self._version,
+                namespace=self._namespace,
+                plural="workflows",
+                name=name,
+            )
+        except self._client.rest.ApiException as e:
+            print("oops! get_workflow failed")
+            if e.status == 404:
+                print("404 error")
+                return None
+            print("non-404 error")
+            raise ArgoClientException(
+                json.loads(e.body)["message"] if e.body is not None else e.reason
+            )
+
     def register_workflow_template(self, name, workflow_template):
         # Unfortunately, Kubernetes client does not handle optimistic
         # concurrency control by itself unlike kubectl
@@ -206,3 +226,7 @@ class ArgoClient(object):
             raise ArgoClientException(
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
+            
+    def dummy(self):
+        print("dummy")
+        return "yup"
