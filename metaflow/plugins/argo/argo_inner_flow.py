@@ -1,6 +1,5 @@
-# from metaflow import Run, namespace
 from metaflow.plugins.argo.argo_client import ArgoClient
-import time
+from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 
 
 class TriggeredRun:
@@ -10,12 +9,14 @@ class TriggeredRun:
         parameters: dict = None,
         wait_to_trigger: int = 100,  # In minutes (REMEMBER TO CHANGE IT TO MINUTES FOR ACTUAL VERSION b/c testing uses shorter times)
     ):
-        from metaflow import (
-            Run,
-            namespace,
-        )  # consider cleaning this up so that import is on top
+        """Initializes and triggers a run.
+        
+        Keyword arguments:
+        flow_name -- Metaflow flow name to trigger
+        parameters -- information passed in to affect how run is triggered
+        wait_to_trigger -- length of time to wait for run to be triggered
+        """
 
-        # current issue is that import on top creates circular error
         self._flow_name = flow_name
         self._template_name = flow_name.lower()
 
@@ -23,17 +24,17 @@ class TriggeredRun:
             parameters = {}
         self._parameters = parameters
 
-        self._argo_client = ArgoClient("aip-example-sandbox")
+        self._argo_client = ArgoClient(KUBERNETES_NAMESPACE)
 
         self._flow_information = self._argo_client.trigger_workflow_template(
             self._template_name,
             parameters=self._parameters,
         )
 
-        self._inner_run_argo_id = self._flow_information["metadata"]["name"]
-        self._inner_run_metaflow_id = "argo-" + self._inner_run_argo_id
-        self._inner_namespace = self._flow_information["metadata"]["namespace"]
+        self._argo_run_id = self._flow_information["metadata"]["name"]
+        self._metaflow_run_id = f"argo-{self._argo_run_id}"
+        self._kubernetes_namespace = self._flow_information["metadata"]["namespace"]
         self._exception = None
         self._status = None
 
-        print(f"Inner flow has started w/ Argo id: {self._inner_run_argo_id}")
+        print(f"Inner flow has started w/ Argo id: {self._argo_run_id}")

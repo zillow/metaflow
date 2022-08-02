@@ -68,9 +68,7 @@ class ArgoClient(object):
             )
         except self._client.rest.ApiException as e:
             if e.status == 404:
-                print("404 error - workflow not found")
                 return None
-            print("non-404 error")
             raise ArgoClientException(
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
@@ -131,6 +129,7 @@ class ArgoClient(object):
     def trigger_workflow_template(self, name, parameters=None):
         if parameters == None:
             parameters = {}
+
         body = {
             "apiVersion": "argoproj.io/v1alpha1",
             "kind": "Workflow",
