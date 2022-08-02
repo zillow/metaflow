@@ -58,7 +58,6 @@ class ArgoClient(object):
             )
 
     def get_workflow(self, name):
-        print("gettin that workflow!")
         try:
             return self._client.CustomObjectsApi().get_namespaced_custom_object(
                 group=self._group,
@@ -68,9 +67,8 @@ class ArgoClient(object):
                 name=name,
             )
         except self._client.rest.ApiException as e:
-            print("oops! get_workflow failed")
             if e.status == 404:
-                print("404 error")
+                print("404 error - workflow not found")
                 return None
             print("non-404 error")
             raise ArgoClientException(
@@ -227,6 +225,3 @@ class ArgoClient(object):
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
             
-    def dummy(self):
-        print("dummy")
-        return "yup"
