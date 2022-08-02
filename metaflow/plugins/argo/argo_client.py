@@ -224,4 +224,3 @@ class ArgoClient(object):
             raise ArgoClientException(
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
-            
