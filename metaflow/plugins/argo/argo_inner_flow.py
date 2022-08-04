@@ -11,7 +11,6 @@ class TriggeredRun:
         flow_name: str = None,
         parameters: dict = None,
         wait: bool = True,
-        wait_to_trigger: int = 100,  # In minutes (REMEMBER TO CHANGE IT TO MINUTES FOR ACTUAL VERSION)
         wait_to_run: int = 30,  # In minutes (REMEMBER TO CHANGE IT TO MINUTES FOR ACTUAL VERSION)
     ):
         """Initializes and triggers a run.
@@ -22,7 +21,7 @@ class TriggeredRun:
         wait -- whether function waits for triggered run to finish before returning
         wait_to_trigger -- time (in mins) to wait for run to be triggered
         wait_to_run -- time (in mins) to wait for run to finish
-        """
+        """        
         if parameters is None:
             parameters = {}
 
@@ -31,11 +30,11 @@ class TriggeredRun:
         self._template_name = flow_name.lower()
         self._parameters = parameters
         self._wait = wait
-        self._wait_to_trigger = wait_to_trigger
         self._wait_to_run = wait_to_run
         self._argo_client = ArgoClient(KUBERNETES_NAMESPACE)
         self._exception = None
         self._status = None
+        self._metaflow_run = None
 
         # trigger flow and retrieve id info
         self._flow_information = self._argo_client.trigger_workflow_template(
@@ -49,8 +48,9 @@ class TriggeredRun:
 
         # Waiting for Argo workflow to trigger is not optional.
         # It should happen quickly, and is necessary to determine Flow name if not given
+        wait_to_trigger = 20  # wait time is 20 seconds
+        print("attempting to trigger Argo workflow")
         while wait_to_trigger > 0 and self.status is None:
-            print("not ready yet - give me 1 more second")
             time.sleep(1)
             wait_to_trigger -= 1
 
@@ -67,9 +67,9 @@ class TriggeredRun:
             wait_remaining = self._wait_to_run  # in minutes (5s for testing)
             print(f"status: {self.status}, 'mins' to wait: {wait_remaining}")
             while wait_remaining > 0 and self.status == "Running":
-                time.sleep(5)
                 wait_remaining -= 1
                 print(f"status: {self.status}, 'mins' to wait: {wait_remaining}")
+                time.sleep(5)
 
             if wait_remaining == 0:
                 print("Inner flow timed out. better work on that speed for next time!")
@@ -81,7 +81,7 @@ class TriggeredRun:
 
     @property
     def status(self):
-        wf = self._argo_client.get_workflow(self._inner_run_argo_id)
+        wf = self._argo_client.get_workflow(self._argo_run_id)
 
         if "status" in wf and "phase" in wf["status"]:
             self._status = wf["status"]["phase"]
@@ -95,26 +95,52 @@ class TriggeredRun:
 
         failed_steps = []
 
-        wf = self._argo_client.get_workflow(self._inner_run_argo_id)
+        wf = self._argo_client.get_workflow(self._argo_run_id)
         nodes_info = wf["status"]["nodes"]
         for node in nodes_info:
             if (
                 nodes_info[node]["phase"] == "Failed"
                 and nodes_info[node]["type"] == "Pod"
             ):
-                print(f"{nodes_info[node]['templateName']} step failed")
                 failed_steps.append(nodes_info[node]["templateName"])
 
         self._failed_steps = failed_steps
 
         return self._failed_steps
 
+    
+    def _find_metaflow_run(self, metaflow_run_location):
+        from metaflow import Run, namespace
+        
+        namespace(None)
+        metaflow_run_location = self._flow_name + "/" + self._metaflow_run_id
+        attempts_to_find_metaflow_run = 60  # gives 1 minute to find metaflow run
+        print("Finding Metaflow run")
+        while attempts_to_find_metaflow_run > 0:
+            try:
+                metaflow_run = Run(metaflow_run_location)
+                self._metaflow_run = metaflow_run
+                break
+            except:
+                time.sleep(1)
+                attempts_to_find_metaflow_run -= 1
+
+    
     @property
-    def exception(self):
-        if len(self.failed_steps) == 0:
-            return None
-        print(self.failed_steps)
-        # How do I get the exception info from Argo Client?
-        # Do I have to go back to Metaflow's Run or Step class?
-        # I think I'd like to stay w/ Argo Client
-        # Argo logs and/or Argo watch work in CLI. Is there a way to get that info through ArgoClient?
+    def get_exceptions(self):
+        if self._metaflow_run == None:
+            self._find_metaflow_run(self)
+            if self._metaflow_run == None:
+                raise Exception("Could not find Metaflow run")
+        
+        exceptions = {}
+        
+        for step in self._metaflow_run.steps():
+            for task in step.tasks():
+                if task.exception is not None:
+                    if str(step) not in exceptions:
+                        exceptions[str(step)] = [{'step': step, 'exceptions': [{'task': task, 'exception': task.exception}]}]
+                    else:
+                        exceptions[str(step)]['exceptions'].append({'task': task, 'exception': task.exception})
+
+        return exceptions
