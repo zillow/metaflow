@@ -6,21 +6,43 @@ import time
 
 
 class TriggeredRun:
+    """
+    This class takes in information to identify and trigger a run of a
+    Metaflow flow using the Argo plugin. The run is triggered immediately 
+    upon initialization of this object, and the run is identified based on 
+    the parameter for the Metaflow flow name. Users may use additional 
+    parameters to alter the run, as well as whether to wait for the run to 
+    finish. 
+    
+    The object allows users to access information relating to the triggered 
+    run, including status ('Running', 'Failed', or 'Successful'), failed
+    steps, and exceptions.
+    """
+    
     def __init__(
         self,
         flow_name: str = None,
         parameters: dict = None,
         wait: bool = True,
-        wait_to_run: int = 30,  # In minutes (REMEMBER TO CHANGE IT TO MINUTES FOR ACTUAL VERSION)
+        wait_to_run: int = 30,  # in minutes (REMEMBER TO CHANGE IT TO MINUTES)
     ):
-        """Initializes and triggers a run.
+        """
+        Initialize a TriggeredRun Metaflow run.
+        
+        During initialization, this class immediately triggers a run of a
+        Metaflow flow using the Argo plugin. The class also provides access to
+        information relating to the run.
 
-        Keyword arguments:
-        flow_name -- Metaflow flow name to trigger
-        parameters -- information passed in to affect how run is triggered
-        wait -- whether function waits for triggered run to finish before returning
-        wait_to_trigger -- time (in mins) to wait for run to be triggered
-        wait_to_run -- time (in mins) to wait for run to finish
+        Parameters
+        ----------
+        flow_name: str
+            The name of the Metaflow flow name to trigger
+        parameters: dict
+            The information passed in to affect how run is triggered
+        wait: bool
+            whether function waits for triggered run to finish before returning
+        wait_to_run: int
+            time (in mins) to wait for run to finish
         """        
         if parameters is None:
             parameters = {}
@@ -47,7 +69,7 @@ class TriggeredRun:
         self._kubernetes_namespace = self._flow_information["metadata"]["namespace"]
 
         # Waiting for Argo workflow to trigger is not optional.
-        # It should happen quickly, and is necessary to determine Flow name if not given
+        # It is necessary to determine Flow name if not given as parameter
         wait_to_trigger = 20  # wait time is 20 seconds
         print("attempting to trigger Argo workflow")
         while wait_to_trigger > 0 and self.status is None:
@@ -79,6 +101,7 @@ class TriggeredRun:
         else:
             print("Not waiting for inner flow to finish")
 
+            
     @property
     def status(self):
         wf = self._argo_client.get_workflow(self._argo_run_id)
@@ -88,6 +111,7 @@ class TriggeredRun:
 
         return self._status
 
+    
     @property
     def failed_steps(self):
         if self.status != "Failed":
