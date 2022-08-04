@@ -151,7 +151,7 @@ class TriggeredRun:
 
     
     @property
-    def get_exceptions(self):
+    def exceptions(self):
         if self._metaflow_run == None:
             self._find_metaflow_run(self)
             if self._metaflow_run == None:
