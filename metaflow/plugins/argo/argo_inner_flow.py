@@ -2,8 +2,6 @@ from metaflow.plugins.argo.argo_client import ArgoClient
 from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 import time
 
-### ADDING WAIT FEATURE AND UPDATING PROPERTIES
-
 
 class TriggeredRun:
     """
@@ -15,8 +13,8 @@ class TriggeredRun:
     finish. 
     
     The object allows users to access information relating to the triggered 
-    run, including status ('Running', 'Failed', or 'Successful'), failed
-    steps, and exceptions.
+    run, including booleans for whether the run has been triggered, has 
+    finished, and was successful, as well as for failed steps, and exceptions.
     """
     
     def __init__(
@@ -24,7 +22,7 @@ class TriggeredRun:
         flow_name: str = None,
         parameters: dict = None,
         wait: bool = True,
-        wait_to_run: int = 30,  # in minutes (REMEMBER TO CHANGE IT TO MINUTES)
+        wait_timeout: int = 30,  # in minutes
     ):
         """
         Initialize a TriggeredRun Metaflow run.
@@ -36,12 +34,12 @@ class TriggeredRun:
         Parameters
         ----------
         flow_name: str
-            The name of the Metaflow flow name to trigger
+            The name of the Metaflow flow name to trigger a run of
         parameters: dict
             The information passed in to affect how run is triggered
         wait: bool
             whether function waits for triggered run to finish before returning
-        wait_to_run: int
+        wait_timeout: int
             time (in mins) to wait for run to finish
         """        
         if parameters is None:
@@ -52,13 +50,16 @@ class TriggeredRun:
         self._template_name = flow_name.lower()
         self._parameters = parameters
         self._wait = wait
-        self._wait_to_run = wait_to_run
+        self._wait_timeout = wait_timeout
         self._argo_client = ArgoClient(KUBERNETES_NAMESPACE)
         self._exception = None
-        self._status = None
+        self._cached_status = None
+        self._has_triggered = False
+        self._finished = False
+        self._successful = False
         self._metaflow_run = None
 
-        # trigger flow and retrieve id info
+        # trigger run and retrieve id info
         self._flow_information = self._argo_client.trigger_workflow_template(
             self._template_name,
             parameters=self._parameters,
@@ -68,59 +69,87 @@ class TriggeredRun:
         self._metaflow_run_id = f"argo-{self._argo_run_id}"
         self._kubernetes_namespace = self._flow_information["metadata"]["namespace"]
 
-        # Waiting for Argo workflow to trigger is not optional.
+        # Waiting for Argo workflow to trigger run is not optional.
         # It is necessary to determine Flow name if not given as parameter
         wait_to_trigger = 20  # wait time is 20 seconds
-        print("attempting to trigger Argo workflow")
-        while wait_to_trigger > 0 and self.status is None:
+        print(f"Attempting to trigger a run of Metaflow flow {self._flow_name}. Metaflow run id: {self._metaflow_run_id}, k8s namespace: {self._kubernetes_namespace}")
+        
+        start_time = time.time()
+        while wait_to_trigger > time.time() - start_time:
+            if self.has_triggered:
+                print(f"A run of Metaflow flow {self._flow_name} has started w/ Metaflow run id: {self._metaflow_run_id}")
+                break
+            elif self.finished:
+                # TODO: add specificity to exceptions (see AIP-6470)
+                raise Exception("Error - Unable to trigger run")
             time.sleep(1)
-            wait_to_trigger -= 1
+        else:
+            # TODO: add specificity to exceptions (see AIP-6470). MetaflowException (or a child exception in file) 
+            # or TimeoutError would be more specific.
+            raise Exception("Failed to begin running")
 
-        if wait_to_trigger == 0:
-            raise Exception("Inner flow failed to begin running")
-
-        print(
-            f"A run of Metaflow flow {self._flow_name} has started w/ Argo id: {self._argo_run_id}"
-        )
-
-        # [optional] wait for argo workflow to finish running
+        # optional wait for argo workflow to finish running
         if self._wait:
             print("\nNow we will wait for the flow to finish")
-            wait_remaining = self._wait_to_run  # in minutes (5s for testing)
-            print(f"status: {self.status}, 'mins' to wait: {wait_remaining}")
-            while wait_remaining > 0 and self.status == "Running":
-                wait_remaining -= 1
-                print(f"status: {self.status}, 'mins' to wait: {wait_remaining}")
+
+            start_time = time.time()
+            loop_counter = 0
+            while self._wait_timeout * 60 > time.time() - start_time:
+                if self.finished:
+                    break
+                if loop_counter % 12 == 0:
+                    print(f"Time waited: {int((time.time() - start_time)/60)} minutes out of a possible {self._wait_timeout}")
+                loop_counter += 1
                 time.sleep(5)
+            else:
+                print("Run timed out.")
+                # TODO: add specificity to exceptions (see AIP-6470)
+                raise Exception("Wait Timeout")
 
-            if wait_remaining == 0:
-                print("Inner flow timed out. better work on that speed for next time!")
-
-            print("\nInner flow is finished!!!")
+            success_statement = 'successfully!!!' if self.successful else 'unsuccessfully.'
+            print(f"\nTriggered run finished {success_statement}")
 
         else:
-            print("Not waiting for inner flow to finish")
+            print("\nNot waiting for run to finish")
 
-            
     @property
-    def status(self):
-        wf = self._argo_client.get_workflow(self._argo_run_id)
+    def _status(self):
+        if self._cached_status in ['Error', 'Failed', 'Succeeded']:
+            return self._cached_status
+        
+        workflow = self._argo_client.get_workflow(self._argo_run_id)
+        if workflow.get("status"):
+            self._cached_status = workflow["status"].get("phase")
 
-        if "status" in wf and "phase" in wf["status"]:
-            self._status = wf["status"]["phase"]
-
-        return self._status
-
+        return self._cached_status
+    
+    @property
+    def has_triggered(self):
+        if self._has_triggered:
+            return self._has_triggered
+        
+        elif self._status and self._status != 'Error':
+            self._has_triggered = True
+        
+        return self._has_triggered
+    
+    @property
+    def finished(self):
+        return self._status in ['Error', 'Failed', 'Succeeded']
+    
+    @property
+    def successful(self):
+        return self._status == 'Succeeded'
     
     @property
     def failed_steps(self):
-        if self.status != "Failed":
+        if not self.finished or self.successful:
             return []
 
         failed_steps = []
 
-        wf = self._argo_client.get_workflow(self._argo_run_id)
-        nodes_info = wf["status"]["nodes"]
+        workflow = self._argo_client.get_workflow(self._argo_run_id)
+        nodes_info = workflow["status"]["nodes"]
         for node in nodes_info:
             if (
                 nodes_info[node]["phase"] == "Failed"
@@ -132,29 +161,36 @@ class TriggeredRun:
 
         return self._failed_steps
 
-    
     def _find_metaflow_run(self, metaflow_run_location):
         from metaflow import Run, namespace
         
         namespace(None)
         metaflow_run_location = self._flow_name + "/" + self._metaflow_run_id
-        attempts_to_find_metaflow_run = 60  # gives 1 minute to find metaflow run
-        print("Finding Metaflow run")
-        while attempts_to_find_metaflow_run > 0:
+        seconds_to_find_metaflow_run = 5  # gives 5 seconds to find metaflow run
+        print("Attempting to find Metaflow run")
+        start_time = time.time()
+        while seconds_to_find_metaflow_run > time.time() - start_time:
             try:
                 metaflow_run = Run(metaflow_run_location)
                 self._metaflow_run = metaflow_run
+                print("Found Metaflow run")
                 break
             except:
                 time.sleep(1)
-                attempts_to_find_metaflow_run -= 1
-
-    
+        else:
+            # TODO: add specificity to exceptions (see AIP-6470). MetaflowException (or a child exception in file) 
+            # or TimeoutError would be more specific.
+            raise Exception("Failed to begin running")
+                   
     @property
     def exceptions(self):
+        if not self.finished:
+            return None
+        
         if self._metaflow_run == None:
             self._find_metaflow_run(self)
             if self._metaflow_run == None:
+                # TODO: add specificity to exceptions (see AIP-6470)
                 raise Exception("Could not find Metaflow run")
         
         exceptions = {}
