@@ -56,7 +56,7 @@ class TriggeredRun:
         self._successful = False
         self._metaflow_run = None
 
-    def trigger(self):
+    def trigger(self) -> None:
 
         # trigger run and retrieve id info
         self._flow_information = self._argo_client.trigger_workflow_template(
@@ -125,7 +125,7 @@ class TriggeredRun:
             print("\nNot waiting for run to finish")
 
     @property
-    def _status(self):
+    def _status(self) -> str:
         if self._cached_status in ["Error", "Failed", "Succeeded"]:
             return self._cached_status
 
@@ -136,7 +136,7 @@ class TriggeredRun:
         return self._cached_status
 
     @property
-    def has_triggered(self):
+    def has_triggered(self) -> bool:
         if self._has_triggered:
             return self._has_triggered
 
@@ -146,15 +146,15 @@ class TriggeredRun:
         return self._has_triggered
 
     @property
-    def finished(self):
+    def finished(self) -> bool:
         return self._status in ["Error", "Failed", "Succeeded"]
 
     @property
-    def successful(self):
+    def successful(self) -> bool:
         return self._status == "Succeeded"
 
     @property
-    def failed_steps(self):
+    def failed_steps(self) -> list:
         if not self.finished or self.successful:
             return []
 
@@ -173,7 +173,7 @@ class TriggeredRun:
 
         return self._failed_steps
 
-    def _find_metaflow_run(self, metaflow_run_location):
+    def _find_metaflow_run(self, metaflow_run_location) -> None:
         from metaflow import Run, namespace
 
         namespace(None)
@@ -194,7 +194,7 @@ class TriggeredRun:
             raise Exception("Failed to begin running")
 
     @property
-    def exceptions(self):
+    def exceptions(self) -> dict:
         if not self.finished:
             return None
 
@@ -231,7 +231,7 @@ def trigger_run(
     parameters: dict = None,
     wait: bool = True,
     wait_timeout: int = 30,  # in minutes
-):
+) -> TriggeredRun:
     """
     Triggers run of Metaflow flow and returns TriggeredRun object.
 
