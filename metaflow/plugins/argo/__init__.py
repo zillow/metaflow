@@ -1,1 +1,1 @@
-from .argo_inner_flow import TriggeredRun
+from .trigger_run import trigger_run
