@@ -3,7 +3,7 @@ from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 import time
 
 
-class TriggeredRun:
+class LiveRun:
     """
     This class takes in information to identify and trigger a run of a
     Metaflow flow using the Argo plugin. The run is initialized without
@@ -231,7 +231,7 @@ def trigger_run(
     parameters: dict = None,
     wait: bool = True,
     wait_timeout: int = 30,  # in minutes
-) -> TriggeredRun:
+) -> LiveRun:
     """
     Triggers run of Metaflow flow and returns TriggeredRun object.
 
@@ -250,7 +250,7 @@ def trigger_run(
     wait_timeout: int
         time (in mins) to wait for run to finish
     """
-    run = TriggeredRun(
+    run = LiveRun(
         flow_name,
         parameters,
         wait,
