@@ -30,8 +30,8 @@ class ArgoLiveRun:
 
         Parameters
         ----------
-        flow_name: str
-            The name of the Metaflow flow name to trigger a run of
+        flow_id_info: dict
+            The identifying information of the Metaflow flow name to trigger run
         parameters: dict
             The information passed in to affect how run is triggered
         wait: bool
@@ -47,11 +47,12 @@ class ArgoLiveRun:
 
         # initialize instance variables
         self._flow_name = flow_id_info.get('flow_name')
-        self._template_name = flow_name.lower()
+        self._template_name = self._flow_name.lower()  # TODO: add logic when adding alt flow IDs
         self._parameters = parameters
         self._wait = wait
         self._wait_timeout = wait_timeout
         self._argo_client = ArgoClient(KUBERNETES_NAMESPACE)
+        self._flow_information = None
         self._exception = None
         self._cached_status = None
         self._has_triggered = False

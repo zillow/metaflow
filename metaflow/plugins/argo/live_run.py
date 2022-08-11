@@ -22,7 +22,7 @@ class LiveRun:
 
         Parameters
         ----------
-        flow_name: [plugin]LiveRun object
+        plugin_run: [plugin]LiveRun object
             A object representing a live run of a particular plugin
 
         """
@@ -92,7 +92,7 @@ def trigger_live_run(
         # Other plugins (like KFP) can be added over time
     }
     if plugin_name not in plugin_trigger_functions:
-        raise Exception("plugin not found or not specified")
+        raise Exception("plugin either not found or not specified")
 
     plugin_class = plugin_trigger_functions[plugin_name]
     plugin_run = plugin_class(
