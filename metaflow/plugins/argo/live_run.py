@@ -87,22 +87,21 @@ def trigger_live_run(
     if flow_id_info is None:
         flow_id_info = {}
 
-    plugin_trigger_functions = {
+    plugin_live_run_classes = {
         'Argo': ArgoLiveRun
         # Other plugins (like KFP) can be added over time
     }
-    if plugin_name not in plugin_trigger_functions:
+    if plugin_name not in plugin_live_run_classes:
         raise Exception("plugin either not found or not specified")
 
-    plugin_class = plugin_trigger_functions[plugin_name]
-    plugin_run = plugin_class(
+    plugin_class = plugin_live_run_classes[plugin_name]
+    run = plugin_class(
         flow_id_info,
         parameters,
         wait,
         wait_timeout,
     )
 
-    run = LiveRun(plugin_run)
     run.trigger()
 
     return run

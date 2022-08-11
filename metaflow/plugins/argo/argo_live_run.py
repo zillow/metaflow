@@ -3,7 +3,7 @@ from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 import time
 
 
-class ArgoLiveRun:
+class ArgoLiveRun():  # TODO: make child class of LiveRun
     """
     This class takes in information to identify and trigger a run of a
     Metaflow flow using the Argo plugin. The run is initialized without
