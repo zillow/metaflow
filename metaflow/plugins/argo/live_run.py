@@ -1,21 +1,15 @@
-from metaflow.plugins.argo.argo_client import ArgoClient
-from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 from metaflow.plugins.argo.argo_live_run import ArgoLiveRun
-import time
 
 
 class LiveRun:
     """
-    This class takes in information to identify and trigger a run of a
-    Metaflow flow using the Argo plugin. The run is initialized without
-    triggering a run, but a run should be triggered immediately after
-    initialization. This class should be initialized only with the trigger_run
-    function. The flow to trigger is identified based on the parameter for the
-    Metaflow flow name. Users may use additional parameters to alter the run,
-    and wait for the run to finish.
+    This class takes in an object representing a live run from a plugin
+    ("[Plugin]LiveRun"). This class maps the functions and properties from the
+    [Plugin]LiveRun object onto its own functions and properties, including
+    the ability to trigger the run.
 
-    The object allows users to access information relating to the triggered
-    run, including booleans for whether the run has been triggered, has
+    This object allows users to access information relating to the run it
+    represents, including booleans for whether the run has been triggered, has
     finished, and was successful, as well as for failed steps, and exceptions.
     """
 
@@ -42,7 +36,7 @@ class LiveRun:
         self._plugin_run = plugin_run
 
     def trigger(self) -> None:
-        self._plugin_run.trigger()
+        return self._plugin_run.trigger()
 
     @property
     def _status(self) -> str:
@@ -72,7 +66,7 @@ class LiveRun:
 
 
 def trigger_run(
-    plugin_name: str = 'Argo',
+    plugin_name: str = 'Argo',  # TODO: change default to None after testing
     flow_name: str = None,
     parameters: dict = None,
     wait: bool = True,
@@ -81,12 +75,17 @@ def trigger_run(
     """
     Triggers run of Metaflow flow and returns LiveRun object.
 
-    During initialization, this class immediately triggers a run of a
-    Metaflow flow using the Argo plugin. The class also provides access to
-    information relating to the run.
+    This function takes in the name of a plugin and uses that plugin to create
+    a [Plugin]LiveRun object. Then, a generic LiveRun object is created and the
+    functionality of the [Plugin]LiveRun object is mapped to the generic
+    LiveRun object.
+
+    The function then triggers the LiveRun object and returns the object.
 
     Parameters
     ----------
+    plugin_name: str
+        The name of the plugin used to trigger this run
     flow_name: str
         The name of the Metaflow flow name to trigger a run of
     parameters: dict
@@ -98,6 +97,7 @@ def trigger_run(
     """
     plugin_trigger_functions = {
         'Argo': ArgoLiveRun
+        # Other plugins (like KFP) can be added over time
     }
     if plugin_name not in plugin_trigger_functions:
         raise Exception("plugin not found or not specified")
