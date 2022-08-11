@@ -39,12 +39,6 @@ class LiveRun:
         return self._plugin_run.trigger()
 
     @property
-    def _status(self) -> str:
-        # TODO: Consider deleting this since it's supposed to be private.
-        # However, it's good for testing, so maybe keep.
-        return self._plugin_run._status
-
-    @property
     def has_triggered(self) -> bool:
         return self._plugin_run.has_triggered
 
