@@ -107,7 +107,7 @@ class ArgoLiveRun:
                 if loop_counter % 12 == 0:
                     print(
                         f"Time waited: {int((time.time() - start_time)/60)}"
-                        " minutes out of a possible {self._wait_timeout}"
+                        f" minutes out of a possible {self._wait_timeout}"
                     )
                 loop_counter += 1
                 time.sleep(5)

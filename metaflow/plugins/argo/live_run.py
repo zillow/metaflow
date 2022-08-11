@@ -1,5 +1,7 @@
 from metaflow.plugins.argo.argo_live_run import ArgoLiveRun
 
+def tester():
+    print("test away!")
 
 class LiveRun:
     """
