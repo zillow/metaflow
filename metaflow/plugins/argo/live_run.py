@@ -9,8 +9,8 @@ class LiveRun:
     the ability to trigger the run.
 
     This object allows users to access information relating to the run it
-    represents, including booleans for whether the run has been triggered, has
-    finished, and was successful, as well as for failed steps, and exceptions.
+    represents, including booleans for whether the run has been triggered, is
+    running, and was successful, as well as for failed steps, and exceptions.
     """
 
     def __init__(
@@ -38,8 +38,8 @@ class LiveRun:
         return self._plugin_run.has_triggered
 
     @property
-    def finished(self) -> bool:
-        return self._plugin_run.finished
+    def is_running(self) -> bool:
+        return self._plugin_run.is_running
 
     @property
     def successful(self) -> bool:
@@ -80,9 +80,9 @@ def trigger_live_run(
     parameters: dict
         The information passed in to affect how run is triggered
     wait: bool
-        whether function waits for triggered run to finish before returning
+        whether function waits for triggered run to complete before returning
     wait_timeout: int
-        time (in mins) to wait for run to finish
+        time (in mins) to wait for run to complete
     """
     if flow_id_info is None:
         flow_id_info = {}

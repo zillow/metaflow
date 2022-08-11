@@ -14,8 +14,8 @@ class ArgoLiveRun:
     and wait for the run to finish.
 
     The object allows users to access information relating to the triggered
-    run, including booleans for whether the run has been triggered, has
-    finished, and was successful, as well as for failed steps, and exceptions.
+    run, including booleans for whether the run has been triggered, is running,
+    and was successful, as well as for failed steps, and exceptions.
     """
 
     def __init__(
@@ -56,8 +56,6 @@ class ArgoLiveRun:
         self._exception = None
         self._cached_status = None
         self._has_triggered = False
-        self._finished = False
-        self._successful = False
         self._metaflow_run = None
 
     def trigger(self) -> None:
@@ -89,7 +87,7 @@ class ArgoLiveRun:
                     f"{self._metaflow_run_id} "
                 )
                 break
-            elif self.finished:
+            elif not self.is_running:
                 # TODO: add specificity to exceptions (see AIP-6470)
                 raise Exception("Error - Unable to trigger run")
             time.sleep(1)
@@ -106,7 +104,7 @@ class ArgoLiveRun:
             start_time = time.time()
             loop_counter = 0
             while self._wait_timeout * 60 > time.time() - start_time:
-                if self.finished:
+                if not self.is_running:
                     break
                 if loop_counter % 12 == 0:
                     print(
@@ -123,7 +121,7 @@ class ArgoLiveRun:
             success_statement = (
                 "successfully!!!" if self.successful else "unsuccessfully."
             )
-            print(f"\nRun finished {success_statement}")
+            print(f"\nRun completed {success_statement}")
 
         else:
             print("\nNot waiting for run to finish")
@@ -142,7 +140,7 @@ class ArgoLiveRun:
     @property
     def has_triggered(self) -> bool:
         if self._has_triggered:
-            return self._has_triggered
+            return True
 
         elif self._status and self._status != "Error":
             self._has_triggered = True
@@ -150,8 +148,8 @@ class ArgoLiveRun:
         return self._has_triggered
 
     @property
-    def finished(self) -> bool:
-        return self._status in ["Error", "Failed", "Succeeded"]
+    def is_running(self) -> bool:
+        return self._status == "Running"
 
     @property
     def successful(self) -> bool:
@@ -159,7 +157,7 @@ class ArgoLiveRun:
 
     @property
     def failed_steps(self) -> list:
-        if not self.finished or self.successful:
+        if self.is_running or self.successful:
             return []
 
         failed_steps = []
@@ -199,7 +197,7 @@ class ArgoLiveRun:
 
     @property
     def exceptions(self) -> dict:
-        if not self.finished:
+        if self.is_running:
             return None
 
         if self._metaflow_run == None:
