@@ -1,7 +1,5 @@
 from metaflow.plugins.argo.argo_live_run import ArgoLiveRun
 
-def tester():
-    print("test away!")
 
 class LiveRun:
     """
@@ -24,14 +22,9 @@ class LiveRun:
 
         Parameters
         ----------
-        flow_name: str
-            The name of the Metaflow flow name to trigger a run of
-        parameters: dict
-            The information passed in to affect how run is triggered
-        wait: bool
-            whether function waits for triggered run to finish before returning
-        wait_timeout: int
-            time (in mins) to wait for run to finish
+        flow_name: [plugin]LiveRun object
+            A object representing a live run of a particular plugin
+
         """
 
         # initialize instance variables
@@ -63,7 +56,7 @@ class LiveRun:
 
 def trigger_live_run(
     plugin_name: str = 'Argo',  # TODO: change default to None after testing
-    flow_name: str = None,
+    flow_id_info: dict = None,
     parameters: dict = None,
     wait: bool = True,
     wait_timeout: int = 30,  # in minutes
@@ -82,8 +75,8 @@ def trigger_live_run(
     ----------
     plugin_name: str
         The name of the plugin used to trigger this run
-    flow_name: str
-        The name of the Metaflow flow name to trigger a run of
+    flow_id_info: dict
+        The identifying information of the Metaflow flow name to trigger run
     parameters: dict
         The information passed in to affect how run is triggered
     wait: bool
@@ -91,6 +84,9 @@ def trigger_live_run(
     wait_timeout: int
         time (in mins) to wait for run to finish
     """
+    if flow_id_info is None:
+        flow_id_info = {}
+
     plugin_trigger_functions = {
         'Argo': ArgoLiveRun
         # Other plugins (like KFP) can be added over time
@@ -100,7 +96,7 @@ def trigger_live_run(
 
     plugin_class = plugin_trigger_functions[plugin_name]
     plugin_run = plugin_class(
-        flow_name,
+        flow_id_info,
         parameters,
         wait,
         wait_timeout,

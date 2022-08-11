@@ -20,7 +20,7 @@ class ArgoLiveRun:
 
     def __init__(
         self,
-        flow_name: str = None,
+        flow_id_info: dict = None,
         parameters: dict = None,
         wait: bool = True,
         wait_timeout: int = 30,  # in minutes TODO: determine proper timeout
@@ -39,11 +39,14 @@ class ArgoLiveRun:
         wait_timeout: int
             time (in mins) to wait for run to finish
         """
+        if flow_id_info is None:
+            flow_id_info = {}
+
         if parameters is None:
             parameters = {}
 
         # initialize instance variables
-        self._flow_name = flow_name
+        self._flow_name = flow_id_info.get('flow_name')
         self._template_name = flow_name.lower()
         self._parameters = parameters
         self._wait = wait
@@ -224,39 +227,3 @@ class ArgoLiveRun:
                         )
 
         return exceptions
-
-
-def trigger_argo_run(
-    flow_name: str = None,
-    parameters: dict = None,
-    wait: bool = True,
-    wait_timeout: int = 30,  # in minutes
-) -> ArgoLiveRun:
-    """
-    Triggers run of Metaflow flow and returns LiveRun object.
-
-    During initialization, this class immediately triggers a run of a
-    Metaflow flow using the Argo plugin. The class also provides access to
-    information relating to the run.
-
-    Parameters
-    ----------
-    flow_name: str
-        The name of the Metaflow flow name to trigger a run of
-    parameters: dict
-        The information passed in to affect how run is triggered
-    wait: bool
-        whether function waits for triggered run to finish before returning
-    wait_timeout: int
-        time (in mins) to wait for run to finish
-    """
-    run = ArgoLiveRun(
-        flow_name,
-        parameters,
-        wait,
-        wait_timeout,
-    )
-
-    run.trigger()
-
-    return run
