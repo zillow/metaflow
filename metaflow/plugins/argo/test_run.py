@@ -4,7 +4,6 @@ parameters = None # {"date_key": "wrong_date"}
 inner_run = trigger_live_run(
     flow_name="HelloArgoFlowTwo",     # "HelloArgoFlowTwo", "FailureFlow", "MissingFlow"
     # template_name="helloargoflowtwo", # "helloargoflowtwo", "failureflow"
-    parameters=parameters,
+    parameters=None,
     wait=True,
 )
-
