@@ -1,1 +1,1 @@
-from .argo_live_run import trigger_argo_run
+from .live_run import trigger_live_run

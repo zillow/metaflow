@@ -59,7 +59,7 @@ class LiveRun:
         return self._plugin_run.exceptions
 
 
-def trigger_run(
+def trigger_live_run(
     plugin_name: str = 'Argo',  # TODO: change default to None after testing
     flow_name: str = None,
     parameters: dict = None,
