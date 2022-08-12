@@ -56,7 +56,8 @@ class LiveRun:
 
 def trigger_live_run(
     plugin_name: str = 'Argo',  # TODO: change default to None after testing
-    flow_id_info: dict = None,
+    flow_name: str = None,
+    alt_flow_id_info: dict = None,
     parameters: dict = None,
     wait: bool = True,
     wait_timeout: int = 30,  # in minutes
@@ -75,8 +76,10 @@ def trigger_live_run(
     ----------
     plugin_name: str
         The name of the plugin used to trigger this run
-    flow_id_info: dict
-        The identifying information of the Metaflow flow name to trigger run
+    flow_name: str
+        Name of Metaflow flow to trigger run
+    alt_flow_id_info: dict
+        Alternative identifying information of flow to trigger run
     parameters: dict
         The information passed in to affect how run is triggered
     wait: bool
@@ -84,8 +87,8 @@ def trigger_live_run(
     wait_timeout: int
         time (in mins) to wait for run to complete
     """
-    if flow_id_info is None:
-        flow_id_info = {}
+    if alt_flow_id_info is None:
+        alt_flow_id_info = {}
 
     plugin_live_run_classes = {
         'Argo': ArgoLiveRun
@@ -95,13 +98,15 @@ def trigger_live_run(
         raise Exception("plugin either not found or not specified")
 
     plugin_class = plugin_live_run_classes[plugin_name]
-    run = plugin_class(
-        flow_id_info,
+    plugin_run = plugin_class(
+        flow_name,
+        alt_flow_id_info,
         parameters,
         wait,
         wait_timeout,
     )
 
+    run = LiveRun(plugin_run)
     run.trigger()
 
     return run

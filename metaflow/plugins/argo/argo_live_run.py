@@ -3,7 +3,7 @@ from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 import time
 
 
-class ArgoLiveRun():  # TODO: make child class of LiveRun
+class ArgoLiveRun:  # TODO: make child class of LiveRun
     """
     This class takes in information to identify and trigger a run of a
     Metaflow flow using the Argo plugin. The run is initialized without
@@ -20,7 +20,8 @@ class ArgoLiveRun():  # TODO: make child class of LiveRun
 
     def __init__(
         self,
-        flow_id_info: dict = None,
+        flow_name: str = None,
+        alt_flow_id_info: dict = None,
         parameters: dict = None,
         wait: bool = True,
         wait_timeout: int = 30,  # in minutes TODO: determine proper timeout
@@ -30,23 +31,26 @@ class ArgoLiveRun():  # TODO: make child class of LiveRun
 
         Parameters
         ----------
-        flow_id_info: dict
-            The identifying information of the Metaflow flow name to trigger run
+        flow_name: str
+            Name of Metaflow flow to trigger run
+        alt_flow_id_info: dict
+            Alternative identifying information of flow to trigger run
         parameters: dict
             The information passed in to affect how run is triggered
         wait: bool
             whether function waits for triggered run to finish before returning
         wait_timeout: int
-            time (in mins) to wait for run to finish
+            time (in minutes) to wait for run to finish
         """
-        if flow_id_info is None:
-            flow_id_info = {}
+        if alt_flow_id_info is None:
+            alt_flow_id_info = {}
 
         if parameters is None:
             parameters = {}
 
         # initialize instance variables
-        self._flow_name = flow_id_info.get('flow_name')
+        self._flow_name = flow_name
+        self._alt_flow_id_info = alt_flow_id_info
         self._template_name = self._flow_name.lower()  # TODO: add logic when adding alt flow IDs
         self._parameters = parameters
         self._wait = wait
@@ -57,8 +61,14 @@ class ArgoLiveRun():  # TODO: make child class of LiveRun
         self._cached_status = None
         self._has_triggered = False
         self._metaflow_run = None
+        self._argo_run_id = None
+        self._metaflow_run_id = None
+        self._kubernetes_namespace = None
+        self._failed_steps = None
 
     def trigger(self) -> None:
+
+        print(f"template name: {self._template_name}")
 
         # trigger run and retrieve id info
         self._flow_information = self._argo_client.trigger_workflow_template(
@@ -72,13 +82,14 @@ class ArgoLiveRun():  # TODO: make child class of LiveRun
 
         # Waiting for Argo workflow to trigger run is not optional.
         # It is necessary to determine Flow name if not given as parameter
-        wait_to_trigger = 20  # wait time is 20 seconds
+
         print(
             f"Attempting to trigger a run of Metaflow flow {self._flow_name}.\n"
-            "    - Metaflow run id: {self._metaflow_run_id}\n"
-            "    - k8s namespace: {self._kubernetes_namespace}"
+            f"    - Metaflow run id: {self._metaflow_run_id}\n"
+            f"    - k8s namespace: {self._kubernetes_namespace}"
         )
 
+        wait_to_trigger = 20  # wait time is 20 seconds
         start_time = time.time()
         while wait_to_trigger > time.time() - start_time:
             if self.has_triggered:
@@ -87,7 +98,7 @@ class ArgoLiveRun():  # TODO: make child class of LiveRun
                     f"{self._metaflow_run_id} "
                 )
                 break
-            elif not self.is_running:
+            elif self._error:
                 # TODO: add specificity to exceptions (see AIP-6470)
                 raise Exception("Error - Unable to trigger run")
             time.sleep(1)
@@ -152,6 +163,10 @@ class ArgoLiveRun():  # TODO: make child class of LiveRun
         return self._status == "Running"
 
     @property
+    def _error(self) -> bool:
+        return self._status == "Error"
+
+    @property
     def successful(self) -> bool:
         return self._status == "Succeeded"
 
@@ -175,34 +190,39 @@ class ArgoLiveRun():  # TODO: make child class of LiveRun
 
         return self._failed_steps
 
-    def _find_metaflow_run(self, metaflow_run_location) -> None:
+    def _find_metaflow_run(self) -> None:
         from metaflow import Run, namespace
 
         namespace(None)
         metaflow_run_location = self._flow_name + "/" + self._metaflow_run_id
         seconds_to_find_metaflow_run = 5  # gives 5 seconds to find MF run
         start_time = time.time()
+        print("Trying to find metaflow run")
+        print(f"metaflow_run_location: {metaflow_run_location}")
         while seconds_to_find_metaflow_run > time.time() - start_time:
+            print("Trying to find Metaflow Run")
             try:
                 metaflow_run = Run(metaflow_run_location)
                 self._metaflow_run = metaflow_run
+                print("Found it!")
                 break
             except:
+                print("could not find metaflow Run")
                 time.sleep(1)
         else:
             # TODO: add specificity to exceptions (see AIP-6470).
             # MetaflowException (or a child exception in file)
             # or TimeoutError would be more specific.
-            raise Exception("Failed to begin running")
+            raise Exception("Unable to find Metaflow Run")
 
     @property
     def exceptions(self) -> dict:
-        if self.is_running:
-            return None
+        # if self.is_running:
+        #     return None
 
-        if self._metaflow_run == None:
-            self._find_metaflow_run(self)
-            if self._metaflow_run == None:
+        if self._metaflow_run is None:
+            self._find_metaflow_run()
+            if self._metaflow_run is None:
                 # TODO: add specificity to exceptions (see AIP-6470)
                 raise Exception("Could not find Metaflow run")
 
