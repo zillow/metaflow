@@ -556,11 +556,12 @@ class KubeflowPipelines(object):
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
     @staticmethod
-    def _set_minimal_container_resources(container_op: ContainerOp):
+    def _set_minimal_container_resources(container_op: ContainerOp, memory=None):
+        memory = memory or "200M"
         container_op.container.set_cpu_request("0.5")
         container_op.container.set_cpu_limit("0.5")
-        container_op.container.set_memory_request("200M")
-        container_op.container.set_memory_limit("200M")
+        container_op.container.set_memory_request(memory)
+        container_op.container.set_memory_limit(memory)
 
     @staticmethod
     def _create_volume(
@@ -1080,11 +1081,13 @@ class KubeflowPipelines(object):
         flow_parameters_json: str,
         package_commands: str,
     ) -> ContainerOp:
+
         path = s3_sensor_deco.path
         timeout_seconds = s3_sensor_deco.timeout_seconds
         polling_interval_seconds = s3_sensor_deco.polling_interval_seconds
         path_formatter = s3_sensor_deco.path_formatter
         os_expandvars = s3_sensor_deco.os_expandvars
+        memory = s3_sensor_deco.memory
 
         # see https://github.com/kubeflow/pipelines/pull/1946/files
         # KFP does not support the serialization of Python functions directly. The KFP team took
@@ -1125,7 +1128,7 @@ class KubeflowPipelines(object):
             file_outputs={"Output": "/tmp/outputs/Output/data"},
         ).set_display_name("s3_sensor")
 
-        KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
+        KubeflowPipelines._set_minimal_container_resources(s3_sensor_op, memory)
         s3_sensor_op.set_retry(S3_SENSOR_RETRY_COUNT, policy="OnError")
         return s3_sensor_op
 

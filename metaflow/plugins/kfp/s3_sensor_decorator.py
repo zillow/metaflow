@@ -76,6 +76,7 @@ class S3SensorDecorator(FlowDecorator):
         "polling_interval_seconds": 300,
         "path_formatter": None,
         "os_expandvars": False,
+        "memory": None,
     }
 
     def flow_init(
