@@ -22,12 +22,9 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         self,
         flow_name: str = None,
         alt_flow_id_info: dict = None,
-        parameters: dict = None,
-        wait: bool = True,
-        wait_timeout: int = 30,  # in minutes TODO: determine proper timeout
     ):
         """
-        Initialize a TriggeredRun object without triggering flow.
+        Initialize an ArgoLiveRun object without triggering flow.
 
         Parameters
         ----------
@@ -35,6 +32,32 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
             Name of Metaflow flow to trigger run
         alt_flow_id_info: dict
             Alternative identifying information of flow to trigger run
+        """
+        if alt_flow_id_info is None:
+            alt_flow_id_info = {}
+
+        # initialize instance variables
+        self._flow_name = flow_name
+        self._alt_flow_id_info = alt_flow_id_info
+        self._template_name = self._flow_name.lower()  # TODO: add logic when adding alt flow IDs
+        self._argo_client = ArgoClient(KUBERNETES_NAMESPACE)
+        self._cached_status = None
+        self._has_triggered = False
+        self._metaflow_run = None
+        self._argo_run_id = None
+        self._metaflow_run_id = None
+
+    def trigger(
+        self,
+        parameters: dict = None,
+        wait: bool = True,
+        wait_timeout: int = 30,  # in minutes TODO: determine proper timeout
+    ) -> None:
+        """
+        Trigger flow.
+
+        Parameters
+        ----------
         parameters: dict
             The information passed in to affect how run is triggered
         wait: bool
@@ -42,43 +65,21 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         wait_timeout: int
             time (in minutes) to wait for run to finish
         """
-        if alt_flow_id_info is None:
-            alt_flow_id_info = {}
 
         if parameters is None:
             parameters = {}
 
-        # initialize instance variables
-        self._flow_name = flow_name
-        self._alt_flow_id_info = alt_flow_id_info
-        self._template_name = self._flow_name.lower()  # TODO: add logic when adding alt flow IDs
-        self._parameters = parameters
-        self._wait = wait
-        self._wait_timeout = wait_timeout
-        self._argo_client = ArgoClient(KUBERNETES_NAMESPACE)
-        self._flow_information = None
-        self._exception = None
-        self._cached_status = None
-        self._has_triggered = False
-        self._metaflow_run = None
-        self._argo_run_id = None
-        self._metaflow_run_id = None
-        self._kubernetes_namespace = None
-        self._failed_steps = None
-
-    def trigger(self) -> None:
-
         print(f"template name: {self._template_name}")
 
         # trigger run and retrieve id info
-        self._flow_information = self._argo_client.trigger_workflow_template(
+        flow_information = self._argo_client.trigger_workflow_template(
             self._template_name,
-            parameters=self._parameters,
+            parameters=parameters,
         )
 
-        self._argo_run_id = self._flow_information["metadata"]["name"]
+        self._argo_run_id = flow_information["metadata"]["name"]
         self._metaflow_run_id = f"argo-{self._argo_run_id}"
-        self._kubernetes_namespace = self._flow_information["metadata"]["namespace"]
+        run_kubernetes_namespace = flow_information["metadata"]["namespace"]
 
         # Waiting for Argo workflow to trigger run is not optional.
         # It is necessary to determine Flow name if not given as parameter
@@ -86,7 +87,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         print(
             f"Attempting to trigger a run of Metaflow flow {self._flow_name}.\n"
             f"    - Metaflow run id: {self._metaflow_run_id}\n"
-            f"    - k8s namespace: {self._kubernetes_namespace}"
+            f"    - k8s namespace: {run_kubernetes_namespace}"
         )
 
         wait_to_trigger = 20  # wait time is 20 seconds
@@ -109,18 +110,18 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
             raise Exception("Failed to begin running")
 
         # optional wait for argo workflow to finish running
-        if self._wait:
+        if wait:
             print("Now we will wait for the flow to finish")
 
             start_time = time.time()
             loop_counter = 0
-            while self._wait_timeout * 60 > time.time() - start_time:
+            while wait_timeout * 60 > time.time() - start_time:
                 if not self.is_running:
                     break
                 if loop_counter % 12 == 0:
                     print(
                         f"Time waited: {int((time.time() - start_time)/60)}"
-                        f" minutes out of a possible {self._wait_timeout}"
+                        f" minutes out of a possible {wait_timeout}"
                     )
                 loop_counter += 1
                 time.sleep(5)
@@ -186,9 +187,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
             ):
                 failed_steps.append(nodes_info[node]["templateName"])
 
-        self._failed_steps = failed_steps
-
-        return self._failed_steps
+        return failed_steps
 
     def _find_metaflow_run(self) -> None:
         from metaflow import Run, namespace

@@ -30,8 +30,30 @@ class LiveRun:
         # initialize instance variables
         self._plugin_run = plugin_run
 
-    def trigger(self) -> None:
-        return self._plugin_run.trigger()
+    def trigger(
+        self,
+        parameters,
+        wait,
+        wait_timeout,
+    ) -> None:
+        """
+        Trigger flow using plugin's live run object.
+
+        Parameters
+        ----------
+        parameters: dict
+            The information passed in to affect how run is triggered
+        wait: bool
+            whether function waits for triggered run to finish before returning
+        wait_timeout: int
+            time (in minutes) to wait for run to finish
+        """
+
+        return self._plugin_run.trigger(
+            parameters,
+            wait,
+            wait_timeout,
+        )
 
     @property
     def has_triggered(self) -> bool:
@@ -101,12 +123,13 @@ def trigger_live_run(
     plugin_run = plugin_class(
         flow_name,
         alt_flow_id_info,
+    )
+
+    run = LiveRun(plugin_run)
+    run.trigger(
         parameters,
         wait,
         wait_timeout,
     )
-
-    run = LiveRun(plugin_run)
-    run.trigger()
 
     return run
