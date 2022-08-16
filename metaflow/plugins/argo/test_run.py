@@ -19,5 +19,7 @@ while run.is_running:
         Is Running:       {run.is_running}
         Successful:       {run.successful}
         Failed Steps:     {run.failed_steps}
-        Exceptions:       {run.exceptions}\n
-    """)
+        
+    """)  # Exceptions:       {run.exceptions}\n
+
+

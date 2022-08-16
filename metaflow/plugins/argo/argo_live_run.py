@@ -77,6 +77,8 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
             parameters=parameters,
         )
 
+        print(f"\n{flow_information}\n")
+
         self._argo_run_id = flow_information["metadata"]["name"]
         self._metaflow_run_id = f"argo-{self._argo_run_id}"
         run_kubernetes_namespace = flow_information["metadata"]["namespace"]
@@ -100,14 +102,14 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
                 )
                 break
             elif self._error:
-                # TODO: add specificity to exceptions (see AIP-6470)
-                raise Exception("Error - Unable to trigger run")
+                raise ValueError(
+                    "ArgoClient returned 'Error' status. Potentially caused if"
+                    "\nMetaflow flow does not exist or if Argo workflow"
+                    "\ntemplate has not yet been created."
+                )
             time.sleep(1)
         else:
-            # TODO: add specificity to exceptions (see AIP-6470).
-            # MetaflowException (or a child exception in file)
-            # or TimeoutError would be more specific.
-            raise Exception("Failed to begin running")
+            raise TimeoutError(f"Failed to begin running within {wait_to_trigger} seconds")
 
         # optional wait for argo workflow to finish running
         if wait:
@@ -126,9 +128,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
                 loop_counter += 1
                 time.sleep(5)
             else:
-                print("Run timed out.")
-                # TODO: add specificity to exceptions (see AIP-6470)
-                raise Exception("Wait Timeout")
+                raise TimeoutError(f"Failed to begin running within {wait_timeout} minutes")
 
             success_statement = (
                 "successfully!!!" if self.successful else "unsuccessfully."
@@ -206,24 +206,20 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
                 print("Found it!")
                 break
             except:
-                print("could not find metaflow Run")
                 time.sleep(1)
         else:
-            # TODO: add specificity to exceptions (see AIP-6470).
-            # MetaflowException (or a child exception in file)
-            # or TimeoutError would be more specific.
-            raise Exception("Unable to find Metaflow Run")
+            raise TimeoutError(f"""
+                Unable to find Metaflow Run within {seconds_to_find_metaflow_run} seconds
+                Attempted to find at location: {metaflow_run_location}
+            """)
 
     @property
     def exceptions(self) -> dict:
-        # if self.is_running:
-        #     return None
+        if self.is_running:
+            return None
 
         if self._metaflow_run is None:
             self._find_metaflow_run()
-            if self._metaflow_run is None:
-                # TODO: add specificity to exceptions (see AIP-6470)
-                raise Exception("Could not find Metaflow run")
 
         exceptions = {}
 

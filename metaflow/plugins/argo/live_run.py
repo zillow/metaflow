@@ -117,7 +117,10 @@ def trigger_live_run(
         # Other plugins (like KFP) can be added over time
     }
     if plugin_name not in plugin_live_run_classes:
-        raise Exception("plugin either not found or not specified")
+        if plugin_name is None:
+            raise ValueError(f"plugin_name not specified by user")
+        else:
+            raise ValueError(f"plugin_name '{plugin_name}' is not supported")
 
     plugin_class = plugin_live_run_classes[plugin_name]
     plugin_run = plugin_class(
