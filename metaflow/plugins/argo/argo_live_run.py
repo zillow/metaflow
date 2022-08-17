@@ -1,5 +1,6 @@
 from metaflow.plugins.argo.argo_client import ArgoClient
 from metaflow.metaflow_config import KUBERNETES_NAMESPACE
+from metaflow.exception import MetaflowNotFound, MetaflowException
 import time
 
 
@@ -46,6 +47,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         self._metaflow_run = None
         self._argo_run_id = None
         self._metaflow_run_id = None
+        self._time_triggered = time.time()
 
     def trigger(
         self,
@@ -77,8 +79,6 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
             parameters=parameters,
         )
 
-        print(f"\n{flow_information}\n")
-
         self._argo_run_id = flow_information["metadata"]["name"]
         self._metaflow_run_id = f"argo-{self._argo_run_id}"
         run_kubernetes_namespace = flow_information["metadata"]["namespace"]
@@ -102,14 +102,14 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
                 )
                 break
             elif self._error:
-                raise ValueError(
+                raise MetaflowException(
                     "ArgoClient returned 'Error' status. Potentially caused if"
                     "\nMetaflow flow does not exist or if Argo workflow"
                     "\ntemplate has not yet been created."
                 )
             time.sleep(1)
         else:
-            raise TimeoutError(f"Failed to begin running within {wait_to_trigger} seconds")
+            raise TimeoutError(f"Failed to trigger Argo workflow within {wait_timeout} minutes")
 
         # optional wait for argo workflow to finish running
         if wait:
@@ -194,32 +194,37 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
 
         namespace(None)
         metaflow_run_location = self._flow_name + "/" + self._metaflow_run_id
-        seconds_to_find_metaflow_run = 5  # gives 5 seconds to find MF run
+        seconds_to_find_metaflow_run = 5  # gives time to find MF run
         start_time = time.time()
-        print("Trying to find metaflow run")
+        print("Trying to find Metaflow run")
         print(f"metaflow_run_location: {metaflow_run_location}")
         while seconds_to_find_metaflow_run > time.time() - start_time:
-            print("Trying to find Metaflow Run")
             try:
                 metaflow_run = Run(metaflow_run_location)
                 self._metaflow_run = metaflow_run
                 print("Found it!")
                 break
-            except:
+            except MetaflowNotFound:
                 time.sleep(1)
         else:
+            print("Failed to find Metaflow run")
+            if time.time() - self._time_triggered < 60:
+                # do not raise exception if still within 60s of triggering
+                print("Not raising exception because within 60 seconds of triggering")
+                return
+
             raise TimeoutError(f"""
-                Unable to find Metaflow Run within {seconds_to_find_metaflow_run} seconds
-                Attempted to find at location: {metaflow_run_location}
+    Unable to find Metaflow Run within {seconds_to_find_metaflow_run} seconds
+    Attempted to find at location: {metaflow_run_location}
             """)
 
     @property
     def exceptions(self) -> dict:
-        if self.is_running:
-            return None
 
         if self._metaflow_run is None:
             self._find_metaflow_run()
+            if self._metaflow_run is None:
+                return {}  # only if Flow not found within 60s of triggering
 
         exceptions = {}
 
