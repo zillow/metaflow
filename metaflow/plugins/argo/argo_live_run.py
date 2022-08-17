@@ -47,7 +47,10 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         self._metaflow_run = None
         self._argo_run_id = None
         self._metaflow_run_id = None
-        self._time_triggered = time.time()
+        self._time_triggered = time.time()  # this makes more sense to set within .trigger,
+        # but this raises its own issues (what if never triggered, and no variable is set?)
+        # however, redesign (AIP 6507) will move things around and fix this issue.
+        self._error_message = None
 
     def trigger(
         self,
@@ -104,8 +107,9 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
             elif self._error:
                 raise MetaflowException(
                     "ArgoClient returned 'Error' status. Potentially caused if"
-                    "\nMetaflow flow does not exist or if Argo workflow"
-                    "\ntemplate has not yet been created."
+                    " Metaflow flow does not exist or if Argo workflow"
+                    " template has not yet been created."
+                    f"\nError message: {self._error_message}"
                 )
             time.sleep(1)
         else:
@@ -146,6 +150,8 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         workflow = self._argo_client.get_workflow(self._argo_run_id)
         if workflow.get("status"):
             self._cached_status = workflow["status"].get("phase")
+            if self._cached_status == 'Error':
+                self._error_message = workflow["status"].get("message")
 
         return self._cached_status
 
