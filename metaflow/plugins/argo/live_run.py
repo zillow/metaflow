@@ -56,6 +56,10 @@ class LiveRun:
         )
 
     @property
+    def flow_name(self) -> str:
+        return self._plugin_run.flow_name
+
+    @property
     def has_triggered(self) -> bool:
         return self._plugin_run.has_triggered
 
