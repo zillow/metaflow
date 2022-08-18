@@ -142,7 +142,6 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
                         f"Time waited: {int((time.time() - start_time)/60)}"
                         f" minutes out of a possible {wait_timeout}"
                     )
-                    self._print_status()
                 loop_counter += 1
                 time.sleep(5)
             else:
