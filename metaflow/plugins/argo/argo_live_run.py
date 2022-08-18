@@ -59,9 +59,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         self._metaflow_run = None
         self._argo_run_id = None
         self._metaflow_run_id = None
-        self._time_triggered = time.time()  # this makes more sense to set within .trigger,
-        # but this raises its own issues (what if never triggered, and no variable is set?)
-        # however, redesign (AIP 6507) will move things around and fix this issue.
+        self._time_triggered = None
         self._error_message = None
 
     def trigger(
@@ -94,6 +92,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
             parameters=parameters,
         )
 
+        self._time_triggered = time.time()
         self._argo_run_id = flow_information["metadata"]["name"]
         self._metaflow_run_id = f"argo-{self._argo_run_id}"
         run_kubernetes_namespace = flow_information["metadata"]["namespace"]
@@ -126,7 +125,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
                 )
             time.sleep(1)
         else:
-            raise TimeoutError(f"Failed to trigger Argo workflow within {wait_timeout} minutes")
+            raise TimeoutError(f"Failed to trigger Argo workflow within {wait_to_trigger} seconds")
 
         # optional wait for argo workflow to finish running
         if wait:
@@ -237,7 +236,6 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         except MetaflowNotFound:
             print("Failed to find Metaflow run")
             if time.time() - self._time_triggered < 60:
-                # do not raise exception if still within 60s of triggering
                 print("Not raising exception because within 60 seconds of triggering")
             else:
                 raise MetaflowNotFound(
