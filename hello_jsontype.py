@@ -3,34 +3,22 @@ from metaflow import FlowSpec, step, Parameter, JSONType
 
 class HelloJSONType(FlowSpec):
     """
-    A flow where Metaflow prints 'Hi'.
-
-    Run this flow to validate that Metaflow is installed correctly.
+    A flow for testing ability to handle JSONType objects.
 
     """
-
-    # a user-made class for testing
-    class ChrisVan:
-
-        def __init__(self):
-            self.hello = "Hi, this is Chris Van, but you can call me Chris"
-
-        def say_hi(self):
-            print(self.hello)
 
     str_to_list = Parameter("str_to_list",
                             type=JSONType,
                             default="[1, 2, 3]")
     str_to_dict = Parameter("str_to_dict",
                             type=JSONType,
-                            default="{'one': 1, 'two': 2, 'three': 3}")
-    str_to_set = Parameter("str_to_set",
-                            type=JSONType,
-                            default="{1, 2, 3}")
-    str_to_ = Parameter("str_to_dict",
-                            type=JSONType,
-                            default="{'one': 1, 'two': 2, 'three': 3}")
-
+                            default='{"one": 1, "two": 2, "three": 3}')
+    list_param = Parameter("list_param",
+                           type=JSONType,
+                           default="[1, 2, 3]")
+    dict_param = Parameter("dict_param",
+                           type=JSONType,
+                           default='{"one": 1, "two": 2, "nine": 9}')
 
     @step
     def start(self):
@@ -39,28 +27,30 @@ class HelloJSONType(FlowSpec):
         is the first step in the flow.
 
         """
-        print("HelloFlow is starting.")
+        print("HelloJSONType is starting.")
         self.next(self.hello)
 
     @step
     def hello(self):
         """
-        A step for metaflow to introduce itself.
+        A step to print out JSONType objects.
 
         """
-        print("Metaflow says: Hi from the inner loop?!")
-        print(self.date_key)
+        print("Ready to begin testing JSONType object params")
+        print(f"str_to_list - type: {type(self.str_to_list)}, data: {self.str_to_list}")
+        print(f"str_to_dict - type: {type(self.str_to_dict)}, data: {self.str_to_dict}")
+        print(f"list_param - type: {type(self.list_param)}, data: {self.list_param}")
+        print(f"dict_param - type: {type(self.dict_param)}, data: {self.dict_param}")
         
         self.next(self.end)
 
     @step
     def end(self):
         """
-        This is the 'end' step. All flows must have an 'end' step, which is the
-        last step in the flow.
+        This is the 'end' step.
 
         """
-        print("HelloFlow is all done.")
+        print("HelloJSONType is all done.")
 
 
 if __name__ == "__main__":
