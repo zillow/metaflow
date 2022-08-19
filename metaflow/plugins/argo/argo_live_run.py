@@ -149,6 +149,15 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
 
         return self._cached_status
 
+    def _print_status(self):
+        print(f"""Current run properties:
+        Has Triggered:    {self.has_triggered}
+        Is Running:       {self.is_running}
+        Successful:       {self.successful}
+        Failed Steps:     {self.failed_steps}
+        Exceptions:       {self.exceptions}
+        """)
+
     @property
     def has_triggered(self) -> bool:
         if self._has_triggered:

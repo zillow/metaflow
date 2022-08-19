@@ -3,11 +3,15 @@ import time
 
 flow_name = None  # "HelloArgoFlowTwo", "FailureFlow", "MissingFlow", None
 template_name = "helloargoflowtwo"  # "helloargoflowtwo", "failureflow", "missingflow", None
+parameters = {
+
+}
+
 run = trigger_live_run(
     plugin_name='Argo',
     flow_name=flow_name,
     alt_flow_id_info={'template_name': template_name},
-    parameters=None,
+    parameters=parameters,
     wait=False,
 )
 
