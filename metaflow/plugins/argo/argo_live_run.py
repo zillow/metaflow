@@ -88,7 +88,7 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
         # convert dicts/lists to json-valid strings
         for key in parameters:
             print(f"looking at key {key}")
-            if not isinstance(parameters[key], str):
+            if isinstance(parameters[key], (dict, list)):  # TODO: discuss best way to filter
                 try:
                     print(f"converting for key {key}")
                     print(f"from: {parameters[key]}")

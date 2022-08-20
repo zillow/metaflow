@@ -18,7 +18,7 @@ run = trigger_live_run(
     plugin_name='Argo',
     flow_name=flow_name,
     alt_flow_id_info={'template_name': template_name},
-    parameters=parameters_invalid,  # None, parameters_valid, parameters_invalid
+    parameters=parameters_valid,  # None, parameters_valid, parameters_invalid
     wait=False,
 )
 
