@@ -87,13 +87,9 @@ class ArgoLiveRun:  # TODO: make child class of LiveRun
 
         # convert dicts/lists to json-valid strings
         for key in parameters:
-            print(f"looking at key {key}")
             if isinstance(parameters[key], (dict, list)):  # TODO: discuss best way to filter
                 try:
-                    print(f"converting for key {key}")
-                    print(f"from: {parameters[key]}")
                     parameters[key] = json.dumps(parameters[key])
-                    print(f"to: {parameters[key]}")
                 except:
                     raise TypeError(f"Parameter with key '{key}' not supported.\n"
                                     "Supported types are str and json-convertible objects")
