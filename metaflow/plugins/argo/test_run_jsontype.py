@@ -9,16 +9,17 @@ parameters_valid = {'str_to_list': "[1, 2, 3, 4, 5]",
                     'list_param': ["this", "is", "a", "list"],
                     'dict_param': {"e": [4,5,6], "f": 22, "starts_as_dict": "yes"},
                     }
+# NOTE: Metaflow Parameter objects only support complex data types in JSON formats.
 parameters_invalid = {'set_param': {1, 2, 3, 4, 5},
                       'set_in_list_param': {"c": [1, 2, 3], "d": 99, "set_here": {"a"}},
                       }
-# NOTE: Metaflow Parameter objects only support complex data types in JSON formats.
+parameters_alt = {'alt_param': [1, 2, 999]}
 
 run = trigger_live_run(
     plugin_name='Argo',
     flow_name=flow_name,
     alt_flow_id_info={'template_name': template_name},
-    parameters=parameters_valid,  # None, parameters_valid, parameters_invalid
+    parameters=parameters_valid,  # None, parameters_valid, parameters_invalid, parameters_alt
     wait=False,
 )
 
