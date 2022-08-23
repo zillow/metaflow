@@ -1,4 +1,4 @@
-from metaflow.plugins.argo.argo_live_run import ArgoLiveRun
+from metaflow.plugins.argo.argo_live_run_class import ArgoLiveRun
 
 def trigger_live_run(
     plugin_name: str = 'Argo',  # TODO: change default to None after testing
