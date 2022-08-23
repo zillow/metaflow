@@ -18,44 +18,60 @@ class LiveRun:
 
     @classmethod
     def trigger_live_run(cls) -> None:
-        raise Exception("Error occurred because either LiveRun class was"
-                        "instantiated or child class did not override method")
+        raise Exception(
+            "Error occurred because either LiveRun class was"
+            "instantiated or child class did not override method"
+        )
 
     @property
     def flow_name(self) -> str:
-        raise Exception("Error occurred because either LiveRun class was"
-                        "instantiated or child class did not override method")
+        raise Exception(
+            "Error occurred because either LiveRun class was"
+            "instantiated or child class did not override method"
+        )
 
     @property
     def has_triggered(self) -> bool:
-        raise Exception("Error occurred because either LiveRun class was"
-                        "instantiated or child class did not override method")
+        raise Exception(
+            "Error occurred because either LiveRun class was"
+            "instantiated or child class did not override method"
+        )
 
     @property
     def is_running(self) -> bool:
-        raise Exception("Error occurred because either LiveRun class was"
-                        "instantiated or child class did not override method")
+        raise Exception(
+            "Error occurred because either LiveRun class was"
+            "instantiated or child class did not override method"
+        )
 
     @property
     def successful(self) -> bool:
-        raise Exception("Error occurred because either LiveRun class was"
-                        "instantiated or child class did not override method")
+        raise Exception(
+            "Error occurred because either LiveRun class was"
+            "instantiated or child class did not override method"
+        )
 
     @property
     def failed_steps(self) -> list:
-        raise Exception("Error occurred because either LiveRun class was"
-                        "instantiated or child class did not override method")
+        raise Exception(
+            "Error occurred because either LiveRun class was"
+            "instantiated or child class did not override method"
+        )
 
     @property
     def exceptions(self) -> dict:
-        raise Exception("Error occurred because either LiveRun class was"
-                        "instantiated or child class did not override method")
+        raise Exception(
+            "Error occurred because either LiveRun class was"
+            "instantiated or child class did not override method"
+        )
 
     def _print_status(self):
-        print(f"""Current run properties:
+        print(
+            f"""Current run properties:
         Has Triggered:    {self.has_triggered}
         Is Running:       {self.is_running}
         Successful:       {self.successful}
         Failed Steps:     {self.failed_steps}
         Exceptions:       {self.exceptions}
-        """)
+        """
+        )

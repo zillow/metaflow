@@ -1,7 +1,8 @@
 from metaflow.plugins.argo.argo_live_run_class import ArgoLiveRun
 
+
 def trigger_live_run(
-    plugin_name: str = 'Argo',  # TODO: change default to None after testing
+    plugin_name: str = "Argo",  # TODO: change default to None after testing
     flow_name: str = None,
     alt_flow_id_info: dict = None,
     parameters: dict = None,
@@ -37,14 +38,16 @@ def trigger_live_run(
         alt_flow_id_info = {}
 
     plugin_live_run_classes = {
-        'Argo': ArgoLiveRun
+        "Argo": ArgoLiveRun
         # Other plugins (like KFP) can be added over time
     }
     if plugin_name not in plugin_live_run_classes:
-        raise ValueError(f"""
+        raise ValueError(
+            f"""
     plugin_name '{plugin_name}' is not supported
     Supported plugins include: {[key for key in plugin_live_run_classes]}
-        """)
+        """
+        )
 
     live_run_class = plugin_live_run_classes[plugin_name]
 

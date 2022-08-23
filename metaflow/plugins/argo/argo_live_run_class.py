@@ -41,8 +41,8 @@ class ArgoLiveRun(LiveRun):
             alt_flow_id_info = {}
 
         template_name = None
-        if 'template_name' in alt_flow_id_info:
-            template_name = alt_flow_id_info['template_name']
+        if "template_name" in alt_flow_id_info:
+            template_name = alt_flow_id_info["template_name"]
 
         if flow_name is None and template_name is None:
             raise ValueError("no Metaflow flow or Argo template specified")
@@ -93,12 +93,16 @@ class ArgoLiveRun(LiveRun):
 
         # convert dicts/lists to json-valid strings
         for key in parameters:
-            if isinstance(parameters[key], (dict, list)):  # TODO: discuss best way to filter
+            if isinstance(
+                parameters[key], (dict, list)
+            ):  # TODO: discuss best way to filter
                 try:
                     parameters[key] = json.dumps(parameters[key])
                 except:
-                    raise TypeError(f"Parameter with key '{key}' not supported.\n"
-                                    "Supported types are str and json-convertible objects")
+                    raise TypeError(
+                        f"Parameter with key '{key}' not supported.\n"
+                        "Supported types are str and json-convertible objects"
+                    )
 
         print(f"template name: {live_run._template_name}")
 
@@ -141,7 +145,9 @@ class ArgoLiveRun(LiveRun):
                 )
             time.sleep(1)
         else:
-            raise TimeoutError(f"Failed to trigger Argo workflow within {wait_to_trigger} seconds")
+            raise TimeoutError(
+                f"Failed to trigger Argo workflow within {wait_to_trigger} seconds"
+            )
 
         # optional wait for argo workflow to finish running
         if wait:
@@ -160,7 +166,9 @@ class ArgoLiveRun(LiveRun):
                 loop_counter += 1
                 time.sleep(5)
             else:
-                raise TimeoutError(f"Failed to begin running within {wait_timeout} minutes")
+                raise TimeoutError(
+                    f"Failed to begin running within {wait_timeout} minutes"
+                )
 
             success_statement = (
                 "successfully!!!" if live_run.successful else "unsuccessfully."
@@ -176,7 +184,7 @@ class ArgoLiveRun(LiveRun):
     def flow_name(self) -> str:
         if self._flow_name is None:
             workflow = self._argo_client.get_workflow(self._argo_run_id)
-            self._flow_name = workflow['metadata']['annotations']['metaflow/flow_name']
+            self._flow_name = workflow["metadata"]["annotations"]["metaflow/flow_name"]
         return self._flow_name
 
     @property
@@ -187,11 +195,10 @@ class ArgoLiveRun(LiveRun):
         workflow = self._argo_client.get_workflow(self._argo_run_id)
         if workflow.get("status"):
             self._cached_status = workflow["status"].get("phase")
-            if self._cached_status == 'Error':
+            if self._cached_status == "Error":
                 self._error_message = workflow["status"].get("message")
 
         return self._cached_status
-
 
     @property
     def has_triggered(self) -> bool:
