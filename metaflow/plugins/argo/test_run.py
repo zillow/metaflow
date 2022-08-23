@@ -14,9 +14,9 @@ run = trigger_live_run(
 print(f"\nRunning flow {run.flow_name}")
 start_time = time.time()
 while run.is_running:
-    print(f"Status (private): '{run._plugin_run._status}' after {int((time.time()-start_time)//1)} seconds")
-    run._plugin_run._print_status()
+    print(f"Status (private): '{run._status}' after {int((time.time()-start_time)//1)} seconds")
+    run._print_status()
     time.sleep(15 - (time.time() - start_time) % 15)
 
-print(f"Final status (private): {run._plugin_run._status} after {int((time.time()-start_time)//1)} seconds")
-run._plugin_run._print_status()
+print(f"Final status (private): {run._status} after {int((time.time()-start_time)//1)} seconds")
+run._print_status()
