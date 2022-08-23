@@ -1,7 +1,7 @@
 from metaflow.plugins.argo.argo_client import ArgoClient
 from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 from metaflow.exception import MetaflowNotFound, MetaflowException
-from .live_run_class import LiveRun
+from .live_run import LiveRun
 import json
 import time
 

@@ -1,1 +1,1 @@
-from .trigger_live_run_func import trigger_live_run
+from .trigger_live_run import trigger_live_run

@@ -1,4 +1,4 @@
-from metaflow.plugins.argo.argo_live_run_class import ArgoLiveRun
+from metaflow.plugins.argo.argo_live_run import ArgoLiveRun
 
 
 def trigger_live_run(
