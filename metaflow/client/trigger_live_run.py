@@ -40,10 +40,8 @@ def trigger_live_run(
     }
     if plugin_name not in plugin_live_run_classes:
         raise ValueError(
-            f"""
-    plugin_name '{plugin_name}' is not supported
-    Supported plugins include: {[key for key in plugin_live_run_classes]}
-        """
+            f"plugin_name '{plugin_name}' is not supported\n"
+            f"Supported plugins include: {[key for key in plugin_live_run_classes]}"
         )
 
     live_run_class = plugin_live_run_classes[plugin_name]

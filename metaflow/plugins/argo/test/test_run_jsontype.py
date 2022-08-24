@@ -10,6 +10,11 @@ parameters_valid = {
     "str_to_dict": '{"c": [1, 2, 3], "d": 99, "is_input_param": "yes"}',
     "list_param": ["this", "is", "a", "list"],
     "dict_param": {"e": [4, 5, 6], "f": 22, "starts_as_dict": "yes"},
+    "reg_str": "this is a string",
+    "date_key": "2020-01-01",
+    "integer": 1,
+    "boolean": True,
+    "float": 123.456,
 }
 # NOTE: Metaflow Parameter objects only support complex data types in JSON formats.
 parameters_invalid = {

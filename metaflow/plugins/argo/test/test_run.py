@@ -11,9 +11,6 @@ run = trigger_live_run(
     template_name=template_name,
     parameters=None,
     wait=False,
-    x=2,
-    y=55,
-    z="zzzzz top",  # testing what happens when there are additional, unused kwargs
 )
 
 print(f"\nRunning flow {run.flow_name}")

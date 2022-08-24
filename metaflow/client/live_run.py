@@ -30,10 +30,24 @@ class LiveRun:
 
     @property
     def flow_name(self) -> str:
+        """
+        Returns Metaflow flow name.
+
+        NOTE: The method will never actually return None because instances of
+        child classes should only be created using the classmethod 'trigger',
+        and trigger populates flow_name with the correct info before returning.
+        """
         return self._flow_name  # TODO: raise exception if None???
 
     @property
     def run_id(self) -> str:
+        """
+        Returns Metaflow run id.
+
+        NOTE: The method will never actually return None because instances of
+        child classes should only be created using the classmethod 'trigger',
+        and trigger populates run_id with the correct info before returning.
+        """
         return self._metaflow_run_id  # TODO: raise exception if None???
 
     @property

@@ -35,7 +35,7 @@ class ArgoLiveRun(LiveRun):
         """
         super().__init__()
 
-        # confirm that a flow_name or template_name exists w/o conflict
+        # confirm that flow_name or template_name exists & w/o conflict
         if flow_name is None and template_name is None:
             raise ValueError("no Metaflow flow or Argo template specified")
 
@@ -125,6 +125,7 @@ class ArgoLiveRun(LiveRun):
         start_time = time.time()
         while wait_to_trigger > time.time() - start_time:
             if live_run.has_triggered:
+                live_run._update_flow_name()
                 print(
                     f"Run triggered successfully.\n"
                     f"    - Metaflow flow:   {live_run.flow_name}\n"
@@ -199,7 +200,6 @@ class ArgoLiveRun(LiveRun):
             return True
 
         elif self._status and self._status != "Error":
-            self._update_flow_name()
             self._has_triggered = True
 
         return self._has_triggered
