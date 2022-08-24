@@ -3,7 +3,7 @@ from .live_run import LiveRun
 
 
 def trigger_live_run(
-    plugin_name: str = None,
+    plugin_name: str = None,  # TODO: use metaflow configs so 'Argo' is default
     flow_name: str = None,
     parameters: dict = None,
     wait: bool = True,
