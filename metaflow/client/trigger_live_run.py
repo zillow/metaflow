@@ -3,7 +3,7 @@ from .live_run import LiveRun
 
 
 def trigger_live_run(
-    plugin_name: str = "Argo",  # TODO: change default to None after testing
+    plugin_name: str = None,
     flow_name: str = None,
     parameters: dict = None,
     wait: bool = True,
