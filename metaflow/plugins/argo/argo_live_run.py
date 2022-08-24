@@ -1,8 +1,8 @@
+from __future__ import annotations
 from metaflow.plugins.argo.argo_client import ArgoClient
 from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 from metaflow.exception import MetaflowNotFound, MetaflowException
 from metaflow.client.live_run import LiveRun
-from __future__ import annotations
 import json
 import time
 
@@ -22,11 +22,7 @@ class ArgoLiveRun(LiveRun):
     and was successful, as well as for failed steps, and exceptions.
     """
 
-    def __init__(
-        self,
-        flow_name: str = None,
-        **kwargs,
-    ):
+    def __init__(self, flow_name: str = None, template_name: str = None):
         """
         Initialize an ArgoLiveRun object without triggering flow.
 
@@ -37,11 +33,9 @@ class ArgoLiveRun(LiveRun):
         template_name: str
             Name of Argo workflow template to trigger run
         """
-        # confirm that a flow_name or template_name exists w/o conflict
-        template_name = None
-        if "template_name" in kwargs:
-            template_name = kwargs["template_name"]
+        super().__init__()
 
+        # confirm that a flow_name or template_name exists w/o conflict
         if flow_name is None and template_name is None:
             raise ValueError("no Metaflow flow or Argo template specified")
 
@@ -86,7 +80,8 @@ class ArgoLiveRun(LiveRun):
             time (in minutes) to wait for run to finish
         """
 
-        live_run = cls(flow_name, kwargs)
+        template_name = kwargs.get("template_name")
+        live_run = cls(flow_name=flow_name, template_name=template_name)
 
         if parameters is None:
             parameters = {}
@@ -98,7 +93,7 @@ class ArgoLiveRun(LiveRun):
             ):  # TODO: discuss best way to filter
                 try:
                     parameters[key] = json.dumps(parameters[key])
-                except:
+                except TypeError:
                     raise TypeError(
                         f"Parameter with key '{key}' not supported.\n"
                         "Supported types are str and json-convertible objects"

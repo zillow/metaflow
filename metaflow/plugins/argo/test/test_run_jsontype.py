@@ -1,6 +1,7 @@
 from metaflow.client.trigger_live_run import trigger_live_run  # trigger
 import time
 
+
 flow_name = None  # "HelloArgoFlowTwo", "HelloJSONType", None
 template_name = "hellojsontype"  # "helloargoflowtwo", "hellojsontype", None
 
@@ -29,12 +30,12 @@ print(f"\nRunning flow {run.flow_name}")
 start_time = time.time()
 while run.is_running:
     print(
-        f"Status (private): '{run._status}' after {int((time.time()-start_time)//1)} seconds"
+        f"Status (Argo-only): '{run._status}' after {int((time.time()-start_time)//1)} seconds"
     )
     run._print_status()
     time.sleep(15 - (time.time() - start_time) % 15)
 
 print(
-    f"Final status (private): {run._status} after {int((time.time()-start_time)//1)} seconds"
+    f"Final status (Argo-only): {run._status} after {int((time.time()-start_time)//1)} seconds"
 )
 run._print_status()
