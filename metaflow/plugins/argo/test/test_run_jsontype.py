@@ -15,6 +15,7 @@ parameters_valid = {
     "integer": 1,
     "boolean": True,
     "float": 123.456,
+    # TODO: Add params to Flow for types: str, int, bool, float
 }
 # NOTE: Metaflow Parameter objects only support complex data types in JSON formats.
 parameters_invalid = {
