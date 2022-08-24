@@ -1,7 +1,8 @@
 from metaflow.plugins.argo.argo_client import ArgoClient
 from metaflow.metaflow_config import KUBERNETES_NAMESPACE
 from metaflow.exception import MetaflowNotFound, MetaflowException
-from .live_run import LiveRun
+from metaflow.client.live_run import LiveRun
+from __future__ import annotations
 import json
 import time
 
@@ -24,7 +25,7 @@ class ArgoLiveRun(LiveRun):
     def __init__(
         self,
         flow_name: str = None,
-        alt_flow_id_info: dict = None,
+        **kwargs,
     ):
         """
         Initialize an ArgoLiveRun object without triggering flow.
@@ -33,16 +34,11 @@ class ArgoLiveRun(LiveRun):
         ----------
         flow_name: str
             Name of Metaflow flow to trigger run
-        alt_flow_id_info: dict
-            Alternative identifying information of flow to trigger run
         """
         # confirm that a flow_name or template_name exists w/o conflict
-        if alt_flow_id_info is None:
-            alt_flow_id_info = {}
-
         template_name = None
-        if "template_name" in alt_flow_id_info:
-            template_name = alt_flow_id_info["template_name"]
+        if "template_name" in kwargs:
+            template_name = kwargs["template_name"]
 
         if flow_name is None and template_name is None:
             raise ValueError("no Metaflow flow or Argo template specified")
@@ -65,19 +61,21 @@ class ArgoLiveRun(LiveRun):
         self._error_message = None
 
     @classmethod
-    def trigger_live_run(
+    def trigger(
         cls,
         flow_name: str = None,
-        alt_flow_id_info: dict = None,
         parameters: dict = None,
         wait: bool = True,
         wait_timeout: int = 30,  # in minutes TODO: determine proper timeout
-    ):  # -> ArgoLiveRun
+        **kwargs,
+    ) -> ArgoLiveRun:
         """
         Trigger flow.
 
         Parameters
         ----------
+        flow_name: str
+            Name of Metaflow flow to trigger run
         parameters: dict
             The information passed in to affect how run is triggered
         wait: bool
@@ -86,7 +84,7 @@ class ArgoLiveRun(LiveRun):
             time (in minutes) to wait for run to finish
         """
 
-        live_run = ArgoLiveRun(flow_name, alt_flow_id_info)
+        live_run = cls(flow_name, kwargs)
 
         if parameters is None:
             parameters = {}
@@ -181,13 +179,6 @@ class ArgoLiveRun(LiveRun):
         return live_run
 
     @property
-    def flow_name(self) -> str:
-        if self._flow_name is None:
-            workflow = self._argo_client.get_workflow(self._argo_run_id)
-            self._flow_name = workflow["metadata"]["annotations"]["metaflow/flow_name"]
-        return self._flow_name
-
-    @property
     def _status(self) -> str:
         if self._cached_status in ["Error", "Failed", "Succeeded"]:
             return self._cached_status
@@ -200,12 +191,18 @@ class ArgoLiveRun(LiveRun):
 
         return self._cached_status
 
+    def _update_flow_name(self):
+        if self._flow_name is None:
+            workflow = self._argo_client.get_workflow(self._argo_run_id)
+            self._flow_name = workflow["metadata"]["annotations"]["metaflow/flow_name"]
+
     @property
     def has_triggered(self) -> bool:
         if self._has_triggered:
             return True
 
         elif self._status and self._status != "Error":
+            self._update_flow_name()
             self._has_triggered = True
 
         return self._has_triggered

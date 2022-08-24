@@ -1,4 +1,4 @@
-from metaflow.plugins.argo import trigger_live_run  # trigger_live_run
+from metaflow.client.trigger_live_run import trigger_live_run  # trigger
 import time
 
 flow_name = None  # "HelloArgoFlowTwo", "HelloJSONType", None
@@ -20,7 +20,7 @@ parameters_alt = {"alt_param": [1, 2, 999]}
 run = trigger_live_run(
     plugin_name="Argo",
     flow_name=flow_name,
-    alt_flow_id_info={"template_name": template_name},
+    template_name=template_name,
     parameters=parameters_valid,  # None, parameters_valid, parameters_invalid, parameters_alt
     wait=False,
 )

@@ -1,4 +1,4 @@
-from metaflow.plugins.argo import trigger_live_run  # trigger_live_run
+from metaflow.client.trigger_live_run import trigger_live_run  # trigger
 import time
 
 flow_name = None  # "HelloArgoFlowTwo", "FailureFlow", "MissingFlow", None
@@ -8,7 +8,7 @@ template_name = (
 run = trigger_live_run(
     plugin_name="Argo",
     flow_name=flow_name,
-    alt_flow_id_info={"template_name": template_name},
+    template_name=template_name,
     parameters=None,
     wait=False,
 )

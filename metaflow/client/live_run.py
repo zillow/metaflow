@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class LiveRun:
     """
     This object allows users to access information relating to the run it
@@ -15,9 +18,11 @@ class LiveRun:
         not intended to be instantiated.
 
         """
+        self._flow_name = None
+        self._metaflow_run_id = None
 
     @classmethod
-    def trigger_live_run(cls) -> None:
+    def trigger(cls, **kwargs) -> LiveRun:
         raise Exception(
             "Error occurred because either LiveRun class was"
             "instantiated or child class did not override method"
@@ -25,10 +30,11 @@ class LiveRun:
 
     @property
     def flow_name(self) -> str:
-        raise Exception(
-            "Error occurred because either LiveRun class was"
-            "instantiated or child class did not override method"
-        )
+        return self._flow_name  # TODO: raise exception if None???
+
+    @property
+    def run_id(self) -> str:
+        return self._metaflow_run_id  # TODO: raise exception if None???
 
     @property
     def has_triggered(self) -> bool:

@@ -1,14 +1,15 @@
 from metaflow.plugins.argo.argo_live_run import ArgoLiveRun
+from .live_run import LiveRun
 
 
 def trigger_live_run(
     plugin_name: str = "Argo",  # TODO: change default to None after testing
     flow_name: str = None,
-    alt_flow_id_info: dict = None,
     parameters: dict = None,
     wait: bool = True,
     wait_timeout: int = 30,  # in minutes
-):  # -> LiveRun
+    **kwargs,
+) -> LiveRun:
     """
     Triggers run of Metaflow flow and returns LiveRun object.
 
@@ -25,8 +26,6 @@ def trigger_live_run(
         The name of the plugin used to trigger this run
     flow_name: str
         Name of Metaflow flow to trigger run
-    alt_flow_id_info: dict
-        Alternative identifying information of flow to trigger run
     parameters: dict
         The information passed in to affect how run is triggered
     wait: bool
@@ -34,8 +33,6 @@ def trigger_live_run(
     wait_timeout: int
         time (in mins) to wait for run to complete
     """
-    if alt_flow_id_info is None:
-        alt_flow_id_info = {}
 
     plugin_live_run_classes = {
         "Argo": ArgoLiveRun
@@ -51,10 +48,10 @@ def trigger_live_run(
 
     live_run_class = plugin_live_run_classes[plugin_name]
 
-    return live_run_class.trigger_live_run(
+    return live_run_class.trigger(
         flow_name,
-        alt_flow_id_info,
         parameters,
         wait,
         wait_timeout,
+        **kwargs,
     )
