@@ -1,14 +1,13 @@
-from metaflow import FlowSpec, step, Parameter
+from metaflow import FlowSpec, step
 
 
-class HelloArgoFlowTwo(FlowSpec):
+class FailureFlow(FlowSpec):
     """
-    A flow where Metaflow prints 'Hi'.
+    This flow fails.
 
-    Run this flow to validate that Metaflow is installed correctly.
+    Use this flow to test flow-triggering-flow function's ability to respond to failing flow.
 
     """
-    date_key: str = Parameter("date_key", default="2020-07-23")
 
     @step
     def start(self):
@@ -17,18 +16,20 @@ class HelloArgoFlowTwo(FlowSpec):
         is the first step in the flow.
 
         """
-        print("HelloFlow is starting.")
+        print("FailureFlow is starting.")
         self.next(self.hello)
 
     @step
     def hello(self):
-        """
-        A step for metaflow to introduce itself.
+        print("hey")
+        self.next(self.failure_step)
 
-        """
-        print("Metaflow says: Hi from the inner loop?!")
-        print(self.date_key)
-        
+    @step
+    def failure_step(self):
+        print("this should fail")
+        x = 2
+        if x > 0:
+            raise Exception("Failure flow failed!")
         self.next(self.end)
 
     @step
@@ -42,4 +43,4 @@ class HelloArgoFlowTwo(FlowSpec):
 
 
 if __name__ == "__main__":
-    HelloArgoFlowTwo()
+    FailureFlow()

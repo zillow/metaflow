@@ -7,18 +7,16 @@ class HelloJSONType(FlowSpec):
 
     """
 
-    str_to_list = Parameter("str_to_list",
-                            type=JSONType,
-                            default="[1, 2, 3]")
-    str_to_dict = Parameter("str_to_dict",
-                            type=JSONType,
-                            default='{"one": 1, "two": 2, "three": 3}')
-    list_param = Parameter("list_param",
-                           type=JSONType,
-                           default="[1, 2, 3]")
-    dict_param = Parameter("dict_param",
-                           type=JSONType,
-                           default='{"one": 1, "two": 2, "nine": 9}')
+    str_to_list = Parameter("str_to_list", type=JSONType, default="[1, 2, 3]")
+    str_to_dict = Parameter(
+        "str_to_dict", type=JSONType, default='{"one": 1, "two": 2, "three": 3}'
+    )
+    list_param = Parameter("list_param", type=JSONType, default="[1, 2, 3]")
+    dict_param = Parameter(
+        "dict_param", type=JSONType, default='{"one": 1, "two": 2, "nine": 9}'
+    )
+    # TODO: Add params for testing and check in hello step:
+    #           types: str, int, bool, float
 
     @step
     def start(self):
@@ -41,7 +39,7 @@ class HelloJSONType(FlowSpec):
         print(f"str_to_dict - type: {type(self.str_to_dict)}, data: {self.str_to_dict}")
         print(f"list_param - type: {type(self.list_param)}, data: {self.list_param}")
         print(f"dict_param - type: {type(self.dict_param)}, data: {self.dict_param}")
-        
+
         self.next(self.end)
 
     @step
