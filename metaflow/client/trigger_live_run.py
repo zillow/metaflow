@@ -34,8 +34,6 @@ def trigger_live_run(
         time (in mins) to wait for run to complete
     """
 
-    print("this is a test - DELETE THIS")
-
     plugin_live_run_classes = {
         "Argo": ArgoLiveRun
         # Other plugins (like KFP) can be added over time
