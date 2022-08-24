@@ -34,6 +34,8 @@ class ArgoLiveRun(LiveRun):
         ----------
         flow_name: str
             Name of Metaflow flow to trigger run
+        template_name: str
+            Name of Argo workflow template to trigger run
         """
         # confirm that a flow_name or template_name exists w/o conflict
         template_name = None

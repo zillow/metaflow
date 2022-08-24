@@ -23,7 +23,7 @@ class LiveRun:
 
     @classmethod
     def trigger(cls, **kwargs) -> LiveRun:
-        raise Exception(
+        raise NotImplementedError(
             "Error occurred because either LiveRun class was"
             "instantiated or child class did not override method"
         )
@@ -38,35 +38,35 @@ class LiveRun:
 
     @property
     def has_triggered(self) -> bool:
-        raise Exception(
+        raise NotImplementedError(
             "Error occurred because either LiveRun class was"
             "instantiated or child class did not override method"
         )
 
     @property
     def is_running(self) -> bool:
-        raise Exception(
+        raise NotImplementedError(
             "Error occurred because either LiveRun class was"
             "instantiated or child class did not override method"
         )
 
     @property
     def successful(self) -> bool:
-        raise Exception(
+        raise NotImplementedError(
             "Error occurred because either LiveRun class was"
             "instantiated or child class did not override method"
         )
 
     @property
     def failed_steps(self) -> list:
-        raise Exception(
+        raise NotImplementedError(
             "Error occurred because either LiveRun class was"
             "instantiated or child class did not override method"
         )
 
     @property
     def exceptions(self) -> dict:
-        raise Exception(
+        raise NotImplementedError(
             "Error occurred because either LiveRun class was"
             "instantiated or child class did not override method"
         )

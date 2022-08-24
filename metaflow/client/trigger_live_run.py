@@ -11,7 +11,7 @@ def trigger_live_run(
     **kwargs,
 ) -> LiveRun:
     """
-    Triggers run of Metaflow flow and returns LiveRun object.
+    Triggers run of Metaflow flow and returns an object in the LiveRun family.
 
     This function takes in the name of a plugin and uses that plugin to create
     a [Plugin]LiveRun object. Then, a generic LiveRun object is created and the
