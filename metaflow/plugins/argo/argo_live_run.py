@@ -99,7 +99,7 @@ class ArgoLiveRun(LiveRun):
                         "Supported types are str and json-convertible objects"
                     )
 
-        print(f"template name: {live_run._template_name}")
+        print(f"template name: {live_run._template_name}\n")
 
         # trigger run and retrieve id info
         flow_information = live_run._argo_client.trigger_workflow_template(
@@ -147,10 +147,10 @@ class ArgoLiveRun(LiveRun):
 
         # optional wait for argo workflow to finish running
         if wait:
-            print("\nWaiting for run to finish...")
+            print("Waiting for run to finish...")
             live_run._wait(wait_timeout)
         else:
-            print("\nNot waiting for run to finish")
+            print("Not waiting for run to finish")
 
         return live_run
 
@@ -166,9 +166,9 @@ class ArgoLiveRun(LiveRun):
                     f" minutes out of a possible {wait_timeout}"
                 )
             loop_counter += 1
-            time.sleep(5)
+            time.sleep(5 - ((time.time() - start_time) % 5))
         else:
-            raise TimeoutError(f"Failed to begin running within {wait_timeout} minutes")
+            raise TimeoutError(f"Failed to complete run within {wait_timeout} minutes")
 
         success_statement = "successfully!!!" if self.successful else "unsuccessfully."
         print(f"\nRun completed {success_statement}")
