@@ -2,6 +2,7 @@ from metaflow.client.trigger_live_run import trigger_live_run  # trigger
 import time
 
 
+start_time = time.time()
 flow_name = None  # "HelloArgoFlowTwo", "HelloJSONType", None
 template_name = "hellojsontype"  # "helloargoflowtwo", "hellojsontype", None
 
@@ -15,7 +16,7 @@ parameters_valid = {
     "integer": 1,
     "boolean": True,
     "float": 123.456,
-    # TODO: Add params to Flow for types: str, int, bool, float
+    # TODO: Add all params for testing into HelloJSONType flow
 }
 # NOTE: Metaflow Parameter objects only support complex data types in JSON formats.
 parameters_invalid = {
@@ -33,7 +34,6 @@ run = trigger_live_run(
 )
 
 print(f"\nRunning flow {run.flow_name}")
-start_time = time.time()
 while run.is_running:
     print(
         f"Status (Argo-only): '{run._status}' after {int((time.time()-start_time)//1)} seconds"

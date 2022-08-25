@@ -118,7 +118,7 @@ class ArgoLiveRun(LiveRun):
         print(
             f"Attempting to trigger a run of a Metaflow flow:\n"
             f"    - Metaflow run id: {live_run._metaflow_run_id}\n"
-            f"    - k8s namespace: {run_kubernetes_namespace}"
+            f"    - k8s namespace: {run_kubernetes_namespace}\n"
         )
 
         wait_to_trigger = 20  # wait time is 20 seconds
@@ -147,34 +147,31 @@ class ArgoLiveRun(LiveRun):
 
         # optional wait for argo workflow to finish running
         if wait:
-            print("Now we will wait for the flow to finish")
-
-            start_time = time.time()
-            loop_counter = 0
-            while wait_timeout * 60 > time.time() - start_time:
-                if not live_run.is_running:
-                    break
-                if loop_counter % 12 == 0:
-                    print(
-                        f"Time waited: {int((time.time() - start_time)/60)}"
-                        f" minutes out of a possible {wait_timeout}"
-                    )
-                loop_counter += 1
-                time.sleep(5)
-            else:
-                raise TimeoutError(
-                    f"Failed to begin running within {wait_timeout} minutes"
-                )
-
-            success_statement = (
-                "successfully!!!" if live_run.successful else "unsuccessfully."
-            )
-            print(f"\nRun completed {success_statement}")
-
+            print("\nWaiting for run to finish...")
+            live_run._wait(wait_timeout)
         else:
             print("\nNot waiting for run to finish")
 
         return live_run
+
+    def _wait(self, wait_timeout) -> None:
+        start_time = time.time()
+        loop_counter = 0
+        while wait_timeout * 60 > time.time() - start_time:
+            if not self.is_running:
+                break
+            if loop_counter % 12 == 0:
+                print(
+                    f"Time waited: {int((time.time() - start_time) / 60)}"
+                    f" minutes out of a possible {wait_timeout}"
+                )
+            loop_counter += 1
+            time.sleep(5)
+        else:
+            raise TimeoutError(f"Failed to begin running within {wait_timeout} minutes")
+
+        success_statement = "successfully!!!" if self.successful else "unsuccessfully."
+        print(f"\nRun completed {success_statement}")
 
     @property
     def _status(self) -> str:
