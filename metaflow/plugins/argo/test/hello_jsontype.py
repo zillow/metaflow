@@ -15,8 +15,14 @@ class HelloJSONType(FlowSpec):
     dict_param = Parameter(
         "dict_param", type=JSONType, default='{"one": 1, "two": 2, "nine": 9}'
     )
-    # TODO: Add params for testing and check in hello step:
-    #           types: str, int, bool, float
+    # TODO: Add below params for testing and check them in hello step
+    """
+    "reg_str": "this is a string",
+    "date_key": "2020-01-01",
+    "integer": 1,
+    "boolean": True,
+    "float": 123.456,
+    """
 
     @step
     def start(self):
