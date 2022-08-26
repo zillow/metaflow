@@ -3,7 +3,7 @@ import time
 
 
 start_time = time.time()
-flow_name = None  # "HelloArgoFlowTwo", "HelloJSONType", None
+flow_name = None  # "HelloArgoFlowTwo", "TriggerSuccessFlow", None
 template_name = "hellojsontype"  # "helloargoflowtwo", "hellojsontype", None
 
 parameters_valid = {
@@ -16,7 +16,7 @@ parameters_valid = {
     "integer": 1,
     "boolean": True,
     "float": 123.456,
-    # TODO: Add all params for testing into HelloJSONType flow
+    # TODO: Add all params for testing into TriggerSuccessFlow flow
 }
 # NOTE: Metaflow Parameter objects only support complex data types in JSON formats.
 parameters_invalid = {

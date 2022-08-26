@@ -1,7 +1,7 @@
 from metaflow import FlowSpec, step
 
 
-class FailureFlow(FlowSpec):
+class TriggerFailureFlow(FlowSpec):
     """
     This flow fails.
 
@@ -16,7 +16,7 @@ class FailureFlow(FlowSpec):
         is the first step in the flow.
 
         """
-        print("FailureFlow is starting.")
+        print("TriggerFailureFlow is starting.")
         self.next(self.hello)
 
     @step
@@ -43,4 +43,4 @@ class FailureFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    FailureFlow()
+    TriggerFailureFlow()

@@ -1,13 +1,12 @@
 from metaflow.client.trigger_live_run import trigger_live_run
 import time
-import pytest
 
 
 """
 Tests:
     - a flow that triggers a flow (outer flow)
     - plugin_name: None, KFP
-    - flow_name: "HelloArgoFlowTwo", "FailureFlow", "MissingFlow", "HelloJSONType", None, OuterFlow
+    - flow_name: "HelloArgoFlowTwo", "TriggerFailureFlow", "MissingFlow", "TriggerSuccessFlow", None, OuterFlow
     - template_name: "helloargoflowtwo", "failureflow", "missingflow", "hellojsontype", None
     - parameters: None, parameters_valid, parameters_invalid, parameters_alt
     
@@ -81,7 +80,7 @@ parameters_valid = {
     "integer": 1,
     "boolean": True,
     "float": 123.456,
-    # TODO: Add all params for testing into HelloJSONType flow
+    # TODO: Add all params for testing into TriggerSuccessFlow flow
 }
 # NOTE: Metaflow Parameter objects only support complex data types in JSON formats.
 # None, parameters_valid, parameters_invalid, parameters_alt

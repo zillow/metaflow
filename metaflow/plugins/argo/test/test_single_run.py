@@ -2,7 +2,7 @@ from metaflow.client.trigger_live_run import trigger_live_run  # trigger
 import time
 
 start_time = time.time()
-flow_name = None  # "HelloArgoFlowTwo", "FailureFlow", "MissingFlow", None
+flow_name = None  # "HelloArgoFlowTwo", "TriggerFailureFlow", "MissingFlow", None
 template_name = (
     "helloargoflowtwo"  # "helloargoflowtwo", "failureflow", "missingflow", None
 )
