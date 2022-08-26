@@ -1,6 +1,11 @@
 from metaflow import FlowSpec, step
 from metaflow.client.trigger_live_run import trigger_live_run
 import time
+import sys
+import subprocess
+
+
+subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'kubernetes'])
 
 
 class LiveRunFlowTriggeringFlow(FlowSpec):
@@ -52,7 +57,7 @@ class LiveRunFlowTriggeringFlow(FlowSpec):
         while run_one.is_running:
             time.sleep(5)
 
-        # re-test properties
+        # re-test first flow properties
         assert run_one.has_triggered is True
         assert run_one.is_running is False
         assert run_one.successful is True

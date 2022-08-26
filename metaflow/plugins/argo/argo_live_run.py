@@ -62,7 +62,7 @@ class ArgoLiveRun(LiveRun):
         flow_name: str = None,
         parameters: dict = None,
         wait: bool = True,
-        wait_timeout: int = 30,  # in minutes TODO: determine proper timeout
+        wait_timeout: int = 60 * 12,  # in minutes TODO: determine proper timeout
         **kwargs,
     ) -> ArgoLiveRun:
         """
@@ -90,7 +90,7 @@ class ArgoLiveRun(LiveRun):
         for key in parameters:
             if isinstance(
                 parameters[key], (dict, list)
-            ):  # TODO: discuss best way to filter
+            ):
                 try:
                     parameters[key] = json.dumps(parameters[key])
                 except TypeError:

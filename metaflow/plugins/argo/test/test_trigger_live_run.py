@@ -38,10 +38,11 @@ def finished_message(name):
 
 
 test_case = TestCase()
-"""
-"""
 
-### Parameter Passing (flow name "LiveRunParamFlow") ###
+
+# ----------------------------------------------------------------------------
+# Parameter Passing (flow name "LiveRunParamFlow")
+# ----------------------------------------------------------------------------
 
 # successful parameter passing test
 test_name = "parameter passing"
@@ -80,7 +81,9 @@ with test_case.assertRaises(TypeError):
     )
 finished_message(test_name)
 
-### Flow Identification (flow name "LiveRunSimpleFlow") ###
+# ----------------------------------------------------------------------------
+# Flow Identification (flow name "LiveRunSimpleFlow")
+# ----------------------------------------------------------------------------
 
 # id by flow name
 test_name = "id by flow name"
@@ -161,7 +164,9 @@ with test_case.assertRaises(ValueError):
     )
 finished_message(test_name)
 
-### Plugin Name (all other tests correctly use 'Argo') ###
+# ----------------------------------------------------------------------------
+# Plugin Name (all other tests correctly use 'Argo')
+# ----------------------------------------------------------------------------
 
 # plugin name is None
 test_name = "plugin name is None"
@@ -189,7 +194,9 @@ with test_case.assertRaises(ValueError):
     )
 finished_message(test_name)
 
-### Other Tests ###
+# ----------------------------------------------------------------------------
+# Other Tests
+# ----------------------------------------------------------------------------
 
 # timeout error (flow takes too long - set wait_timeout to 0)
 test_name = "timeout error"
@@ -243,8 +250,10 @@ with test_case.assertRaises(MetaflowException):
         wait=True,
     )
 finished_message(test_name)
-"""
+
 # flow that triggers a flow (flow name "LiveRunFlowTriggeringFlow")
+# TODO: LiveRunFlowTriggeringFlow uses workaround to download k8s.
+# TODO (continued): k8s should be dependency in the image used for testing.
 test_name = "flow that triggers a flow"
 start_message(test_name)
 run = trigger_live_run(
@@ -254,4 +263,3 @@ run = trigger_live_run(
 )
 assert run.successful is True
 finished_message(test_name)
-"""
