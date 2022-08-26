@@ -36,7 +36,7 @@ class LiveRunParamFlow(FlowSpec):
         This step waits 5 seconds to let the trigger function test status.
         """
         print("LiveRunParamFlow is starting")
-        time.sleep(5)  # ensures that
+        time.sleep(5)
         self.next(self.test_params)
 
     @step
@@ -82,7 +82,6 @@ class LiveRunParamFlow(FlowSpec):
     def end(self):
         """
         This is the 'end' step.
-
         """
         print("LiveRunParamFlow is all done.")
 

@@ -2,10 +2,10 @@ from metaflow.client.trigger_live_run import trigger_live_run  # trigger
 import time
 
 start_time = time.time()
-flow_name = None  # "HelloArgoFlowTwo", "TriggerFailureFlow", "MissingFlow", None
-template_name = (
-    "helloargoflowtwo"  # "helloargoflowtwo", "failureflow", "missingflow", None
-)
+flow_name = "MissingFlow"  # "HelloArgoFlowTwo", "LiveRunFailureFlow", "MissingFlow", None
+template_name = None
+# "helloargoflowtwo", "failureflow", "missingflow", None
+
 run = trigger_live_run(
     plugin_name="Argo",
     flow_name=flow_name,
