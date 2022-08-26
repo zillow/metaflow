@@ -21,8 +21,10 @@ class LiveRunParamFlow(FlowSpec):
     float_param = Parameter("float_param", type=float, default=543.21)
 
     # parameters expected to be their default values
-    default_list = Parameter("default_list", type=JSONType, default="['a', 'b']")
-    default_dict = Parameter("default_dict", type=JSONType, default='{"for": 4, "ate": 8}')
+    default_list = Parameter("default_list", type=JSONType, default='["a", "b"]')
+    default_dict = Parameter(
+        "default_dict", type=JSONType, default='{"for": 4, "ate": 8}'
+    )
     default_str = Parameter("default_str", type=str, default="unchanged str")
     default_int = Parameter("default_int", type=int, default=1984)
     default_bool = Parameter("default_bool", type=bool, default=False)
@@ -31,7 +33,7 @@ class LiveRunParamFlow(FlowSpec):
     @step
     def start(self):
         """
-        This is the 'start' step. This step waits 5 seconds to test status.
+        This step waits 5 seconds to let the trigger function test status.
         """
         print("LiveRunParamFlow is starting")
         time.sleep(5)  # ensures that
@@ -44,7 +46,6 @@ class LiveRunParamFlow(FlowSpec):
         passed in and default values.
         """
         print("Testing correctness of parameters")
-
         expected_values = [
             # parameters w/ asserts that expect input
             (self.str_to_list, [100, 200, 300]),
@@ -55,10 +56,9 @@ class LiveRunParamFlow(FlowSpec):
             (self.date_key, "1988-10-31"),
             (self.int_param, 999),
             (self.bool_param, False),
-            (self.float_param, 789),
-
+            (self.float_param, 789.654),
             # parameters expected to be their default values
-            (self.default_list, ['a', 'b']),
+            (self.default_list, ["a", "b"]),
             (self.default_dict, {"for": 4, "ate": 8}),
             (self.default_str, "unchanged str"),
             (self.default_int, 1984),
@@ -67,11 +67,14 @@ class LiveRunParamFlow(FlowSpec):
         ]
 
         for actual, expected in expected_values:
-            print(f"testing whether {actual} == {expected}")
-            if expected is False:
-                assert (actual is expected), f"actual '{actual}' is not expected '{expected}'"
+            if expected in [False, True, None]:
+                print(f"testing whether {actual} is {expected}")
+                assert (
+                    actual is expected
+                ), f"actual '{actual}' is not expected '{expected}'"
             else:
-                assert (actual == expected), f"actual '{actual}' != expected '{expected}'"
+                print(f"testing whether {actual} == {expected}")
+                assert actual == expected, f"actual '{actual}' != expected '{expected}'"
 
         self.next(self.end)
 
