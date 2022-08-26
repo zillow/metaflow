@@ -819,15 +819,14 @@ class ArgoWorkflows(object):
             # liked to inline this ContainerTemplate and avoid scanning the workflow
             # twice, but due to issues with variable substitution, we will have to
             # live with this routine.
-            resource_requests={
+            resource_requests = {
                 "cpu": str(resources["cpu"]),
                 "memory": "%sM" % str(resources["memory"]),
                 "ephemeral-storage": "%sM" % str(resources["disk"]),
             }
 
-            resource_limits={
-                "%s.com/gpu".lower()
-                % resources["gpu_vendor"]: str(resources["gpu"])
+            resource_limits = {
+                "%s.com/gpu".lower() % resources["gpu_vendor"]: str(resources["gpu"])
                 for k in [0]
                 if resources["gpu"] is not None
             }

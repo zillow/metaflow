@@ -13,11 +13,9 @@ run = trigger_live_run(
     plugin_name="Argo",
     flow_name=flow_name,
     template_name=template_name,
-    parameters={
-        "sample_param": "sample_val"
-    },
+    parameters={"sample_param": "sample_val"},
     wait=False,
-    # wait_timeout=60  # in minutes
+    wait_timeout=60,  # in minutes
 )
 
 print(f"\nRunning flow {run.flow_name}")

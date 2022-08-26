@@ -88,9 +88,7 @@ class ArgoLiveRun(LiveRun):
 
         # convert dicts/lists to json-valid strings
         for key in parameters:
-            if isinstance(
-                parameters[key], (dict, list)
-            ):
+            if isinstance(parameters[key], (dict, list)):
                 try:
                     parameters[key] = json.dumps(parameters[key])
                 except TypeError:

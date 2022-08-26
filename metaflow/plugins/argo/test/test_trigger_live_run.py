@@ -186,7 +186,7 @@ test_name = "plugin name is 'FakePlugin'"
 start_message(test_name)
 with test_case.assertRaises(ValueError):
     run = trigger_live_run(
-        plugin_name='FakePlugin',
+        plugin_name="FakePlugin",
         flow_name="LiveRunSimpleFlow",
         template_name=None,
         parameters=None,
@@ -233,9 +233,9 @@ while run.is_running:
 assert run.has_triggered is True
 assert run.is_running is False
 assert run.successful is False
-assert run.failed_steps == ['failure_step']
+assert run.failed_steps == ["failure_step"]
 for key in run.exceptions:
-    assert 'failure_step' in key
+    assert "failure_step" in key
 finished_message(test_name)
 
 # missing flow (flow name "LiveRunMissingFlow")
