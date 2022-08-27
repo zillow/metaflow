@@ -87,10 +87,10 @@ class ArgoLiveRun(LiveRun):
             parameters = {}
 
         # convert dicts/lists to json-valid strings
-        for key in parameters:
-            if isinstance(parameters[key], (dict, list)):
+        for key, value in parameters.items():
+            if isinstance(value, (dict, list)):
                 try:
-                    parameters[key] = json.dumps(parameters[key])
+                    parameters[key] = json.dumps(value)
                 except TypeError:
                     raise TypeError(
                         f"Parameter with key '{key}' not supported.\n"
@@ -154,7 +154,7 @@ class ArgoLiveRun(LiveRun):
 
     def _wait(self, wait_timeout) -> None:
         start_time = time.time()
-        loop_counter = 0
+        loop_counter = 0  # tracks loop count so status printed every minute
         while wait_timeout * 60 > time.time() - start_time:
             if not self.is_running:
                 break
@@ -164,6 +164,8 @@ class ArgoLiveRun(LiveRun):
                     f" minutes out of a possible {wait_timeout}"
                 )
             loop_counter += 1
+            # the mod operator is used to keep each loop at exactly 5 seconds,
+            # so status can be printed every minute w/ help from loop_counter
             time.sleep(5 - ((time.time() - start_time) % 5))
         else:
             raise TimeoutError(f"Failed to complete run within {wait_timeout} minutes")
