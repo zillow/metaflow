@@ -203,7 +203,7 @@ class KubeflowPipelines(object):
             experiment_name=self.experiment,
             run_name=run_name,
             namespace=self.kfp_namespace,
-            service_account=get_notebook_metaflow_sa()
+            service_account=get_notebook_metaflow_sa(),
         )
 
     def create_kfp_pipeline_yaml(self, pipeline_file_path) -> str:
@@ -222,13 +222,13 @@ class KubeflowPipelines(object):
         # for various extensions supported by kfp
         workflow_yaml = self._client._extract_pipeline_yaml(pipeline_file_path)
 
-        workflow_yaml['spec']['serviceAccountName'] = get_notebook_metaflow_sa()
-    
+        workflow_yaml["spec"]["serviceAccountName"] = get_notebook_metaflow_sa()
+
         # use internal kfp static method to write the modified yaml back to the
-        # pipeline_file_path so we do not have to recreates kfp support for the
+        # pipeline_file_path so we do not have to recreate kfp support for the
         # various extensions it supports
         kfp.compiler.Compiler()._write_workflow(workflow_yaml, pipeline_file_path)
-        
+
         return os.path.abspath(pipeline_file_path)
 
     @staticmethod
