@@ -5,7 +5,7 @@ import unittest
 
 
 # TODO: Make tests not reliant on cluster state & allow concurrent tests (AIP-6585)
-# TODO: Create workaround to stop 'ResourceWarning' output during testing
+# TODO: Create workaround to stop 'ResourceWarning' output during testing (AIP-6586)
 """
 Tests Outline:
     - Parameter Passing
