@@ -127,7 +127,7 @@ class ArgoClient(object):
             )
 
     def trigger_workflow_template(self, name, parameters=None):
-        if parameters == None:
+        if parameters is None:
             parameters = {}
 
         body = {

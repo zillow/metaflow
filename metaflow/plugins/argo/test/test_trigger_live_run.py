@@ -5,12 +5,13 @@ import unittest
 
 
 # TODO: Make tests not reliant on cluster state & allow concurrent tests (AIP-6585)
+# TODO: Create workaround to stop 'ResourceWarning' output during testing
 """
 Tests Outline:
-    - Parameter Passing (flow name "LiveRunParamFlow")
+    - Parameter Passing
         - successful parameter passing
         - wrong type parameter passing (eg, type=set)
-    - Flow Identification (flow name "LiveRunSimpleFlow")
+    - Flow Identification
         - id by flow name
         - id by template name
         - id by both (matching)
@@ -20,10 +21,10 @@ Tests Outline:
         - None
         - 'FakePlugin'
     - Other Tests
-        - timeout error (flow takes too long - set wait_timeout to 0)
-        - failure flow (flow name "LiveRunFailureFlow")
-        - missing flow (flow name "LiveRunMissingFlow")
-        - flow that triggers a flow (flow name "LiveRunFlowTriggeringFlow")
+        - timeout error
+        - failure flow
+        - missing flow
+        - flow that triggers a flow
     - Features/aspects tested but w/o their own named tests
         - Wait Feature - no separate tests because both states (True & False)
             are incorporated into Flow Identification section
@@ -201,7 +202,7 @@ class TestTriggerLiveRun(unittest.TestCase):
 
     def test_flow_triggering_flow(self):
         # TODO: LiveRunFlowTriggeringFlow uses workaround to download k8s.
-        # TODO (continued): k8s should be dependency in the image used for testing.
+        # TODO (continued): k8s should be dependency in testing image.
         run = trigger_live_run(
             plugin_name="Argo",
             flow_name="LiveRunFlowTriggeringFlow",
