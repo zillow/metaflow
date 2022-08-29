@@ -154,19 +154,19 @@ class ArgoLiveRun(LiveRun):
 
     def _wait(self, wait_timeout) -> None:
         start_time = time.time()
-        loop_counter = 0  # tracks loop count so status printed every minute
+        status_check_interval = 5  # in seconds
+        status_check_count = 0
+        status_report_interval = 12
         while wait_timeout * 60 > time.time() - start_time:
             if not self.is_running:
                 break
-            if loop_counter % 12 == 0:
+            if status_check_count % status_report_interval == 0:
                 print(
                     f"Time waited: {int((time.time() - start_time) / 60)}"
-                    f" minutes out of a possible {wait_timeout}"
+                    f" minutes out of {wait_timeout} minute limit for timeout"
                 )
-            loop_counter += 1
-            # the mod operator is used to keep each loop at exactly 5 seconds,
-            # so status can be printed every minute w/ help from loop_counter
-            time.sleep(5 - ((time.time() - start_time) % 5))
+            status_check_count += 1
+            time.sleep(status_check_interval)
         else:
             raise TimeoutError(f"Failed to complete run within {wait_timeout} minutes")
 
