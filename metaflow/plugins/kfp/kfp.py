@@ -4,7 +4,6 @@ import json
 import marshal
 import os
 import sys
-import yaml
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
