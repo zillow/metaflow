@@ -332,11 +332,3 @@ def _upload_pipeline(
         print(f"Uploaded test pipeline {pipeline_id} version {version_id}.")
 
     return pipeline_id, version_id
-
-
-def get_notebook_metaflow_sa() -> str:
-    """Returns the notebook service account from individual profiles if a user
-    inputs an IAM role for their notebook. If no ServiceAccount is set in the notebook
-    return the `deafult-editor` ServiceAccount which is default in all profiles.
-    """
-    return os.environ.get("METAFLOW_KUBERNETES_SERVICE_ACCOUNT", "default-editor")
