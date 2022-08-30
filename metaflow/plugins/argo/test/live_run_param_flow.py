@@ -33,19 +33,10 @@ class LiveRunParamFlow(FlowSpec):
     @step
     def start(self):
         """
-        This step waits 5 seconds to let the trigger function test status.
-        """
-        print("LiveRunParamFlow is starting")
-        time.sleep(5)
-        self.next(self.test_params)
-
-    @step
-    def test_params(self):
-        """
         This step tests whether the flow has the correct parameters, including
         passed in and default values.
         """
-        print("Testing correctness of parameters")
+        print("LiveRunParamFlow is starting")
         expected_values = [
             # parameters w/ asserts that expect input
             (self.str_to_list, [100, 200, 300]),
@@ -68,12 +59,10 @@ class LiveRunParamFlow(FlowSpec):
 
         for actual, expected in expected_values:
             if expected in [False, True, None]:
-                print(f"testing whether {actual} is {expected}")
                 assert (
                     actual is expected
                 ), f"actual '{actual}' is not expected '{expected}'"
             else:
-                print(f"testing whether {actual} == {expected}")
                 assert actual == expected, f"actual '{actual}' != expected '{expected}'"
 
         self.next(self.end)

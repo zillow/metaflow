@@ -15,14 +15,6 @@ class LiveRunFailureFlow(FlowSpec):
         """
         print("LiveRunFailureFlow is starting")
         time.sleep(5)
-        self.next(self.middle_step)
-
-    @step
-    def middle_step(self):
-        """
-        This step is a middle step and prints one line.
-        """
-        print("LiveRunFailureFlow is in its middle_step")
         self.next(self.failure_step)
 
     @step

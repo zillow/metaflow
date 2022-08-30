@@ -16,18 +16,10 @@ class LiveRunFlowTriggeringFlow(FlowSpec):
     @step
     def start(self):
         """
-        This step waits 5 seconds to let the trigger function test status.
+        This step triggers the simple flow twice, and waits for both runs to
+        finish.
         """
         print("LiveRunFlowTriggeringFlow is starting")
-        time.sleep(5)
-        self.next(self.trigger_step)
-
-    @step
-    def trigger_step(self):
-        """
-        This step triggers another flow.
-        """
-        print("LiveRunFlowTriggeringFlow is in its trigger_step")
 
         # first trigger
         run_one = trigger_live_run(
