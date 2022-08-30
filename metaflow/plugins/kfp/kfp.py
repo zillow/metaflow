@@ -182,11 +182,7 @@ class KubeflowPipelines(object):
         self.notify_on_success = notify_on_success
         self._client = None
 
-    def create_run_on_kfp(self, run_name: str, flow_parameters: dict):
-        """
-        Creates a new run on KFP using the `kfp.Client()`.
-        """
-        # TODO: first create KFP Pipeline, then an experiment if provided else default experiment.
+    def set_kfp_client(self):
         # kfp userid needs to have the user domain
         kfp_client_user_email = self.username
         if KFP_USER_DOMAIN:
@@ -195,6 +191,13 @@ class KubeflowPipelines(object):
         self._client = kfp.Client(
             namespace=self.api_namespace, userid=kfp_client_user_email
         )
+
+    def create_run_on_kfp(self, run_name: str, flow_parameters: dict):
+        """
+        Creates a new run on KFP using the `kfp.Client()`.
+        """
+        # TODO: first create KFP Pipeline, then an experiment if provided else default experiment.
+        self.set_kfp_client()
         pipeline_func, _ = self.create_kfp_pipeline_from_flow_graph()
         return self._client.create_run_from_pipeline_func(
             pipeline_func=pipeline_func,
@@ -219,6 +222,7 @@ class KubeflowPipelines(object):
 
         # use kfp client extract yaml method so we do not recreate logic that accounts
         # for various extensions supported by kfp
+        self.set_kfp_client()
         workflow_yaml = self._client._extract_pipeline_yaml(pipeline_file_path)
 
         workflow_yaml["spec"]["serviceAccountName"] = get_notebook_metaflow_sa()
