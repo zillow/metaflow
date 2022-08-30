@@ -62,7 +62,7 @@ class ArgoLiveRun(LiveRun):
         flow_name: str = None,
         parameters: dict = None,
         wait: bool = True,
-        wait_timeout: int = 30,  # in minutes TODO: determine proper timeout
+        wait_timeout: int = 60 * 12,  # in minutes TODO: determine proper timeout
         **kwargs,
     ) -> ArgoLiveRun:
         """
@@ -87,19 +87,17 @@ class ArgoLiveRun(LiveRun):
             parameters = {}
 
         # convert dicts/lists to json-valid strings
-        for key in parameters:
-            if isinstance(
-                parameters[key], (dict, list)
-            ):  # TODO: discuss best way to filter
+        for key, value in parameters.items():
+            if isinstance(value, (dict, list)):
                 try:
-                    parameters[key] = json.dumps(parameters[key])
+                    parameters[key] = json.dumps(value)
                 except TypeError:
                     raise TypeError(
                         f"Parameter with key '{key}' not supported.\n"
                         "Supported types are str and json-convertible objects"
                     )
 
-        print(f"template name: {live_run._template_name}")
+        print(f"template name: {live_run._template_name}\n")
 
         # trigger run and retrieve id info
         flow_information = live_run._argo_client.trigger_workflow_template(
@@ -147,28 +145,30 @@ class ArgoLiveRun(LiveRun):
 
         # optional wait for argo workflow to finish running
         if wait:
-            print("\nWaiting for run to finish...")
+            print("Waiting for run to finish...")
             live_run._wait(wait_timeout)
         else:
-            print("\nNot waiting for run to finish")
+            print("Not waiting for run to finish")
 
         return live_run
 
     def _wait(self, wait_timeout) -> None:
         start_time = time.time()
-        loop_counter = 0
+        status_check_interval = 5  # in seconds
+        status_check_count = 0
+        status_report_interval = 12
         while wait_timeout * 60 > time.time() - start_time:
             if not self.is_running:
                 break
-            if loop_counter % 12 == 0:
+            if status_check_count % status_report_interval == 0:
                 print(
                     f"Time waited: {int((time.time() - start_time) / 60)}"
-                    f" minutes out of a possible {wait_timeout}"
+                    f" minutes out of {wait_timeout} minute limit for timeout"
                 )
-            loop_counter += 1
-            time.sleep(5)
+            status_check_count += 1
+            time.sleep(status_check_interval)
         else:
-            raise TimeoutError(f"Failed to begin running within {wait_timeout} minutes")
+            raise TimeoutError(f"Failed to complete run within {wait_timeout} minutes")
 
         success_statement = "successfully!!!" if self.successful else "unsuccessfully."
         print(f"\nRun completed {success_statement}")
