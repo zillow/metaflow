@@ -82,7 +82,7 @@ labels = {
     "tags.ledger.zgtools.net/ai-flow-name": "AI_FLOW_NAME",
     "tags.ledger.zgtools.net/ai-step-name": "AI_STEP_NAME",
     "tags.ledger.zgtools.net/ai-experiment-name": "AI_EXPERIMENT_NAME",
-    "zodiac.zillowgroup.net/owner": "ZODIAC_OWNER"
+    "zodiac.zillowgroup.net/owner": "ZODIAC_OWNER",
 }
 for label, env_name in labels.items():
     kubernetes_vars.append(
