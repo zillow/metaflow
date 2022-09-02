@@ -27,13 +27,6 @@ class FailureFlow(FlowSpec):
             output = subprocess.check_output(command, shell=True)
             print(str(output))
         else:
-            command = (
-                f"./kubectl get workflow {os.environ.get('MF_ARGO_WORKFLOW_NAME')} "
-                f"--namespace {os.environ.get('POD_NAMESPACE')} -o yaml"
-            )
-            print(f"{command=}")
-            output = subprocess.check_output(command, shell=True)
-            assert "pod deleted" in str(output)
             print("let's succeed")
 
         self.next(self.user_failure)
@@ -50,6 +43,9 @@ class FailureFlow(FlowSpec):
     @retry
     @step
     def user_failure(self):
+        if self.retry_count < 1:
+            raise Exception("start did not retry!")
+
         self.retry_count = current.retry_count
         print(self.retry_log.format(retry_count=current.retry_count))
         if current.retry_count < 1:
