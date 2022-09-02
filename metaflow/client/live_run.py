@@ -3,20 +3,26 @@ from __future__ import annotations
 
 class LiveRun:
     """
-    This object allows users to access information relating to the run it
-    represents, including booleans for whether the run has been triggered, is
-    running, and was successful, as well as for failed steps, and exceptions.
+    The LiveRun class serves as an abstract class to represent a particular run
+    of a flow. This class is not meant to be instantiated; the methods for this
+    abstract class do not work. Each plugin or under layer should have its own
+    class to represent a live run and each such class should inherit from this
+    class.
 
-    However, this class is not meant to be instantiated; instead, each plugin
-    or under layer should have its own class to represent a live run and each
-    such class should inherit from this class.
+    An object in the LiveRun class family should be instantiated through its
+    ‘trigger’ classmethod, which creates a LiveRun object and triggers the run
+    it represents. This object also allows users to access information relating
+    to the run it represents, including name of the Metaflow flow and the
+    Metaflow run id, as well as status information relating to the run. Status
+    information includes booleans for whether the run has been triggered, is
+    running, and was successful, as well as objects storing any failed steps or
+    exceptions.
     """
 
     def __init__(self):
         """
         Initialize a LiveRun object. This class is a parent class only and is
         not intended to be instantiated.
-
         """
         self._flow_name = None
         self._metaflow_run_id = None
