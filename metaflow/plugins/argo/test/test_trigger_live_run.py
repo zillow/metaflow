@@ -192,7 +192,7 @@ class TestTriggerLiveRun(unittest.TestCase):
 
     def test_missing_flow(self):
         with self.assertRaises(MetaflowException):
-            run = trigger_live_run(
+            trigger_live_run(
                 plugin_name="Argo",
                 flow_name="LiveRunMissingFlow",
                 template_name=None,

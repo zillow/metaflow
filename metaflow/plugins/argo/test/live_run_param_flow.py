@@ -1,5 +1,4 @@
 from metaflow import FlowSpec, step, Parameter, JSONType
-import time
 
 
 class LiveRunParamFlow(FlowSpec):

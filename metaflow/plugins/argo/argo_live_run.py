@@ -9,17 +9,13 @@ import time
 
 class ArgoLiveRun(LiveRun):
     """
-    This class takes in information to identify and trigger a run of a
-    Metaflow flow using the Argo plugin. The run is initialized without
-    triggering a run, but a run should be triggered immediately after
-    initialization. This class should be initialized only with the trigger_run
-    function. The flow to trigger is identified based on the parameter for the
-    Metaflow flow name. Users may use additional parameters to alter the run,
-    and wait for the run to finish.
-
-    The object allows users to access information relating to the triggered
-    run, including booleans for whether the run has been triggered, is running,
-    and was successful, as well as for failed steps, and exceptions.
+    This class should be instantiated through its ‘trigger’ classmethod, which
+    creates an ArgoLiveRun object and triggers the run it represents. This
+    object also allows users to access information relating to the run it
+    represents, including name of the Metaflow flow and the Metaflow run id, as
+    well as status information relating to the run. Status information includes
+    booleans for whether the run has been triggered, is running, and was
+    successful,as well as objects storing any failed steps or exceptions.
     """
 
     def __init__(self, flow_name: str = None, template_name: str = None):
@@ -78,6 +74,8 @@ class ArgoLiveRun(LiveRun):
             whether function waits for triggered run to finish before returning
         wait_timeout: int
             time (in minutes) to wait for run to finish
+        **kwargs
+            may include Argo workflow template name to identify flow to trigger
         """
 
         template_name = kwargs.get("template_name")

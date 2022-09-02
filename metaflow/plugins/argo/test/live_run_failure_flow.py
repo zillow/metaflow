@@ -20,7 +20,7 @@ class LiveRunFailureFlow(FlowSpec):
     @step
     def failure_step(self):
         """
-        This is the 'failure_step' step. This flow should fail at this step.
+        This is the 'failure_step' step; this flow should fail at this step.
         """
         print("LiveRunFailureFlow is in its failure_step")
         raise Exception("LiveRunFailureFlow failed!")
