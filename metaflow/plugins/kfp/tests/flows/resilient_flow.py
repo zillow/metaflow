@@ -13,7 +13,7 @@ class ResilientFlow(FlowSpec):
     @retry
     @step
     def start(self):
-        self.retry_count = current.retry_count
+        self.start_retry_count = current.retry_count
         print(self.retry_log.format(retry_count=current.retry_count))
         self.download_kubectl()
         if current.retry_count < 1:
@@ -26,11 +26,11 @@ class ResilientFlow(FlowSpec):
             print(f"{command=}")
             output = subprocess.check_output(command, shell=True)
             print(str(output))
- 
-            # sleep to allow time for k8s to delete the pod 
-            # Although k8s has always deleted the pod in time, 
+
+            # sleep to allow time for k8s to delete the pod
+            # Although k8s has always deleted the pod in time,
             # this gives the test extra resilience.
-            time.sleep(60*5)
+            time.sleep(60 * 5)
         else:
             print("let's succeed")
 
@@ -48,7 +48,7 @@ class ResilientFlow(FlowSpec):
     @retry
     @step
     def user_failure(self):
-        if self.retry_count < 1:
+        if self.start_retry_count < 1:
             raise Exception("start did not retry!")
 
         self.retry_count = current.retry_count
