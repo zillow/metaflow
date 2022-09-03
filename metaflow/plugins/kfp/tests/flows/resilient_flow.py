@@ -7,7 +7,7 @@ from metaflow import FlowSpec, Parameter, Step, catch, current, retry, step, tim
 from metaflow.exception import MetaflowExceptionWrapper
 
 
-class FailureFlow(FlowSpec):
+class ResilientFlow(FlowSpec):
     retry_log = "Retry count = {retry_count}"
 
     @retry
@@ -26,6 +26,11 @@ class FailureFlow(FlowSpec):
             print(f"{command=}")
             output = subprocess.check_output(command, shell=True)
             print(str(output))
+ 
+            # sleep to allow time for k8s to delete the pod 
+            # Although k8s has always deleted the pod in time, 
+            # this gives the test extra resilience.
+            time.sleep(60*5)
         else:
             print("let's succeed")
 
@@ -128,4 +133,4 @@ class FailureFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    FailureFlow()
+    ResilientFlow()
