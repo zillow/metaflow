@@ -57,7 +57,6 @@ stages:
     - export BUILT_IMAGE_FULL_PATH=$( cat ${IMAGE_REPOSITORY_TAG_PATH} )
     - export BUILT_IMAGE_FULL_PATH_KFP_STEP=$( cat ${IMAGE_REPOSITORY_TAG_PATH_KFP_STEP} )
     - cp -r /root/.kube .
-    - echo $GITLAB_USER_ID $GITLAB_USER_LOGIN $GITLAB_USER_NAME
     - docker run
         --rm
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube
@@ -68,7 +67,7 @@ stages:
         -e AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION 
         -e KFP_RUN_URL_PREFIX=$KFP_RUN_URL_PREFIX 
         -e KFP_SDK_NAMESPACE=$KFP_SDK_NAMESPACE 
-        -e USER=$GITLAB_USER_LOGIN
+        -e USER=$GITLAB_USER_EMAIL
         -e KFP_STEP_IMAGE=${BUILT_IMAGE_FULL_PATH_KFP_STEP}
         ${BUILT_IMAGE_FULL_PATH}
         bash -c "
