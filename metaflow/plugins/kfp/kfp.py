@@ -645,8 +645,10 @@ class KubeflowPipelines(object):
         # - In context of Zillow CICD self.username == "cicd_compile"
         # - In the context of a Zillow NB self.username == METAFLOW_USER (user_alias)
         # - In the context of Metaflow integration tests self.username == USER=$GITLAB_USER_EMAIL
-        user_email = self.username
-        container_op.add_pod_label("zodiac.zillowgroup.net/owner", user_email)
+        owner = self.username
+        container_op.add_pod_label("zodiac.zillowgroup.net/owner", owner)
+        if "@" in owner:
+            raise KfpException(f"Metaflow user name ${self.username} contains a '@'")
 
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
         """
