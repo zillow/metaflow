@@ -647,7 +647,7 @@ class KubeflowPipelines(object):
         # - In the context of Metaflow integration tests self.username == USER=$GITLAB_USER_EMAIL
         owner = self.username
         if "@" in owner:
-            owner = owner.split('@')[0]
+            owner = owner.split("@")[0]
         container_op.add_pod_label("zodiac.zillowgroup.net/owner", owner)
 
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
