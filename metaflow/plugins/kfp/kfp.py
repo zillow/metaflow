@@ -556,7 +556,9 @@ class KubeflowPipelines(object):
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
     @staticmethod
-    def _set_minimal_container_resources(container_op: ContainerOp, memory: str = "200M"):
+    def _set_minimal_container_resources(
+        container_op: ContainerOp, memory: str = "200M"
+    ):
         container_op.container.set_cpu_request("0.5")
         container_op.container.set_cpu_limit("0.5")
         container_op.container.set_memory_request(memory)
