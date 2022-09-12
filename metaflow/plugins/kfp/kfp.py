@@ -227,9 +227,7 @@ class KubeflowPipelines(object):
             # use kfp client extract yaml method so we do not recreate logic that accounts
             # for various extensions supported by kfp
             workflow_yaml = self._client._extract_pipeline_yaml(pipeline_file_path)
-            workflow_yaml["spec"][
-                "serviceAccountName"
-            ] = KUBERNETES_SERVICE_ACCOUNT
+            workflow_yaml["spec"]["serviceAccountName"] = KUBERNETES_SERVICE_ACCOUNT
             # use internal kfp static method to write the modified yaml back to the
             # pipeline_file_path so we do not have to recreate kfp support for the
             # various extensions it supports
