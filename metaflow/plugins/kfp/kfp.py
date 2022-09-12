@@ -182,13 +182,6 @@ class KubeflowPipelines(object):
         self.notify_on_success = notify_on_success
         self._client = None
 
-    def get_kubernetes_service_account(self) -> str:
-        """Returns the service account from an individual profile notebook if a user
-        inputs an IAM role for their notebook. If no ServiceAccount is set by the user,
-        default to the`deafult-editor` ServiceAccount.
-        """
-        return KUBERNETES_SERVICE_ACCOUNT if not None else "default-editor"
-
     def set_kfp_client(self):
         # kfp userid needs to have the user domain
         kfp_client_user_email = self.username
@@ -212,7 +205,7 @@ class KubeflowPipelines(object):
             experiment_name=self.experiment,
             run_name=run_name,
             namespace=self.kfp_namespace,
-            service_account=self.get_kubernetes_service_account(),
+            service_account=KUBERNETES_SERVICE_ACCOUNT,
         )
 
     def create_kfp_pipeline_yaml(self, pipeline_file_path) -> str:
@@ -227,19 +220,20 @@ class KubeflowPipelines(object):
             pipeline_conf=pipeline_conf,
         )
 
-        # use kfp client extract yaml method so we do not recreate logic that accounts
-        # for various extensions supported by kfp
-        self.set_kfp_client()
-        workflow_yaml = self._client._extract_pipeline_yaml(pipeline_file_path)
-
-        workflow_yaml["spec"][
-            "serviceAccountName"
-        ] = self.get_kubernetes_service_account()
-
-        # use internal kfp static method to write the modified yaml back to the
-        # pipeline_file_path so we do not have to recreate kfp support for the
-        # various extensions it supports
-        kfp.compiler.Compiler()._write_workflow(workflow_yaml, pipeline_file_path)
+        # re-write the workflow serviceAccountName if metaflow KUBERNETES_SERVICE_ACCOUNT
+        # is set.
+        if KUBERNETES_SERVICE_ACCOUNT:
+            self.set_kfp_client()
+            # use kfp client extract yaml method so we do not recreate logic that accounts
+            # for various extensions supported by kfp
+            workflow_yaml = self._client._extract_pipeline_yaml(pipeline_file_path)
+            workflow_yaml["spec"][
+                "serviceAccountName"
+            ] = KUBERNETES_SERVICE_ACCOUNT
+            # use internal kfp static method to write the modified yaml back to the
+            # pipeline_file_path so we do not have to recreate kfp support for the
+            # various extensions it supports
+            kfp.compiler.Compiler()._write_workflow(workflow_yaml, pipeline_file_path)
 
         return os.path.abspath(pipeline_file_path)
 
