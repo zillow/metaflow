@@ -328,8 +328,6 @@ def test_kubernetes_service_account_compile_only() -> None:
 
     flow_yaml = get_compiled_yaml(compile_to_yaml_cmd, yaml_file_path)
 
-    print(flow_yaml)
-
     assert flow_yaml["spec"]["serviceAccountName"] == service_account
 
 
