@@ -322,8 +322,8 @@ def test_kubernetes_service_account_compile_only() -> None:
 
         compile_to_yaml_cmd: str = (
             f"export METAFLOW_KUBERNETES_SERVICE_ACCOUNT={service_account};"
-            f"{_python()} flows/toleration_and_affinity_flow.py kfp run"
-            f"--yaml-only --pipeline-path {yaml_file_path}"
+            f" {_python()} flows/toleration_and_affinity_flow.py kfp run"
+            f" --yaml-only --pipeline-path {yaml_file_path}"
         )
 
     flow_yaml = get_compiled_yaml(compile_to_yaml_cmd, yaml_file_path)
