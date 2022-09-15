@@ -15,14 +15,14 @@ def pytest_addoption(parser):
 
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
-def pytest_runtest_setup(item, pytestconfig):
+def pytest_runtest_setup(item):
     """Emit a log file per test to make it easier to debug in failure scenarios.
 
     Sourced from:  https://stackoverflow.com/a/64480499
     """
     logging_plugin = item.config.pluginmanager.get_plugin("logging-plugin")
     filename = Path(
-        pytestconfig.getoption('public_dir'),
+        item.config.getoption('public_dir'),
         'pytest-logs',
         f"{item._request.node.name}.log"
     )
