@@ -72,7 +72,7 @@ stages:
         ${BUILT_IMAGE_FULL_PATH}
         bash -c "
           cd /home/zservice/metaflow/metaflow/plugins/kfp/tests &&
-          python -m pytest -s -n 3 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --opsgenie-api-token ${OPSGENIE_API_TOKEN} --cov-config=setup.cfg --public-dir /home/zservice/public
+          python -m pytest -n 3 run_integration_tests.py --image ${BUILT_IMAGE_FULL_PATH} --opsgenie-api-token ${OPSGENIE_API_TOKEN} --cov-config=setup.cfg --public-dir /home/zservice/public
         "
   artifacts:
     when: always
