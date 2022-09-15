@@ -31,3 +31,4 @@ main.js.map
 
 .coverage
 .coverage.*
+pytest-logs
