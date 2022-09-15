@@ -11,7 +11,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--opsgenie-api-token", dest="opsgenie_api_token", action="store", default=None
     )
-    parser.addoption("--public-directory", dest="public_dir", action="store", default='')
+    parser.addoption("--public-dir", dest="public_dir", action="store", default='')
 
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
