@@ -29,3 +29,5 @@ main.js.map
 # Pycharm
 .idea
 
+.coverage
+.coverage.*

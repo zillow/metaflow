@@ -529,39 +529,41 @@ class KubeflowPipelines(object):
             container_op.add_pvolumes({"dev/shm": memory_volume})
 
         if kfp_component.accelerator_decorator:
-            accelerator_type: str = kfp_component.accelerator_decorator.attributes[
-                "type"
-            ]
-            # ensures we only select a node with the correct accelerator type (based on selector)
-            node_selector = V1NodeSelector(
-                node_selector_terms=[
-                    V1NodeSelectorTerm(
-                        match_expressions=[
-                            V1NodeSelectorRequirement(
-                                key="k8s.amazonaws.com/accelerator",
-                                operator="In",
-                                values=[accelerator_type],
-                            )
-                        ]
-                    )
-                ]
-            )
-            node_affinity = V1NodeAffinity(
-                required_during_scheduling_ignored_during_execution=node_selector
-            )
-            affinity = V1Affinity(node_affinity=node_affinity)
-            # ensures the pod created has the correct toleration corresponding to the taint
-            # on the accelerator node for it to be scheduled on that node
-            toleration = V1Toleration(
-                # the `effect` parameter must be specified at the top!
-                # otherwise, there is undefined behavior
-                effect="NoSchedule",
-                key="k8s.amazonaws.com/accelerator",
-                operator="Equal",
-                value=accelerator_type,
-            )
-            container_op.add_affinity(affinity)
-            container_op.add_toleration(toleration)
+            accelerator_type: Optional[
+                str
+            ] = kfp_component.accelerator_decorator.attributes["type"]
+
+            if accelerator_type:
+                # ensures we only select a node with the correct accelerator type (based on selector)
+                node_selector = V1NodeSelector(
+                    node_selector_terms=[
+                        V1NodeSelectorTerm(
+                            match_expressions=[
+                                V1NodeSelectorRequirement(
+                                    key="k8s.amazonaws.com/accelerator",
+                                    operator="In",
+                                    values=[accelerator_type],
+                                )
+                            ]
+                        )
+                    ]
+                )
+                node_affinity = V1NodeAffinity(
+                    required_during_scheduling_ignored_during_execution=node_selector
+                )
+                affinity = V1Affinity(node_affinity=node_affinity)
+                # ensures the pod created has the correct toleration corresponding to the taint
+                # on the accelerator node for it to be scheduled on that node
+                toleration = V1Toleration(
+                    # the `effect` parameter must be specified at the top!
+                    # otherwise, there is undefined behavior
+                    effect="NoSchedule",
+                    key="k8s.amazonaws.com/accelerator",
+                    operator="Equal",
+                    value=accelerator_type,
+                )
+                container_op.add_affinity(affinity)
+                container_op.add_toleration(toleration)
 
         elif "gpu" not in resource_requirements:
             # Memory and cpu value already validated by set_memory_request and set_cpu_request
@@ -575,11 +577,13 @@ class KubeflowPipelines(object):
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
     @staticmethod
-    def _set_minimal_container_resources(container_op: ContainerOp):
+    def _set_minimal_container_resources(
+        container_op: ContainerOp, memory: str = "200M"
+    ):
         container_op.container.set_cpu_request("0.5")
         container_op.container.set_cpu_limit("0.5")
-        container_op.container.set_memory_request("200M")
-        container_op.container.set_memory_limit("200M")
+        container_op.container.set_memory_request(memory)
+        container_op.container.set_memory_limit(memory)
 
     @staticmethod
     def _create_volume(
@@ -661,6 +665,14 @@ class KubeflowPipelines(object):
                 "tags.ledger.zgtools.net/ai-experiment-name", self.experiment
             )
 
+        # - In context of Zillow CICD self.username == "cicd_compile"
+        # - In the context of a Zillow NB self.username == METAFLOW_USER (user_alias)
+        # - In the context of Metaflow integration tests self.username == USER=$GITLAB_USER_EMAIL
+        owner = self.username
+        if "@" in owner:
+            owner = owner.split("@")[0]
+        container_op.add_pod_label("zodiac.zillowgroup.net/owner", owner)
+
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
         """
         Returns a KFP DSL Pipeline function by walking the Metaflow Graph
@@ -682,6 +694,7 @@ class KubeflowPipelines(object):
                     "MF_ARGO_WORKFLOW_NAME": "metadata.labels['workflows.argoproj.io/workflow']",
                     "ZODIAC_SERVICE": "metadata.labels['zodiac.zillowgroup.net/service']",
                     "ZODIAC_TEAM": "metadata.labels['zodiac.zillowgroup.net/team']",
+                    "ZODIAC_OWNER": "metadata.labels['zodiac.zillowgroup.net/owner']",
                 }
                 for name, resource in env_vars.items():
                     op.container.add_env_variable(
@@ -1145,7 +1158,7 @@ class KubeflowPipelines(object):
         ).set_display_name("s3_sensor")
 
         KubeflowPipelines._set_minimal_container_resources(s3_sensor_op)
-        s3_sensor_op.set_retry(S3_SENSOR_RETRY_COUNT, policy="OnError")
+        s3_sensor_op.set_retry(S3_SENSOR_RETRY_COUNT, policy="Always")
         return s3_sensor_op
 
     def _create_exit_handler_op(self, package_commands: str) -> ContainerOp:
