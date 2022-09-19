@@ -696,7 +696,6 @@ class KubeflowPipelines(object):
                     "ZODIAC_TEAM": "metadata.labels['zodiac.zillowgroup.net/team']",
                     "ZODIAC_OWNER": "metadata.labels['zodiac.zillowgroup.net/owner']",
                 }
-
                 for name, resource in env_vars.items():
                     op.container.add_env_variable(
                         V1EnvVar(
