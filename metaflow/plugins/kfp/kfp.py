@@ -696,11 +696,6 @@ class KubeflowPipelines(object):
                     "ZODIAC_TEAM": "metadata.labels['zodiac.zillowgroup.net/team']",
                     "ZODIAC_OWNER": "metadata.labels['zodiac.zillowgroup.net/owner']",
                 }
-                # add in spark env variable or ServiceAccount
-                if KUBERNETES_SERVICE_ACCOUNT:
-                    env_vars[
-                        "METAFLOW_KUBERNETES_SERVICE_ACCOUNT"
-                    ] = KUBERNETES_SERVICE_ACCOUNT
 
                 for name, resource in env_vars.items():
                     op.container.add_env_variable(
@@ -709,6 +704,19 @@ class KubeflowPipelines(object):
                             value_from=V1EnvVarSource(
                                 field_ref=V1ObjectFieldSelector(field_path=resource)
                             ),
+                        )
+                    )
+                # add in spark env variable or ServiceAccount
+                if KUBERNETES_SERVICE_ACCOUNT:
+                    env_var = {
+                        "METAFLOW_KUBERNETES_SERVICE_ACCOUNT": KUBERNETES_SERVICE_ACCOUNT
+                    }
+                # need to be added separately from above as there is no fieldRef fro thie env var
+                for name, resource in env_var.items():
+                    op.container.add_env_variable(
+                        V1EnvVar(
+                            name=name,
+                            value=resource,
                         )
                     )
 
