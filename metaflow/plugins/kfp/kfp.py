@@ -705,13 +705,13 @@ class KubeflowPipelines(object):
                             ),
                         )
                     )
-                # add in spark env variable or ServiceAccount
+                # add in env variable for ServiceAccount for spark
                 if KUBERNETES_SERVICE_ACCOUNT:
                     env_var = {
                         "METAFLOW_KUBERNETES_SERVICE_ACCOUNT": KUBERNETES_SERVICE_ACCOUNT
                     }
-                    # need to be added separately from above as there is no fieldRef from thie env var
-                    # leaving as a list format in the event future env variables need to be added without
+                    # need to be added separately from above as there is no valueFrom/fieldRef from thie env 
+                    # var. leaving as a list format in the event future env variables need to be added without
                     # a fieldRef value_from similar to this env variable.
                     for name, resource in env_var.items():
                         op.container.add_env_variable(
