@@ -711,7 +711,9 @@ class KubeflowPipelines(object):
                     env_var = {
                         "METAFLOW_KUBERNETES_SERVICE_ACCOUNT": KUBERNETES_SERVICE_ACCOUNT
                     }
-                # need to be added separately from above as there is no fieldRef fro thie env var
+                # need to be added separately from above as there is no fieldRef from thie env var
+                # leaving as a list format in the event future env variables need to be added without
+                # a fieldRef value_from similar to this env variable.
                 for name, resource in env_var.items():
                     op.container.add_env_variable(
                         V1EnvVar(
