@@ -56,6 +56,8 @@ def pytest_runtest_setup(item):
     logging_plugin.set_log_path(str(filename))
 
     # Forward logs from stdout/stderr to the logger as well.
-    sys.stdout = StreamToLogger(logger, logging.INFO, sys.stdout)
-    sys.stderr =  StreamToLogger(logger, logging.INFO, sys.stderr)
+    if not isinstance(sys.stdout, StreamToLogger):
+        sys.stdout = StreamToLogger(logger, logging.INFO, sys.stdout)
+    if not isinstance(sys.stderr, StreamToLogger):
+        sys.stderr =  StreamToLogger(logger, logging.INFO, sys.stderr)
     yield
