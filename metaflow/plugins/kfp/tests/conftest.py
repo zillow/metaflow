@@ -48,7 +48,11 @@ def pytest_runtest_setup(item):
     Sourced from:  https://stackoverflow.com/a/64480499
     """
     logging_plugin = item.config.pluginmanager.get_plugin("logging-plugin")
-    filename = Path("pytest-logs", f"{item._request.node.name}.log")
+    filename = Path(
+        item.config.getoption('public_dir'),
+        "pytest-logs",
+        f"{item._request.node.name}.log"
+    )
     logging_plugin.set_log_path(str(filename))
 
     # Forward logs from stdout/stderr to the logger as well.
