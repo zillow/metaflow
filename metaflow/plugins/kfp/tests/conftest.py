@@ -18,7 +18,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--opsgenie-api-token", dest="opsgenie_api_token", action="store", default=None
     )
-    parser.addoption("--public-dir", dest="public_dir", action="store", default='')
+    parser.addoption("--public-dir", dest="public_dir", action="store", default="")
 
 
 class StreamToLogger(TextIOBase):
@@ -49,9 +49,9 @@ def pytest_runtest_setup(item):
     """
     logging_plugin = item.config.pluginmanager.get_plugin("logging-plugin")
     filename = Path(
-        item.config.getoption('public_dir'),
+        item.config.getoption("public_dir"),
         "pytest-logs",
-        f"{item._request.node.name}.log"
+        f"{item._request.node.name}.log",
     )
     logging_plugin.set_log_path(str(filename))
 
@@ -59,5 +59,5 @@ def pytest_runtest_setup(item):
     if not isinstance(sys.stdout, StreamToLogger):
         sys.stdout = StreamToLogger(logger, logging.INFO, sys.stdout)
     if not isinstance(sys.stderr, StreamToLogger):
-        sys.stderr =  StreamToLogger(logger, logging.INFO, sys.stderr)
+        sys.stderr = StreamToLogger(logger, logging.INFO, sys.stderr)
     yield
