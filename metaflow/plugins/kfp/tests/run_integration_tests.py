@@ -58,16 +58,23 @@ def _python():
 
 
 def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
-    file_paths: List[str] = [
-        file_name
-        for file_name in listdir(flow_dir_path)
-        if isfile(join(flow_dir_path, file_name))
-        and not file_name.startswith(".")
-        and not file_name in non_standard_test_flows
+    # TODO AIP-6643 Reinstate all the tests before merging!!!
+    return [
+        'foreach_linear_foreach.py',
+        'foreach_linear_split.py',
+        'foreach_split_linear.py',
     ]
-    return file_paths
+    # file_paths: List[str] = [
+    #     file_name
+    #     for file_name in listdir(flow_dir_path)
+    #     if isfile(join(flow_dir_path, file_name))
+    #     and not file_name.startswith(".")
+    #     and not file_name in non_standard_test_flows
+    # ]
+    # return file_paths
 
 
+@pytest.mark.skip
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
     file_name: str = f"s3-sensor-file-{uuid.uuid1()}.txt"
@@ -205,7 +212,6 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     return
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize("flow_file_path", obtain_flow_file_paths("flows"))
 def test_flows(pytestconfig, flow_file_path: str) -> None:
     full_path: str = join("flows", flow_file_path)

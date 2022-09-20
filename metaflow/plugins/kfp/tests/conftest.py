@@ -24,14 +24,18 @@ def pytest_addoption(parser):
 class StreamToLogger(TextIOBase):
     """Fake file-like stream object that redirects writes to a logger instance."""
 
-    def __init__(self, logger, level):
+    def __init__(self, logger, level, original_stream):
         self.logger = logger
         self.level = level
         self.linebuf = ""
+        self.original_stream = original_stream
 
     def write(self, buf):
         for line in buf.rstrip().splitlines():
             self.logger.log(self.level, line.rstrip())
+        else:
+            # Additionally ensure we also write back to the original stream too!
+            self.original_stream.write(buf)
 
     def flush(self):
         pass
@@ -44,14 +48,10 @@ def pytest_runtest_setup(item):
     Sourced from:  https://stackoverflow.com/a/64480499
     """
     logging_plugin = item.config.pluginmanager.get_plugin("logging-plugin")
-    filename = Path(
-        item.config.getoption('public_dir'),
-        'pytest-logs',
-        f"{item._request.node.name}.log"
-    )
+    filename = Path("pytest-logs", f"{item._request.node.name}.log")
     logging_plugin.set_log_path(str(filename))
 
     # Forward logs from stdout/stderr to the logger as well.
-    sys.stdout = StreamToLogger(logger, logging.INFO)
-    sys.stderr =  StreamToLogger(logger, logging.ERROR)
+    sys.stdout = StreamToLogger(logger, logging.INFO, sys.stdout)
+    sys.stderr =  StreamToLogger(logger, logging.INFO, sys.stderr)
     yield
