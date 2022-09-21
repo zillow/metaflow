@@ -58,6 +58,8 @@ def _python():
 
 
 def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
+    # TODO AIP-6643 Revert this
+    return ['nested_foreach_with_branching.py']
     file_paths: List[str] = [
         file_name
         for file_name in listdir(flow_dir_path)
@@ -68,6 +70,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     return file_paths
 
 
+@pytest.mark.skip
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
     file_name: str = f"s3-sensor-file-{uuid.uuid1()}.txt"
@@ -131,6 +134,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 
 # This test ensures that a flow fails correctly,
 # and when it fails, an OpsGenie email is sent.
+@pytest.mark.skip
 def test_error_and_opsgenie_alert(pytestconfig) -> None:
     raise_error_flow_cmd: str = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
@@ -317,6 +321,7 @@ def get_compiled_yaml(compile_to_yaml_cmd, yaml_file_path) -> Dict[str, str]:
     return flow_yaml
 
 
+@pytest.mark.skip
 def test_kubernetes_service_account_compile_only() -> None:
     service_account = "test-service-account"
     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
@@ -333,6 +338,7 @@ def test_kubernetes_service_account_compile_only() -> None:
     assert flow_yaml["spec"]["serviceAccountName"] == service_account
 
 
+@pytest.mark.skip
 def test_toleration_and_affinity_compile_only() -> None:
     step_templates: Dict[str, str] = {}
     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
