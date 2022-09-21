@@ -232,7 +232,8 @@ def run_cmd_with_backoff_from_platform_errors(
     # as well as output to stdout and stderr (which users can see on the Gitlab logs). We check
     # if the error message is due to a KFAM issue, and if so, we do an exponential backoff.
 
-    backoff_intervals_in_seconds: List[int] = [0, 2, 4, 8, 16, 32]
+    # TODO AIP-6643 Limit retries so we get all the logs
+    backoff_intervals_in_seconds: List[int] = [0, 2, 4] # , 8, 16, 32]
 
     platform_error_messages: List[str] = [
         "Reason: Unauthorized",
