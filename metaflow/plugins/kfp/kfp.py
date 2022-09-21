@@ -705,7 +705,7 @@ class KubeflowPipelines(object):
                             ),
                         )
                     )
-                # add in env variable for ServiceAccount for spark
+                # add in env variable for ServiceAccount for Zillow Spark solution
                 if KUBERNETES_SERVICE_ACCOUNT:
                     env_var = {
                         "METAFLOW_KUBERNETES_SERVICE_ACCOUNT": KUBERNETES_SERVICE_ACCOUNT
