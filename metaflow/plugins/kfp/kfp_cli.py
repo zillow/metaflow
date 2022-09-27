@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import logging
 
 from metaflow import JSONType, current, decorators, parameters
 from metaflow._vendor import click
@@ -225,6 +226,13 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     "If not set, METAFLOW_NOTIFY_ON_SUCCESS is used from Metaflow config or environment variable",
     show_default=True,
 )
+@click.option(
+    "--verbose/--no-verbose",
+    "verbose",
+    default=False,
+    help="Turns on debug logging.",
+    show_default=True,
+)
 @click.pass_obj
 def run(
     obj,
@@ -248,11 +256,17 @@ def run(
     notify_on_error=None,
     notify_on_success=None,
     argo_wait=False,
+    verbose=False,
     **kwargs,
 ):
     """
     Analogous to step_functions_cli.py
     """
+
+    if verbose:
+        # Turn on debugging for the root logger so in particular we can see logs emitted by the KFP
+        # SDK as that by default emits there.
+        logging.basicConfig(level=logging.DEBUG)
 
     def _convert_value(param: parameters.Parameter):
         v = kwargs.get(param.name)
