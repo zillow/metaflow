@@ -58,6 +58,8 @@ def _python():
 
 
 def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
+    # TODO AIP-6643 Revert this
+    return ['nested_foreach_with_branching.py']
     file_paths: List[str] = [
         file_name
         for file_name in listdir(flow_dir_path)
@@ -68,6 +70,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
     return file_paths
 
 
+@pytest.mark.skip
 def test_s3_sensor_flow(pytestconfig) -> None:
     # ensure the s3_sensor waits for some time before the key exists
     file_name: str = f"s3-sensor-file-{uuid.uuid1()}.txt"
@@ -131,6 +134,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 
 # This test ensures that a flow fails correctly,
 # and when it fails, an OpsGenie email is sent.
+@pytest.mark.skip
 def test_error_and_opsgenie_alert(pytestconfig) -> None:
     raise_error_flow_cmd: str = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
@@ -210,7 +214,7 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
 
     test_cmd: str = (
         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--wait-for-completion --workflow-timeout 1800 --verbose "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
         f"--sys-tag test_sys_t1:sys_tag_value "
     )
@@ -232,7 +236,8 @@ def run_cmd_with_backoff_from_platform_errors(
     # as well as output to stdout and stderr (which users can see on the Gitlab logs). We check
     # if the error message is due to a KFAM issue, and if so, we do an exponential backoff.
 
-    backoff_intervals_in_seconds: List[int] = [0, 2, 4, 8, 16, 32]
+    # TODO AIP-6643 Limit retries so we get all the logs
+    backoff_intervals_in_seconds: List[int] = [0, 2, 4] # , 8, 16, 32]
 
     platform_error_messages: List[str] = [
         "Reason: Unauthorized",
@@ -316,6 +321,7 @@ def get_compiled_yaml(compile_to_yaml_cmd, yaml_file_path) -> Dict[str, str]:
     return flow_yaml
 
 
+@pytest.mark.skip
 def test_kubernetes_service_account_compile_only() -> None:
     service_account = "test-service-account"
     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
@@ -338,6 +344,7 @@ def test_kubernetes_service_account_compile_only() -> None:
             assert "METAFLOW_KUBERNETES_SERVICE_ACCOUNT" in env
 
 
+@pytest.mark.skip
 def test_toleration_and_affinity_compile_only() -> None:
     step_templates: Dict[str, str] = {}
     with tempfile.TemporaryDirectory() as yaml_tmp_dir:
