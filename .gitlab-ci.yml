@@ -48,18 +48,17 @@ stages:
   PY_LIBRARY_VERSION="${PY_LIBRARY_VERSION}+${METAFLOW_VERSION}"
 
 .test:
-  extends: .kubeflow_environment
+  extends: .generate_kubeconfig
   stage: test
   variables:
     DEBUG_LOGGING: "True"
     GIT_STRATEGY: none
     PIPELINE_VERSION: "1.0"
-    NAMESPACE_PREFIX: metaflow-integration-testing
-    LOCAL_KFP_CONTEXT: "/home/zservice/.config/kfp/context.json"
   script:
     - *path-to-host-file-directory  
     - export BUILT_IMAGE_FULL_PATH=$( cat ${IMAGE_REPOSITORY_TAG_PATH} )
     - export BUILT_IMAGE_FULL_PATH_KFP_STEP=$( cat ${IMAGE_REPOSITORY_TAG_PATH_KFP_STEP} )
+    - cp -r /root/.kube .
     - docker run
         --rm
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube
