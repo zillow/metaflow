@@ -18,6 +18,8 @@ RUN curl -sLO https://github.com/argoproj/argo-workflows/releases/download/${ARG
     chmod +x argo-linux-amd64; \
     sudo mv ./argo-linux-amd64 /usr/local/bin/argo
 
+COPY . /home/zservice/metaflow
+
 RUN --mount=type=cache,target=/home/zservice/.cache/pip \
     pip install --upgrade --force-reinstall \
     -i https://artifactory.zgtools.net/artifactory/api/pypi/analytics-python/simple \
