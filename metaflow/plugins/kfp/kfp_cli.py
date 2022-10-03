@@ -169,25 +169,6 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     "--workflow-timeout", default=None, type=int, help="Workflow timeout in seconds."
 )
 @click.option(
-    "--wait-for-completion",
-    "--wait",
-    "-w",
-    "wait_for_completion",
-    is_flag=True,
-    default=False,
-    help="Wait for KFP run to complete before process exits.",
-    show_default=True,
-)
-@click.option(
-    "--wait-for-completion-timeout",
-    "--wait-timeout",
-    "-wt",
-    "wait_for_completion_timeout",
-    default=1800,
-    type=int,
-    help="Timeout to wait for completion of run before process exits.",
-)
-@click.option(
     "--argo-wait",
     "-aw",
     "argo_wait",
@@ -242,8 +223,6 @@ def run(
     pipeline_name=None,
     max_parallelism=None,
     workflow_timeout=None,
-    wait_for_completion=False,
-    wait_for_completion_timeout=None,
     notify=False,
     notify_on_error=None,
     notify_on_success=None,
@@ -338,12 +317,6 @@ def run(
                 cmd, shell=True, stdout=subprocess.PIPE, encoding="utf8"
             )
             succeeded = "Succeeded" in ret.stdout
-            show_status(metaflow_run_id, kfp_run_url, obj.echo, succeeded)
-        elif wait_for_completion:
-            response = flow._client.wait_for_run_completion(
-                kfp_run_id, timeout=wait_for_completion_timeout
-            )
-            succeeded = response.run.status == "Succeeded"
             show_status(metaflow_run_id, kfp_run_url, obj.echo, succeeded)
 
 
