@@ -677,7 +677,8 @@ class KubeflowPipelines(object):
 
         # Add in Zodiac service and team labels to the kfp pods if the environment variable is
         # present in the notebook (individual profile notebooks only) and set them. These labels
-        # are not being added by poddefaults as they were removed.
+        # are not being added by poddefaults as they were removed. Workflows launched in project
+        # profiles still get these labels added via poddefaults.
         if ZODIAC_SERVICE and ZODIAC_TEAM:
             container_op.add_pod_label("zodiac.zillowgroup.net/service", ZODIAC_SERVICE)
             container_op.add_pod_label("zodiac.zillowgroup.net/team", ZODIAC_TEAM)
