@@ -169,6 +169,15 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     "--workflow-timeout", default=None, type=int, help="Workflow timeout in seconds."
 )
 @click.option(
+    "--wait-for-completion-timeout",
+    "--wait-timeout",
+    "-wt",
+    "wait_for_completion_timeout",
+    default=None,
+    type=int,
+    help="Completion timeout (seconds) to wait before flow exits, else TimeoutExpired is raised.",
+)
+@click.option(
     "--argo-wait",
     "-aw",
     "argo_wait",
@@ -227,6 +236,7 @@ def run(
     notify_on_error=None,
     notify_on_success=None,
     argo_wait=False,
+    wait_for_completion_timeout=None,
     **kwargs,
 ):
     """
@@ -310,7 +320,12 @@ def run(
 
             argo_cmd = f"{argo_path} -n {kfp_namespace} "
             cmd = f"{argo_cmd} watch {argo_workflow_name}"
-            subprocess.run(cmd, shell=True, universal_newlines=True)
+            subprocess.run(
+                cmd,
+                shell=True,
+                universal_newlines=True,
+                timeout=wait_for_completion_timeout,
+            )
 
             cmd = f"{argo_cmd} get {argo_workflow_name} | grep Status | awk '{{print $2}}'"
             ret = subprocess.run(
