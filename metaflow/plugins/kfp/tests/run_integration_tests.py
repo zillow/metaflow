@@ -134,7 +134,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 def test_error_and_opsgenie_alert(pytestconfig) -> None:
     raise_error_flow_cmd: str = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-        f"--argo-wait "
+        f"--argo-wait --workflow-timeout 1800 "
         f"--experiment metaflow_test --tag test_t1 --notify "
     )
     if pytestconfig.getoption("image"):
@@ -191,7 +191,7 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     check_error_handling_flow_cmd: str = (
         f"{_python()} flows/check_error_handling_flow.py "
         f"--datastore=s3 --with retry kfp run "
-        f"--argo-wait "
+        f"--argo-wait --workflow-timeout 1800 "
         f"--experiment metaflow_test --tag test_t1 "
         f"--error_flow_id={error_flow_id} "
         f"--notify "
@@ -210,7 +210,7 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
 
     test_cmd: str = (
         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-        f"--argo-wait "
+        f"--argo-wait --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
         f"--sys-tag test_sys_t1:sys_tag_value "
     )
