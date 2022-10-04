@@ -156,6 +156,8 @@ KFP_USER_DOMAIN = from_conf("KFP_USER_DOMAIN", "")
 # For eg, this would look like: "https://<your-kf-cluster-url>/pipeline/#/runs/details/"
 KFP_RUN_URL_PREFIX = from_conf("KFP_RUN_URL_PREFIX", "")
 KFP_MAX_PARALLELISM = int(from_conf("KFP_MAX_PARALLELISM", 10))
+ZODIAC_SERVICE = from_conf("ZODIAC_SERVICE")
+ZODIAC_TEAM = from_conf("ZODIAC_TEAM")
 
 ###
 # AWS Batch configuration

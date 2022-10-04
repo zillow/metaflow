@@ -39,6 +39,8 @@ from metaflow.metaflow_config import (
     KFP_USER_DOMAIN,
     KUBERNETES_SERVICE_ACCOUNT,
     METAFLOW_USER,
+    ZODIAC_SERVICE,
+    ZODIAC_TEAM,
     from_conf,
 )
 from metaflow.plugins import EnvironmentDecorator, KfpInternalDecorator
@@ -672,6 +674,13 @@ class KubeflowPipelines(object):
         if "@" in owner:
             owner = owner.split("@")[0]
         container_op.add_pod_label("zodiac.zillowgroup.net/owner", owner)
+
+        # Add in Zodiac service and team labels to the kfp pods if the environment variable is
+        # present in the notebook (individual profile notebooks only) and set them. These labels
+        # are not being added by poddefaults as they were removed.
+        if ZODIAC_SERVICE and ZODIAC_TEAM:
+            container_op.add_pod_label("zodiac.zillowgroup.net/service", ZODIAC_SERVICE)
+            container_op.add_pod_label("zodiac.zillowgroup.net/team", ZODIAC_TEAM)
 
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
         """
