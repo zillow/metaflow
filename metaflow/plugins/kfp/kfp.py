@@ -35,6 +35,7 @@ from kubernetes.client import (
 from metaflow.decorators import FlowDecorator
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
+    INDIVIDUAL_NAMESPACE,
     KFP_TTL_SECONDS_AFTER_FINISHED,
     KFP_USER_DOMAIN,
     KUBERNETES_SERVICE_ACCOUNT,
@@ -719,21 +720,26 @@ class KubeflowPipelines(object):
                             ),
                         )
                     )
+                # adding in additional env variable for spark to identify if workflow was
+                # launched from a notebook in an individual namespace.
+                env_vars = {
+                    "INDIVIDUAL_NAMESPACE": INDIVIDUAL_NAMESPACE,
+                }
                 # add in env variable for ServiceAccount for Zillow Spark solution
                 if KUBERNETES_SERVICE_ACCOUNT:
-                    env_var = {
-                        "METAFLOW_KUBERNETES_SERVICE_ACCOUNT": KUBERNETES_SERVICE_ACCOUNT
-                    }
-                    # need to be added separately from above as there is no valueFrom/fieldRef from the env
-                    # var. leaving as a list format in the event future env variables need to be added without
-                    # a fieldRef value_from similar to this env variable.
-                    for name, resource in env_var.items():
-                        op.container.add_env_variable(
-                            V1EnvVar(
-                                name=name,
-                                value=resource,
-                            )
+                    env_vars[
+                        "METAFLOW_KUBERNETES_SERVICE_ACCOUNT"
+                    ] = KUBERNETES_SERVICE_ACCOUNT
+                # need to be added separately from above as there is no valueFrom/fieldRef from the env
+                # var. leaving as a list format in the event future env variables need to be added without
+                # a fieldRef value_from similar to this env variable.
+                for name, resource in env_vars.items():
+                    op.container.add_env_variable(
+                        V1EnvVar(
+                            name=name,
+                            value=resource,
                         )
+                    )
 
         pipeline_conf = None  # return variable
 

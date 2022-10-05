@@ -158,6 +158,7 @@ KFP_RUN_URL_PREFIX = from_conf("KFP_RUN_URL_PREFIX", "")
 KFP_MAX_PARALLELISM = int(from_conf("KFP_MAX_PARALLELISM", 10))
 ZODIAC_SERVICE = from_conf("ZODIAC_SERVICE")
 ZODIAC_TEAM = from_conf("ZODIAC_TEAM")
+INDIVIDUAL_NAMESPACE = from_conf("INDIVIDUAL_NAMESPACE", "false")
 
 ###
 # AWS Batch configuration
