@@ -683,7 +683,9 @@ class KubeflowPipelines(object):
         if ZODIAC_SERVICE and ZODIAC_TEAM:
             container_op.add_pod_label("zodiac.zillowgroup.net/service", ZODIAC_SERVICE)
             container_op.add_pod_label("zodiac.zillowgroup.net/team", ZODIAC_TEAM)
-            container_op.add_pod_annotation("logging.zgtools.net/topic", f"log.fluentd-z1.{ZODIAC_SERVICE}.dev")
+            container_op.add_pod_annotation(
+                "logging.zgtools.net/topic", f"log.fluentd-z1.{ZODIAC_SERVICE}.dev"
+            )
 
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
         """
