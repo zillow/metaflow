@@ -49,6 +49,10 @@ non_standard_test_flows = [
     "toleration_and_affinity_flow.py",
 ]
 
+disabled_test_flows = [
+    "kfp_flow.py",  # kfp_preceding_component feature has been deprecated.
+]
+
 
 def _python():
     if R.use_r():
@@ -63,7 +67,7 @@ def obtain_flow_file_paths(flow_dir_path: str) -> List[str]:
         for file_name in listdir(flow_dir_path)
         if isfile(join(flow_dir_path, file_name))
         and not file_name.startswith(".")
-        and not file_name in non_standard_test_flows
+        and not file_name in non_standard_test_flows + disabled_test_flows
     ]
     return file_paths
 
@@ -120,7 +124,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
         f"{_python()} flows/validate_s3_sensor_flows.py --datastore=s3 --with retry kfp run "
         f"--file_name {file_name} --file_name_for_formatter_test {file_name_for_formatter_test} "
         f"--s3_sensor_argo_workflow_name {s3_sensor_argo_workflow_name} --s3_sensor_with_formatter_argo_workflow_name {s3_sensor_with_formatter_argo_workflow_name} "
-        f"--wait-for-completion "
+        f"--argo-wait "
     )
     validate_s3_sensor_flow_cmd += main_config_cmds
     validate_s3_sensor_flow_cmd += image_cmds
@@ -134,7 +138,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
 def test_error_and_opsgenie_alert(pytestconfig) -> None:
     raise_error_flow_cmd: str = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--argo-wait --workflow-timeout 1800 "
         f"--experiment metaflow_test --tag test_t1 --notify "
     )
     if pytestconfig.getoption("image"):
@@ -191,7 +195,7 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     check_error_handling_flow_cmd: str = (
         f"{_python()} flows/check_error_handling_flow.py "
         f"--datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--argo-wait --workflow-timeout 1800 "
         f"--experiment metaflow_test --tag test_t1 "
         f"--error_flow_id={error_flow_id} "
         f"--notify "
@@ -210,7 +214,7 @@ def test_flows(pytestconfig, flow_file_path: str) -> None:
 
     test_cmd: str = (
         f"{_python()} {full_path} --datastore=s3 --with retry kfp run "
-        f"--wait-for-completion --workflow-timeout 1800 "
+        f"--argo-wait --workflow-timeout 1800 "
         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
         f"--sys-tag test_sys_t1:sys_tag_value "
     )
