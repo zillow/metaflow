@@ -35,13 +35,13 @@ from kubernetes.client import (
 from metaflow.decorators import FlowDecorator
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
-    INDIVIDUAL_NAMESPACE,
     KFP_TTL_SECONDS_AFTER_FINISHED,
     KFP_USER_DOMAIN,
     KUBERNETES_SERVICE_ACCOUNT,
     METAFLOW_USER,
-    ZODIAC_SERVICE,
-    ZODIAC_TEAM,
+    ZILLOW_INDIVIDUAL_NAMESPACE,
+    ZILLOW_ZODIAC_SERVICE,
+    ZILLOW_ZODIAC_TEAM,
     from_conf,
 )
 from metaflow.plugins import EnvironmentDecorator, KfpInternalDecorator
@@ -681,11 +681,16 @@ class KubeflowPipelines(object):
         # are not being added by poddefaults as they were removed. Workflows launched in project
         # profiles still get these labels added via poddefaults. Also adds in logging topic
         # annotation as this value is specific to zodiac service as well.
-        if ZODIAC_SERVICE and ZODIAC_TEAM:
-            container_op.add_pod_label("zodiac.zillowgroup.net/service", ZODIAC_SERVICE)
-            container_op.add_pod_label("zodiac.zillowgroup.net/team", ZODIAC_TEAM)
+        if ZILLOW_ZODIAC_SERVICE and ZILLOW_ZODIAC_TEAM:
+            container_op.add_pod_label(
+                "zodiac.zillowgroup.net/service", ZILLOW_ZODIAC_SERVICE
+            )
+            container_op.add_pod_label(
+                "zodiac.zillowgroup.net/team", ZILLOW_ZODIAC_TEAM
+            )
             container_op.add_pod_annotation(
-                "logging.zgtools.net/topic", f"log.fluentd-z1.{ZODIAC_SERVICE}.dev"
+                "logging.zgtools.net/topic",
+                f"log.fluentd-z1.{ZILLOW_ZODIAC_SERVICE}.dev",
             )
 
     def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
@@ -723,7 +728,7 @@ class KubeflowPipelines(object):
                 # adding in additional env variable for spark to identify if workflow was
                 # launched from a notebook in an individual namespace.
                 env_vars = {
-                    "INDIVIDUAL_NAMESPACE": INDIVIDUAL_NAMESPACE,
+                    "INDIVIDUAL_NAMESPACE": ZILLOW_INDIVIDUAL_NAMESPACE,
                 }
                 # add in env variable for ServiceAccount for Zillow Spark solution
                 if KUBERNETES_SERVICE_ACCOUNT:
