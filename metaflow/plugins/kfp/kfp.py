@@ -48,12 +48,14 @@ from metaflow.plugins import EnvironmentDecorator, KfpInternalDecorator
 from metaflow.plugins.kfp.kfp_constants import S3_SENSOR_RETRY_COUNT
 from metaflow.plugins.kfp.kfp_decorator import KfpException
 
+
 from ...graph import DAGNode
 from ...metaflow_environment import MetaflowEnvironment
 from ...plugins.resources_decorator import ResourcesDecorator
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from .accelerator_decorator import AcceleratorDecorator
+from .spot_decorator import SpotDecorator
 from .kfp_foreach_splits import KfpForEachSplits, graph_to_task_ids
 
 # TODO: @schedule
@@ -91,6 +93,7 @@ class KfpComponent(object):
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
+        spot_decorator: SpotDecorator,
         environment_decorator: EnvironmentDecorator,
         total_retries: int,
     ):
@@ -98,6 +101,7 @@ class KfpComponent(object):
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
         self.accelerator_decorator = accelerator_decorator
+        self.spot_decorator = spot_decorator
         self.environment_decorator = environment_decorator
         self.total_retries = total_retries
 
@@ -409,6 +413,14 @@ class KubeflowPipelines(object):
                     ),
                     None,  # default
                 ),
+                spot_decorator=next(
+                    (
+                        deco
+                        for deco in node.decorators
+                        if isinstance(deco, SpotDecorator)
+                    ),
+                    None,  # default
+                ),
                 environment_decorator=next(
                     (
                         deco
@@ -586,6 +598,38 @@ class KubeflowPipelines(object):
             )
             if toleration:
                 container_op.add_toleration(toleration)
+
+        if kfp_component.spot_decorator:
+            node_selector = V1NodeSelector(
+                node_selector_terms=[
+                    V1NodeSelectorTerm(
+                        match_expressions=[
+                            V1NodeSelectorRequirement(
+                                key="k8s.zg-aip.net/cost-type",
+                                operator="In",
+                                values=["spot"],
+                            )
+                        ]
+                    )
+                ]
+            )
+            node_affinity = V1NodeAffinity(
+                required_during_scheduling_ignored_during_execution=node_selector
+            )
+            affinity = V1Affinity(node_affinity=node_affinity)
+
+            # ensures the pod created has the correct toleration corresponding to the taint
+            # on the spot node for it to be scheduled on that node
+            toleration = V1Toleration(
+                # the `effect` parameter must be specified at the top!
+                # otherwise, there is undefined behavior
+                effect="NoSchedule",
+                key="k8s.zg-aip.net/cost-type",
+                operator="Equal",
+                value="spot",
+            )
+            container_op.add_affinity(affinity)
+            container_op.add_toleration(toleration)
 
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
