@@ -1,7 +1,6 @@
 from metaflow.decorators import StepDecorator
 
 
-
 class SpotDecorator(StepDecorator):
     """
     For KFP orchestrator plugin only.

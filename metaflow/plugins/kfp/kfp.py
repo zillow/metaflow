@@ -553,6 +553,8 @@ class KubeflowPipelines(object):
             )
             container_op.add_pvolumes({"dev/shm": memory_volume})
 
+        affinity_match_expressions: List[V1NodeSelectorRequirement] = []
+
         if kfp_component.accelerator_decorator:
             accelerator_type: Optional[
                 str
@@ -560,23 +562,13 @@ class KubeflowPipelines(object):
 
             if accelerator_type:
                 # ensures we only select a node with the correct accelerator type (based on selector)
-                node_selector = V1NodeSelector(
-                    node_selector_terms=[
-                        V1NodeSelectorTerm(
-                            match_expressions=[
-                                V1NodeSelectorRequirement(
-                                    key="k8s.amazonaws.com/accelerator",
-                                    operator="In",
-                                    values=[accelerator_type],
-                                )
-                            ]
-                        )
-                    ]
+                affinity_match_expressions.append(
+                    V1NodeSelectorRequirement(
+                        key="k8s.amazonaws.com/accelerator",
+                        operator="In",
+                        values=[accelerator_type],
+                    )
                 )
-                node_affinity = V1NodeAffinity(
-                    required_during_scheduling_ignored_during_execution=node_selector
-                )
-                affinity = V1Affinity(node_affinity=node_affinity)
                 # ensures the pod created has the correct toleration corresponding to the taint
                 # on the accelerator node for it to be scheduled on that node
                 toleration = V1Toleration(
@@ -587,7 +579,7 @@ class KubeflowPipelines(object):
                     operator="Equal",
                     value=accelerator_type,
                 )
-                container_op.add_affinity(affinity)
+                # container_op.add_affinity(affinity)
                 container_op.add_toleration(toleration)
 
         elif "gpu" not in resource_requirements:
@@ -600,23 +592,13 @@ class KubeflowPipelines(object):
                 container_op.add_toleration(toleration)
 
         if kfp_component.spot_decorator:
-            node_selector = V1NodeSelector(
-                node_selector_terms=[
-                    V1NodeSelectorTerm(
-                        match_expressions=[
-                            V1NodeSelectorRequirement(
-                                key="k8s.zg-aip.net/cost-type",
-                                operator="In",
-                                values=["spot"],
-                            )
-                        ]
-                    )
-                ]
+            affinity_match_expressions.append(
+                V1NodeSelectorRequirement(
+                    key="k8s.zg-aip.net/cost-type",
+                    operator="In",
+                    values=["spot"],
+                )
             )
-            node_affinity = V1NodeAffinity(
-                required_during_scheduling_ignored_during_execution=node_selector
-            )
-            affinity = V1Affinity(node_affinity=node_affinity)
 
             # ensures the pod created has the correct toleration corresponding to the taint
             # on the spot node for it to be scheduled on that node
@@ -628,8 +610,20 @@ class KubeflowPipelines(object):
                 operator="Equal",
                 value="spot",
             )
-            container_op.add_affinity(affinity)
+            # container_op.add_affinity(affinity)
             container_op.add_toleration(toleration)
+
+        if len(affinity_match_expressions) > 0:
+            node_selector = V1NodeSelector(
+                node_selector_terms=[
+                    V1NodeSelectorTerm(match_expressions=affinity_match_expressions)
+                ]
+            )
+            node_affinity = V1NodeAffinity(
+                required_during_scheduling_ignored_during_execution=node_selector
+            )
+            affinity = V1Affinity(node_affinity=node_affinity)
+            container_op.add_affinity(affinity)
 
     # used by the workflow_uid_op and the s3_sensor_op to tighten resources
     # to ensure customers don't bear unnecesarily large costs
