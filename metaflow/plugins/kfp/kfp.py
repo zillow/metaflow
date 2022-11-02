@@ -502,7 +502,7 @@ class KubeflowPipelines(object):
                     size=resource_requirements["volume"],
                     workflow_uid=workflow_uid,
                     mode=mode,
-                    storage_class=resource_requirements["volume_storage_class"],
+                    volume_type=resource_requirements.get("volume_type"),
                 )
                 container_op.add_pvolumes({volume_dir: volume})
 
@@ -605,17 +605,20 @@ class KubeflowPipelines(object):
         size: str,
         workflow_uid: str,
         mode: str,
-        storage_class: Optional[str],
+        volume_type: Optional[str],
     ) -> Tuple[ResourceOp, PipelineVolume]:
         volume_name = (
             sanitize_k8s_name(step_name) if mode == "ReadWriteMany" else "{{pod.name}}"
         )
         attribute_outputs = {"size": "{.status.capacity.storage}"}
         requested_resources = V1ResourceRequirements(requests={"storage": size})
+
+        # AIP-6788(talebz): Add volume_type to PVC
+        #  to support faster storage classes (ex: EBS volume types)
         pvc_spec = V1PersistentVolumeClaimSpec(
             access_modes=dsl.VOLUME_MODE_RWO,
             resources=requested_resources,
-            storage_class_name=storage_class,
+            storage_class_name=volume_type,
         )
         owner_reference = V1OwnerReference(
             api_version="argoproj.io/v1alpha1",
@@ -1026,7 +1029,7 @@ class KubeflowPipelines(object):
                     size=resources["volume"],
                     workflow_uid=workflow_uid_op.output,
                     mode=resources["volume_mode"],
-                    storage_class=resources["volume_storage_class"],
+                    volume_type=resources.get("volume_type"),
                 )
                 shared_volumes[kfp_component.step_name] = (
                     resource_op,

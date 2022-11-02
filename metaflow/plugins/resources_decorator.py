@@ -71,8 +71,9 @@ class ResourcesDecorator(StepDecorator):
             via the shared volume.
     volume_dir: str
         Default "/opt/metaflow_volume"
-    volume_storage_class: str
+    volume_type: str
         Default None (the cluster or system default)
+        This is the type of volume to use.  On AWS this would be the EBS volume type.
     """
 
     name = "resources"
@@ -91,7 +92,7 @@ class ResourcesDecorator(StepDecorator):
         "volume": None,
         "volume_mode": "ReadWriteOnce",
         "volume_dir": "/opt/metaflow_volume",
-        "volume_storage_class": None,
+        "volume_type": None,
         # Deprecated - kept only to show a meaningful error message
         "local_storage": None,
     }
