@@ -55,7 +55,7 @@ from ...plugins.resources_decorator import ResourcesDecorator
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from .accelerator_decorator import AcceleratorDecorator
-from .spot_decorator import SpotDecorator
+from .interruptable_decorator import InterruptableDecorator
 from .kfp_foreach_splits import KfpForEachSplits, graph_to_task_ids
 
 # TODO: @schedule
@@ -93,7 +93,7 @@ class KfpComponent(object):
         resource_requirements: Dict[str, str],
         kfp_decorator: KfpInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
-        spot_decorator: SpotDecorator,
+        interruptable_decorator: InterruptableDecorator,
         environment_decorator: EnvironmentDecorator,
         total_retries: int,
     ):
@@ -101,7 +101,7 @@ class KfpComponent(object):
         self.resource_requirements = resource_requirements
         self.kfp_decorator = kfp_decorator
         self.accelerator_decorator = accelerator_decorator
-        self.spot_decorator = spot_decorator
+        self.interruptable_decorator = interruptable_decorator
         self.environment_decorator = environment_decorator
         self.total_retries = total_retries
 
@@ -413,11 +413,11 @@ class KubeflowPipelines(object):
                     ),
                     None,  # default
                 ),
-                spot_decorator=next(
+                interruptable_decorator=next(
                     (
                         deco
                         for deco in node.decorators
-                        if isinstance(deco, SpotDecorator)
+                        if isinstance(deco, InterruptableDecorator)
                     ),
                     None,  # default
                 ),
@@ -592,7 +592,7 @@ class KubeflowPipelines(object):
             if toleration:
                 container_op.add_toleration(toleration)
 
-        if kfp_component.spot_decorator:
+        if kfp_component.interruptable_decorator:
             affinity_match_expressions.append(
                 V1NodeSelectorRequirement(
                     key="k8s.zg-aip.net/cost-type",
@@ -1112,7 +1112,9 @@ class KubeflowPipelines(object):
             f" --sys_tags_json {json.dumps(json.dumps(flow_variables.sys_tags))}"
             f" --task_id {step_variables.task_id}"
             f" --user_code_retries {step_variables.user_code_retries}"
-            " --workflow_name {{workflow.name}}"
+            "--is-interruptable"
+            if kfp_component.interruptable_decorator
+            else " " " --workflow_name {{workflow.name}}"
         )
 
         if node.name == "start":
