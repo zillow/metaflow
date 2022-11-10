@@ -207,7 +207,7 @@ def _command(
     # 2) Initializes the mflog environment (mflog_expr)
     # 3) Executes a task (step_expr)
     cmd_str: str = (
-        f"&& {clean_volume_cmd} "
+        f"{clean_volume_cmd} "
         f"&& mkdir -p {LOGS_DIR} && {mflog_expr} "
         f"&& {bash_capture_logs(step_cli)};"
     )
