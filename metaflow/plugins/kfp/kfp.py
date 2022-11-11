@@ -1112,9 +1112,12 @@ class KubeflowPipelines(object):
             f" --sys_tags_json {json.dumps(json.dumps(flow_variables.sys_tags))}"
             f" --task_id {step_variables.task_id}"
             f" --user_code_retries {step_variables.user_code_retries}"
-            "--is-interruptable"
-            if kfp_component.interruptable_decorator
-            else " " " --workflow_name {{workflow.name}}"
+            + (
+                " --is-interruptable "
+                if kfp_component.interruptable_decorator
+                else " --not-interruptable "
+            )
+            + " --workflow_name {{workflow.name}}"
         )
 
         if node.name == "start":
