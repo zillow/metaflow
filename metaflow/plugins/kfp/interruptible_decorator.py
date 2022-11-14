@@ -1,7 +1,7 @@
 from metaflow.decorators import StepDecorator
 
 
-class InterruptableDecorator(StepDecorator):
+class interruptibleDecorator(StepDecorator):
     """
     For KFP orchestrator plugin only.
 
@@ -9,11 +9,11 @@ class InterruptableDecorator(StepDecorator):
 
     To use, follow the example below.
     ```
-    @interruptable()
+    @interruptible()
     @step
     def train(self):
         self.rank = self.input
-        # code running on interruptable instance
+        # code running on interruptible instance
         ...
     ```
 
@@ -21,4 +21,4 @@ class InterruptableDecorator(StepDecorator):
     ----------
     """
 
-    name = "interruptable"
+    name = "interruptible"
