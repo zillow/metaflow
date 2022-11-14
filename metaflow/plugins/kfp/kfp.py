@@ -580,7 +580,6 @@ class KubeflowPipelines(object):
                     operator="Equal",
                     value=accelerator_type,
                 )
-                # container_op.add_affinity(affinity)
                 container_op.add_toleration(toleration)
 
         elif "gpu" not in resource_requirements:
