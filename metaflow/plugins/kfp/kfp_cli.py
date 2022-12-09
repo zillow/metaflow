@@ -6,6 +6,7 @@ from metaflow import JSONType, current, decorators, parameters
 from metaflow._vendor import click
 from metaflow.exception import CommandException, MetaflowException
 from metaflow.metaflow_config import (
+    DEFAULT_PACKAGE_SUFFIXES,
     KFP_DEFAULT_CONTAINER_IMAGE,
     KFP_MAX_PARALLELISM,
     KFP_SDK_API_NAMESPACE,
@@ -143,6 +144,12 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     "s3_code_package",
     default=True,
     help="Whether to package the code to S3 datastore",
+    show_default=True,
+)
+@click.option(
+    "--package-suffixes",
+    help="A comma-separated list of file suffixes to include " "in the code package.",
+    default=DEFAULT_PACKAGE_SUFFIXES,
     show_default=True,
 )
 @click.option(
