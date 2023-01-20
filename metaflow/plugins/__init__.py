@@ -251,3 +251,6 @@ for _n in [
     except KeyError:
         pass
 del globals()["_n"]
+
+# Checkpoints
+from .frameworks.checkpoints import get_checkpoint_paths, CheckpointPaths
