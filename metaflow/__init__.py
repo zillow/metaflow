@@ -48,8 +48,6 @@ import types
 
 from os import path
 
-from metaflow.plugins.frameworks.checkpoints import get_checkpoint_paths
-
 CURRENT_DIRECTORY = path.dirname(path.abspath(__file__))
 INFO_FILE = path.join(path.dirname(CURRENT_DIRECTORY), "INFO")
 
