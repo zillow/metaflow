@@ -48,6 +48,8 @@ import types
 
 from os import path
 
+from metaflow.plugins.frameworks.checkpoints import get_checkpoint_paths
+
 CURRENT_DIRECTORY = path.dirname(path.abspath(__file__))
 INFO_FILE = path.join(path.dirname(CURRENT_DIRECTORY), "INFO")
 
@@ -120,7 +122,7 @@ if sys.version_info[0] >= 3 and sys.version_info[1] >= 4:
 
 
 # Checkpointing
-from .plugins import get_checkpoint_paths, CheckpointPaths
+from .plugins.frameworks.checkpoints import get_checkpoint_paths, CheckpointPaths
 
 # Client
 from .client import (
