@@ -73,7 +73,7 @@ def _get_resume_checkpoint_path(
             return ret
         else:
             _logger.info(
-                f"{current.retry_count=} but using {resume_checkpoint_path=} because no checkpiont found."
+                f"{current.retry_count=} but using {resume_checkpoint_path=} because no checkpoint found."
             )
             return resume_checkpoint_path
 
@@ -89,6 +89,10 @@ def get_checkpoint_paths(
     """
     This function gets the checkpoint root and resume path for a Flow Run step.
 
+    Checkpointing allows a long running process to resume upon network,
+    infrastructure, or SPOT interruptions or failures.  This is especially
+    useful for expensive training or compute.
+
     The environment variable CHECKPOINT_ROOT can override the root path,
     which is useful for local or CICD runs not on S3.
 
@@ -99,7 +103,7 @@ def get_checkpoint_paths(
             Defaults to None, upon which it returns None on the first attempt.
 
     Returns:
-        CheckpointPaths tuple with folllowing:
+        CheckpointPaths tuple of the following:
         - root: Checkpoint S3 root path for this run and step.
         - resume_path: S3 path to the latest checkpoint under the root, to resume from.
             This can be None on the first attempt when resume_checkpoint_path is None.

@@ -36,7 +36,7 @@ class ResilientFlow(FlowSpec):
 
         checkpoint_paths: CheckpointPaths = get_checkpoint_paths()
         checkpoint_name = f"checkpoint.pt"
-        checkpoint_obj = "test"
+        checkpoint_obj = "'checkpoint content'"
         if current.retry_count == 0:
             S3(s3root=checkpoint_paths.root).put(checkpoint_name, checkpoint_obj)
             validate_checkpoint_root(checkpoint_paths.root)
@@ -60,9 +60,9 @@ class ResilientFlow(FlowSpec):
             validate_checkpoint_root(checkpoint_paths.root)
             assert checkpoint_paths.resume_path.endswith(checkpoint_name)
 
-            obj = S3(s3root=checkpoint_paths.root).get(checkpoint_name).text
+            obj = S3(s3root=checkpoint_paths.resume_path).get().text
             assert obj == checkpoint_obj
-            print("let's succeed")
+            print(f"validated {checkpoint_paths.resume_path=} content == {obj}")
 
         self.next(self.user_failure)
 
