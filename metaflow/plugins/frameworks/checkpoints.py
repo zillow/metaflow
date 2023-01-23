@@ -26,15 +26,18 @@ def _get_s3_latest_checkpoint_s3_info(s3_checkpoint_root: str) -> Optional[S3Obj
     return max(with_infos, key=lambda info: info.last_modified)
 
 
-def _get_latest_checkpoint_name(root: str) -> str:
+def _get_latest_checkpoint_name(root: str) -> Optional[str]:
     if urlparse(root).scheme == "s3":
         latest = _get_s3_latest_checkpoint_s3_info(root)
         return latest.key if latest else None
     else:
-        files = os.listdir(root)
-        paths = [os.path.join(root, basename) for basename in files]
-        paths = [path for path in paths if os.path.isfile(path)]
-        return max(paths, key=os.path.getctime)
+        if os.path.exists(root):
+            files = os.listdir(root)
+            paths = [os.path.join(root, basename) for basename in files]
+            paths = [path for path in paths if os.path.isfile(path)]
+            return max(paths, key=os.path.getctime)
+        else:
+            return None
 
 
 def _get_checkpoint_root(
