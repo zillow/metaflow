@@ -70,7 +70,7 @@ class Current(object):
     def flow(self) -> FlowSpec:
         return self._flow
 
-    def log_location(self, log_prefix: str, stream: Optional[str] = None) -> str:
+    def task_log_location(self, log_prefix: str, stream: Optional[str] = None) -> str:
         """
         This returns the current Task and Run datastore appropriate location
         to store logs.
