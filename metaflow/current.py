@@ -1,4 +1,5 @@
 from collections import namedtuple
+from typing import Optional
 from .flowspec import FlowSpec
 import os
 
@@ -68,6 +69,31 @@ class Current(object):
     @property
     def flow(self) -> FlowSpec:
         return self._flow
+
+    def log_location(self, log_prefix: str, stream: Optional[str] = None) -> str:
+        """
+        This returns the current Task and Run datastore appropriate location
+        to store logs.
+
+        Args:
+            log_prefix (str): The prefix
+            stream (Optional[str], optional): If None, then the
+                When log_prefix == lightning_logs and stream==None:
+
+        Returns:
+            str: _description_
+
+        Examples:
+            Notice that the attempt number is prefixed to the log location path,
+            for example "0." on the first attempt, and on a retry the prefix
+            would be "1."
+
+            >>> current.log_location('lightning_logs')
+                ".metaflow/LightningCLIFlow/4666/start/29503/0.lightning_logs"
+            >>> current.log_location('lightning', 'out')
+                ".metaflow/LightningCLIFlow/4666/_parameters/29503/0.lightning_out.log"
+        """
+        return self.flow._datastore.get_log_location(log_prefix, stream)
 
     @property
     def flow_name(self):
