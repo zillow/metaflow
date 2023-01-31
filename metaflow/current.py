@@ -1,5 +1,6 @@
 from collections import namedtuple
 from typing import Optional
+
 from .flowspec import FlowSpec
 import os
 
@@ -9,6 +10,7 @@ Parallel = namedtuple("Parallel", ["main_ip", "num_nodes", "node_index"])
 class Current(object):
     def __init__(self):
         self._flow = None
+        self._task = None
         self._flow_name = None
         self._run_id = None
         self._step_name = None
@@ -29,6 +31,7 @@ class Current(object):
     def _set_env(
         self,
         flow=None,
+        task=None,
         run_id=None,
         step_name=None,
         task_id=None,
@@ -43,6 +46,7 @@ class Current(object):
             self._flow_name = flow.name
             self.__class__.graph = property(fget=lambda _, flow=flow: flow._graph_info)
 
+        self._task = task
         self._run_id = run_id
         self._step_name = step_name
         self._task_id = task_id
@@ -72,16 +76,17 @@ class Current(object):
 
     def task_log_location(self, log_prefix: str, stream: Optional[str] = None) -> str:
         """
-        This returns the current Task and Run datastore appropriate location
+        This function returns the current Task and attempt datastore appropriate location
         to store logs.
 
         Args:
-            log_prefix (str): The prefix
-            stream (Optional[str], optional): If None, then the
-                When log_prefix == lightning_logs and stream==None:
+            log_prefix (str): The log prefix.
+            stream (Optional[str], optional):
+                Returns the following format: f"{attempt}.{log_prefix}_{stream}.log"
+                If None, then the following is returned: f"{attempt}.{log_prefix}.log"
 
         Returns:
-            str: _description_
+            str: Task and attempt specific datastore path to log.
 
         Examples:
             Notice that the attempt number is prefixed to the log location path,
@@ -89,11 +94,20 @@ class Current(object):
             would be "1."
 
             >>> current.log_location('lightning_logs')
-                ".metaflow/LightningCLIFlow/4666/start/29503/0.lightning_logs"
+                ".metaflow/LightningFlow/4718/start/29753/0.lightning_logs"
+
             >>> current.log_location('lightning', 'out')
-                ".metaflow/LightningCLIFlow/4666/_parameters/29503/0.lightning_out.log"
+                ".metaflow/LightningFlow/4718/start/29753/0.lightning_out.log"
         """
-        return self.flow._datastore.get_log_location(log_prefix, stream)
+        ds = self._task.flow_datastore.get_task_datastore(
+            self.run_id,
+            self.step_name,
+            self.task_id,
+            mode="r",
+            attempt=self.retry_count,
+            allow_not_done=True,
+        )
+        return ds.get_log_location(log_prefix, stream)
 
     @property
     def flow_name(self):
