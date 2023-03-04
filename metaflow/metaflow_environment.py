@@ -126,6 +126,7 @@ class MetaflowEnvironment(object):
             "after 6 tries. Exiting...' && exit 1; "
             "fi" % code_package_url,
             "TAR_OPTIONS='--warning=no-timestamp' tar xf job.tar",
+            f"mflog {code_package_url=}",
             "mflog 'Task is starting.'",
         ]
         return cmds
