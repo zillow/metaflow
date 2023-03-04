@@ -18,6 +18,7 @@ from kubernetes.client import (
     V1EnvVar,
     V1EnvVarSource,
     V1EmptyDirVolumeSource,
+    V1NFSVolumeSource,
     V1NodeAffinity,
     V1NodeSelector,
     V1NodeSelectorRequirement,
@@ -561,6 +562,22 @@ class KubeflowPipelines(object):
                 )
             )
             container_op.add_pvolumes({"dev/shm": memory_volume})
+
+        if "nfs_server" in resource_requirements:
+            nfs_volume = PipelineVolume(
+                volume=V1Volume(
+                    # k8s volume name must consist of lower case alphanumeric characters or '-',
+                    # and must start and end with an alphanumeric character,
+                    # but step name is python function name that tends to be alphanumeric chars with '_'
+                    name=f"{kfp_component.step_name.lower().replace('_', '-')}-nfs",
+                    nfs=V1NFSVolumeSource(
+                        read_only=True,
+                        path=resource_requirements["nfs_path"],
+                        server=resource_requirements["nfs_server"],
+                    ),
+                )
+            )
+            container_op.add_pvolumes({"/mnt/nfs": nfs_volume})
 
         affinity_match_expressions: List[V1NodeSelectorRequirement] = []
 
