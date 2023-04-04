@@ -8,11 +8,7 @@ from metaflow.metadata.metadata import MetaDatum
 
 def _get_ec2_metadata(path: str) -> Optional[str]:
     response = requests.get(f"http://169.254.169.254/latest/meta-data/{path}")
-    if response.ok:
-        return response.text
-    else:
-        print(f"Error: {response.status_code}")
-        return None
+    return response.text
 
 
 class interruptibleDecorator(StepDecorator):
