@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Text, Tuple, Union
+import yaml
 
 import kfp
 from kfp import dsl
@@ -265,14 +266,18 @@ class KubeflowPipelines(object):
             workflow["spec"].pop("serviceAccountName", None)
         elif output_format == "argo-workflow-template":
             workflow["kind"] = "WorkflowTemplate"
+            workflow["spec"]["serviceAccountName"] = (
+                KUBERNETES_SERVICE_ACCOUNT or "default-editor"
+            )
 
             # Use static name to make referencing easier.
             # Note the name has to follow k8s format.
             # self.name is typically CamelCase as it's python class name.
             # generateName contains a sanitized version of self.name from kfp.compiler
-            workflow["metadata"]["name"] = (
+            workflow_name = (
                 name if name else workflow["metadata"].pop("generateName").rstrip("-")
             )
+            workflow["metadata"]["name"] = workflow_name
 
             # Service account is added through webhooks.
             workflow["spec"].pop("serviceAccountName", None)
@@ -281,13 +286,46 @@ class KubeflowPipelines(object):
 
         return workflow
 
+    @staticmethod
+    def _create_config_map(workflow_name: str, max_concurrency: int):
+        config_map = {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {"name": workflow_name},
+            "data": {"max_concurrency": str(max_concurrency)},
+        }
+        return config_map
+
+    @staticmethod
+    def _create_cron_workflow(
+        name: str,
+        schedule: Optional[str] = None,
+        concurrency: Optional[str] = None,
+        recurring_run_enable: Optional[bool] = False,
+    ) -> Dict[str, Any]:
+        body = {
+            "apiVersion": "argoproj.io/v1alpha1",
+            "kind": "CronWorkflow",
+            "metadata": {"name": name},
+            "spec": {
+                "suspend": not recurring_run_enable,
+                "schedule": (
+                    schedule if schedule else "* * 0 * *"
+                ),  # Day of month: 0 (invalid day) will never run
+                "concurrencyPolicy": concurrency,
+                "workflowSpec": {"workflowTemplateRef": {"name": name}},
+            },
+        }
+
+        return body
+
     def create_run_on_argo(
         self, kubernetes_namespace: str, flow_parameters: dict
     ) -> Dict[str, Any]:
         """
         Creates a new run on Argo using the `KubernetesClient()`.
         """
-        workflow: Dict[str, Any] = self._create_workflow_yaml(
+        workflow = self._create_workflow_yaml(
             flow_parameters, output_format="argo-workflow"
         )
 
@@ -302,13 +340,37 @@ class KubeflowPipelines(object):
         flow_parameters: Optional[dict] = None,
         output_format: str = "argo-workflow",
         name: Optional[str] = None,
-    ) -> Tuple[Dict[str, Any], str]:
-        workflow: Dict[str, Any] = self._create_workflow_yaml(
-            flow_parameters, output_format, name
+        recurring_run_enable: Optional[bool] = None,
+        recurring_run_cron: Optional[str] = None,
+        recurring_run_concurrency: Optional[str] = None,
+        max_concurrency: Optional[int] = 10,
+    ) -> str:
+        workflow = self._create_workflow_yaml(
+            flow_parameters,
+            output_format,
+            name,
         )
 
         kfp.compiler.Compiler()._write_workflow(workflow, output_path)
-        return workflow, os.path.abspath(output_path)
+
+        config_map = KubeflowPipelines._create_config_map(
+            workflow["metadata"]["name"], max_concurrency
+        )
+
+        with open(output_path, "a") as yaml_file:
+            yaml_file.write("\n---\n")
+            yaml.safe_dump(config_map, yaml_file, default_flow_style=False)
+
+            cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
+                workflow["metadata"]["name"],
+                schedule=recurring_run_cron,
+                concurrency=recurring_run_concurrency,
+                recurring_run_enable=recurring_run_enable,
+            )
+            yaml_file.write("\n---\n")
+            yaml.safe_dump(cron_workflow, yaml_file, default_flow_style=False)
+
+        return os.path.abspath(output_path)
 
     @staticmethod
     def _get_retries(node: DAGNode) -> Tuple[int, int]:

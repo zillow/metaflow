@@ -15,6 +15,7 @@ from metaflow.metaflow_config import (
     KUBERNETES_NAMESPACE,
     ARGO_RUN_URL_PREFIX,
     METAFLOW_RUN_URL_PREFIX,
+    KFP_MAX_CONCURRENCY,
 )
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
@@ -407,7 +408,21 @@ def create(
     notify=False,
     notify_on_error=None,
     notify_on_success=None,
+    recurring_run_enable=None,
+    recurring_run_cron=None,
+    recurring_run_concurrency=None,
+    max_concurrency=KFP_MAX_CONCURRENCY,
 ):
+    """
+    References:
+    https://analytics.pages.zgtools.net/artificial-intelligence/ai-platform/aip-docs/kubeflow/user_journeys/6_cicd/cicd_backfilling.html?highlight=catchup
+    https://argoproj.github.io/argo-workflows/cron-backfill/
+    https://argoproj.github.io/argo-workflows/cron-workflows/#workflowspec-and-workflowmetadata
+    Deprecating:
+      RECURRING_RUN_START_TIME: ""
+      RECURRING_RUN_END_TIME: ""
+      RECURRING_RUN_BACKFILL: "false" # this is what enables backfill
+    """
     obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
 
     check_metadata_service_version(obj)
@@ -427,7 +442,7 @@ def create(
         notify_on_success=notify_on_success,
     )
 
-    workflow_name: str = resolve_workflow_name(name)
+    workflow_name: str = name
     if yaml_only:
         if pipeline_path is None:
             raise CommandException("Please specify --pipeline-path")
@@ -437,12 +452,16 @@ def create(
                 f"create requires --yaml-format argo-workflow-template"
             )
 
-        workflow, path = flow.create_workflow_yaml_file(
-            pipeline_path, output_format=yaml_format, name=workflow_name
+        pipeline_path = flow.create_workflow_yaml_file(
+            output_path=pipeline_path,
+            flow_parameters=None,
+            output_format="argo-workflow-template",
+            recurring_run_enable=recurring_run_enable,
+            recurring_run_cron=recurring_run_cron,
+            recurring_run_concurrency=recurring_run_concurrency,
+            max_concurrency=max_concurrency,
         )
-        obj.echo(
-            f"\nDone compiling *{flow.name}* to {path} with {workflow['metadata']['name']}"
-        )
+        obj.echo(f"\nDone compiling *{current.flow_name}* to {pipeline_path}")
     else:
         obj.echo(f"Deploying *{flow.name}* to Argo Workflows...", bold=True)
         workflow_template: Dict[str, Any] = flow.deploy(
@@ -500,9 +519,10 @@ def trigger(
     **kwargs,
 ):
     from metaflow.plugins.kfp.kfp import KubeflowPipelines
+    from kfp.compiler._k8s_helper import sanitize_k8s_name
 
     flow_parameters: Dict[str, Any] = _get_flow_parameters(kwargs, obj)
-    workflow_name: str = resolve_workflow_name(name)
+    workflow_name: str = name if name else sanitize_k8s_name(obj.flow.name)
     workflow_manifest: Dict[str, Any] = KubeflowPipelines.trigger(
         kubernetes_namespace, workflow_name, flow_parameters
     )
@@ -531,38 +551,6 @@ def trigger(
             obj,
             wait_for_completion_timeout,
         )
-
-
-def resolve_workflow_name(name: str) -> str:
-    valid_name = re.compile("^[a-z0-9]([a-z0-9\.\-]*[a-z0-9])?$")
-    if name and not valid_name.search(name):
-        raise MetaflowException(
-            f"Name '{name}' contains invalid characters. The "
-            "name must consist of lower case alphanumeric characters, '-' or '.'"
-            ", and must start and end with an alphanumeric character."
-        )
-
-    workflow_name = name if name else current.flow_name
-
-    if len(workflow_name) > 253:
-        msg = (
-            f"The full name of the workflow:\n*{workflow_name}*\n"
-            "is longer than 253 characters.\n\n"
-            "To deploy this workflow to Argo Workflows, please assign a shorter name\n"
-            "using the option\n"
-            "*kfp --name <name> create*." % workflow_name
-        )
-        raise KfpException(msg)
-
-    if not valid_name.search(workflow_name):
-        workflow_name = (
-            re.compile(r"^[^A-Za-z0-9]+")
-            .sub("", workflow_name)
-            .replace("_", "")
-            .lower()
-        )
-
-    return workflow_name
 
 
 def show_status(
