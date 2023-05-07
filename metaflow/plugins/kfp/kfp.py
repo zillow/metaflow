@@ -209,9 +209,9 @@ class KubeflowPipelines(object):
 
             # Keep generateName - Argo Workflow is usually used in single run.
 
-            # Service account is added through webhooks.
-            workflow["spec"].pop("serviceAccountName", None)
-
+            workflow["spec"]["serviceAccountName"] = (
+                KUBERNETES_SERVICE_ACCOUNT or "default-editor"
+            )
         elif output_format == "argo-workflow-template":
             workflow["kind"] = "WorkflowTemplate"
 
@@ -223,8 +223,9 @@ class KubeflowPipelines(object):
                 workflow["metadata"].pop("generateName").rstrip("-")
             )
 
-            # Service account is added through webhooks.
-            workflow["spec"].pop("serviceAccountName", None)
+            workflow["spec"]["serviceAccountName"] = (
+                KUBERNETES_SERVICE_ACCOUNT or "default-editor"
+            )
         else:
             raise NotImplementedError(f"Unsupported output format {output_format}.")
 
