@@ -343,8 +343,9 @@ def test_kubernetes_service_account_compile_only() -> None:
 
         flow_yaml = get_compiled_yaml(compile_to_yaml_cmd, yaml_file_path)
 
-    # check we set serviceAccountName for workflow pods per individual IAM role
-    assert flow_yaml["spec"]["serviceAccountName"] == service_account
+    # check we don't serviceAccountName for workflow pods
+    assert "serviceAccountName" not in flow_yaml["spec"]
+
     # check we set serviceaccount env variable for spark use
     for step in flow_yaml["spec"]["templates"]:
         if step.get("container"):
