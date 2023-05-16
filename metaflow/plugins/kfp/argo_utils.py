@@ -45,7 +45,9 @@ def delete_argo_workflow(
     template_name: str,
 ):
     try:
-        ArgoClient(namespace=kubernetes_namespace).delete_workflow(template_name)
+        ArgoClient(namespace=kubernetes_namespace).delete_workflow_template(
+            template_name
+        )
     except Exception as e:
         raise KfpException(str(e))
 

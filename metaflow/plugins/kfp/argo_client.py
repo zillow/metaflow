@@ -223,7 +223,7 @@ class ArgoClient(object):
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
 
-    def delete_workflow(self, name: str):
+    def delete_workflow_template(self, name: str):
         client = self._client.get()
         try:
             return client.CustomObjectsApi().delete_namespaced_custom_object(
