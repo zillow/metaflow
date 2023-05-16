@@ -85,6 +85,9 @@ class StepVariables:
     user_code_retries: int
 
 
+METAFLOW_RUN_ID = "argo-{{workflow.name}}"
+
+
 class KfpComponent(object):
     def __init__(
         self,
@@ -209,9 +212,8 @@ class KubeflowPipelines(object):
 
             # Keep generateName - Argo Workflow is usually used in single run.
 
-            workflow["spec"]["serviceAccountName"] = (
-                KUBERNETES_SERVICE_ACCOUNT or "default-editor"
-            )
+            # Service account is added through webhooks.
+            workflow["spec"].pop("serviceAccountName", None)
         elif output_format == "argo-workflow-template":
             workflow["kind"] = "WorkflowTemplate"
 
@@ -223,9 +225,8 @@ class KubeflowPipelines(object):
                 workflow["metadata"].pop("generateName").rstrip("-")
             )
 
-            workflow["spec"]["serviceAccountName"] = (
-                KUBERNETES_SERVICE_ACCOUNT or "default-editor"
-            )
+            # Service account is added through webhooks.
+            workflow["spec"].pop("serviceAccountName", None)
         else:
             raise NotImplementedError(f"Unsupported output format {output_format}.")
 
@@ -505,8 +506,8 @@ class KubeflowPipelines(object):
         else:
             return None
 
-    @staticmethod
     def _set_container_volume(
+        self,
         container_op: ContainerOp,
         kfp_component: KfpComponent,
         workflow_uid: str,
@@ -524,7 +525,7 @@ class KubeflowPipelines(object):
                 (resource_op, volume) = shared_volumes[kfp_component.step_name]
                 container_op.add_pvolumes(volume)
             else:
-                (resource_op, volume) = KubeflowPipelines._create_volume(
+                (resource_op, volume) = self._create_volume(
                     step_name=kfp_component.step_name,
                     size=resource_requirements["volume"],
                     workflow_uid=workflow_uid,
@@ -651,8 +652,8 @@ class KubeflowPipelines(object):
         container_op.container.set_memory_request(memory)
         container_op.container.set_memory_limit(memory)
 
-    @staticmethod
     def _create_volume(
+        self,
         step_name: str,
         size: str,
         workflow_uid: str,
@@ -695,23 +696,26 @@ class KubeflowPipelines(object):
             k8s_resource=k8s_resource,
             attribute_outputs=attribute_outputs,
         )
-        resource.add_pod_label("sidecar.istio.io/inject", "false")
+
+        self._set_container_labels(resource)
 
         volume = PipelineVolume(
             name=f"{volume_name}-volume", pvc=resource.outputs["name"]
         )
         return (resource, volume)
 
-    def _set_container_labels(self, container_op: ContainerOp, metaflow_run_id: str):
+    def _set_container_labels(self, container_op: ContainerOp):
         # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
         container_op.add_pod_label("aip.zillowgroup.net/kfp-pod-default", "true")
 
+        # https://github.com/argoproj/argo-workflows/issues/4525
+        # all argo workflows need istio-injection disabled, else the workflow hangs.
         container_op.add_pod_label("sidecar.istio.io/inject", "false")
 
         prefix = "metaflow.org"
         container_op.add_pod_annotation(f"{prefix}/flow_name", self.name)
         container_op.add_pod_annotation(f"{prefix}/step", container_op.name)
-        container_op.add_pod_annotation(f"{prefix}/run_id", metaflow_run_id)
+        container_op.add_pod_annotation(f"{prefix}/run_id", METAFLOW_RUN_ID)
         if self.experiment:
             container_op.add_pod_annotation(f"{prefix}/experiment", self.experiment)
         all_tags = list()
@@ -776,11 +780,10 @@ class KubeflowPipelines(object):
             str, KfpComponent
         ] = self._create_kfp_components_from_graph()
         flow_variables: FlowVariables = self._create_flow_variables()
-        metaflow_run_id = "argo-{{workflow.name}}"
 
         def pipeline_transform(op: ContainerOp):
             if isinstance(op, ContainerOp):
-                self._set_container_labels(op, metaflow_run_id)
+                self._set_container_labels(op)
 
                 # Disable caching because Metaflow doesn't have memoization
                 op.execution_options.caching_strategy.max_cache_staleness = "P0D"
@@ -882,7 +885,6 @@ class KubeflowPipelines(object):
                     step_variables,
                     flow_variables,
                     metaflow_configs,
-                    metaflow_run_id,
                     flow_parameters_json,
                     passed_in_split_indexes,
                     preceding_component_inputs,
@@ -935,7 +937,7 @@ class KubeflowPipelines(object):
                 KubeflowPipelines._set_container_resources(
                     metaflow_step_op, kfp_component
                 )
-                resource_op: ResourceOp = KubeflowPipelines._set_container_volume(
+                resource_op: ResourceOp = self._set_container_volume(
                     metaflow_step_op, kfp_component, workflow_uid, shared_volumes
                 )
                 if resource_op:
@@ -996,7 +998,7 @@ class KubeflowPipelines(object):
                 build_kfp_dag(
                     self.graph["start"],
                     workflow_uid=workflow_uid_op.output if workflow_uid_op else None,
-                    shared_volumes=KubeflowPipelines.create_shared_volumes(
+                    shared_volumes=self.create_shared_volumes(
                         step_name_to_kfp_component, workflow_uid_op
                     ),
                 )
@@ -1060,8 +1062,8 @@ class KubeflowPipelines(object):
         kfp_pipeline_from_flow.__name__ = self.name
         return kfp_pipeline_from_flow, pipeline_conf
 
-    @staticmethod
     def create_shared_volumes(
+        self,
         step_name_to_kfp_component: Dict[str, KfpComponent],
         workflow_uid_op: ContainerOp,
     ) -> Dict[str, Dict[str, Tuple[ResourceOp, PipelineVolume]]]:
@@ -1080,7 +1082,7 @@ class KubeflowPipelines(object):
                 and resources["volume_mode"] == "ReadWriteMany"
             ):
                 volume_dir = resources["volume_dir"]
-                (resource_op, volume) = KubeflowPipelines._create_volume(
+                (resource_op, volume) = self._create_volume(
                     step_name=f"{kfp_component.step_name}-shared",
                     size=resources["volume"],
                     workflow_uid=workflow_uid_op.output,
@@ -1101,7 +1103,6 @@ class KubeflowPipelines(object):
         step_variables: StepVariables,
         flow_variables: FlowVariables,
         metaflow_configs: Dict[str, str],
-        metaflow_run_id: str,
         flow_parameters_json: str,
         passed_in_split_indexes: str,
         preceding_component_inputs: List[str],
@@ -1119,7 +1120,7 @@ class KubeflowPipelines(object):
             f" --event_logger {flow_variables.event_logger}"
             f" --flow_name {flow_variables.flow_name}"
             f" --metaflow_configs_json {json.dumps(json.dumps(metaflow_configs))}"
-            f" --metaflow_run_id {metaflow_run_id}"
+            f" --metaflow_run_id {METAFLOW_RUN_ID}"
             f" --monitor {flow_variables.monitor}"
             f' --passed_in_split_indexes "{passed_in_split_indexes}"'
             f" --preceding_component_inputs_json {json.dumps(json.dumps(preceding_component_inputs))}"

@@ -17,6 +17,8 @@ class ForeachLinearForeach(FlowSpec):
 
     @step
     def linear_1(self):
+        # AIP-6717 sleeps to avoid Datadog OOM events because of too many pods
+        # being created and decommissioned in a short time frame.
         time.sleep(1)
         self.next(self.linear_2)
 

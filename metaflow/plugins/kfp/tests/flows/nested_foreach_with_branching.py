@@ -15,6 +15,8 @@ class NestedForeachWithBranching(FlowSpec):
 
     @step
     def foreach_split_x(self):
+        # AIP-6717 sleeps to avoid Datadog OOM events because of too many pods
+        # being created and decommissioned in a short time frame.
         time.sleep(1)
         self.x = "ab"
         self.next(self.foreach_split_y, foreach="x")

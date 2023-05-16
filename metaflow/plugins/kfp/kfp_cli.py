@@ -31,7 +31,7 @@ def cli():
     pass
 
 
-@cli.group(name="kfp", help="Commands related to WFSDK.")
+@cli.group(name="kfp", help="Commands related to Workflow SDK.")
 @click.pass_obj
 def kubeflow_pipelines(obj):
     pass
@@ -293,8 +293,8 @@ def run(
         # )
         obj.echo("\nRun created successfully!\n")
         obj.echo(f"Metaflow run_id=*{metaflow_run_id}*\n", fg="magenta")
-        obj.echo(f"*Argo:* {argo_ui_url}", fg="cyan")
-        obj.echo(f"*Metaflow:* {metaflow_ui_url}", fg="cyan")
+        obj.echo(f"*Argo UI:* {argo_ui_url}", fg="cyan")
+        obj.echo(f"*Metaflow UI:* {metaflow_ui_url}", fg="cyan")
         # obj.echo(f"*ddog dashboard:* {ddog_wf_url}", fg="cyan")
         # obj.echo(f"*ddog pod groups:* {ddog_ui_url}\n", fg="cyan")
 
@@ -334,7 +334,8 @@ def show_status(
         echo("\nSUCCEEDED!", fg="green")
     else:
         raise Exception(
-            f"Flow: {current.flow_name}, run_id: {run_id}, run_link: {argo_ui_url}, metaflow: {metaflow_ui_url} FAILED!"
+            f"Flow: {current.flow_name}, run_id: {run_id} FAILED!\n"
+            f"Argo UI: {argo_ui_url}, Metaflow UI: {metaflow_ui_url}"
         )
 
 
