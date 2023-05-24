@@ -70,7 +70,7 @@ class FlowVariables:
     environment: str
     event_logger: str
     monitor: str
-    user_namespace: str
+    namespace: str
     tags: List[str]
     sys_tags: List[str]
     package_commands: str
@@ -187,16 +187,48 @@ class KubeflowPipelines(object):
         self.notify_on_success = notify_on_success
         self._client = None
 
-    def deploy(self, kubernetes_namespace: str, name: Optional[str]) -> Dict[str, Any]:
+    def deploy(
+        self,
+        kubernetes_namespace: str,
+        name: Optional[str],
+        recurring_run_enable: Optional[bool] = None,
+        recurring_run_cron: Optional[str] = None,
+        recurring_run_policy: Optional[str] = None,
+        max_run_concurrency: Optional[int] = 10,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         try:
             # Register workflow template.
-            workflow: Dict[Text, Any] = self._create_workflow_yaml(
+            workflow_template: Dict[str, Any] = self._create_workflow_yaml(
                 output_format="argo-workflow-template", name=name
             )
+            config_map: Dict[str, Any] = KubeflowPipelines._create_config_map(
+                workflow_template["metadata"]["name"], max_run_concurrency
+            )
+            argo_workflow_name = workflow_template["metadata"]["name"]
 
-            return ArgoClient(
+            # Create the Argo synchronization ConfigMap
+            config = ArgoClient(
                 namespace=kubernetes_namespace
-            ).register_workflow_template(name if name else self.name, workflow)
+            ).create_workflow_config_map(argo_workflow_name, config_map)
+
+            # Create the Argo Workflow Template
+            workflow = ArgoClient(
+                namespace=kubernetes_namespace
+            ).register_workflow_template(argo_workflow_name, workflow_template)
+
+            # Create CronWorkflow
+            cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
+                workflow["metadata"]["name"],
+                schedule=recurring_run_cron,
+                concurrency=recurring_run_policy,
+                recurring_run_enable=recurring_run_enable,
+            )
+
+            cron_workflow = ArgoClient(
+                namespace=kubernetes_namespace
+            ).create_cron_workflow(argo_workflow_name, cron_workflow)
+
+            return workflow, config, cron_workflow
         except Exception as e:
             raise KfpException(str(e))
 
@@ -215,18 +247,6 @@ class KubeflowPipelines(object):
                 f"The workflow *{name}* doesn't exist on Argo Workflows in namespace *{kubernetes_namespace}*. "
                 "Please deploy your flow first."
             )
-        # TODO(talebz): check this?
-        # else:
-        #     try:
-        #         # Check that the workflow was deployed through Metaflow
-        #         workflow_template["metadata"]["annotations"]["metaflow.org/flow_name"]
-        #     except KeyError as e:
-        #         raise KfpException(
-        #             "An existing non-metaflow workflow with the same name as "
-        #             f"*{name}* already exists in Argo Workflows. \n"
-        #             "Please modify the name of this flow or delete your existing "
-        #             "workflow on Argo Workflows before proceeding."
-        #         )
         try:
             return ArgoClient(namespace=kubernetes_namespace).trigger_workflow_template(
                 name, parameters
@@ -284,15 +304,24 @@ class KubeflowPipelines(object):
         else:
             raise NotImplementedError(f"Unsupported output format {output_format}.")
 
+        workflow["spec"]["synchronization"] = {
+            "semaphore": {
+                "configMapKeyRef": {
+                    "name": sanitize_k8s_name(self.name),
+                    "key": "max_run_concurrency",
+                }
+            }
+        }
+
         return workflow
 
     @staticmethod
-    def _create_config_map(workflow_name: str, max_concurrency: int):
+    def _create_config_map(workflow_name: str, max_run_concurrency: int):
         config_map = {
             "apiVersion": "v1",
             "kind": "ConfigMap",
             "metadata": {"name": workflow_name},
-            "data": {"max_concurrency": str(max_concurrency)},
+            "data": {"max_run_concurrency": str(max_run_concurrency)},
         }
         return config_map
 
@@ -320,17 +349,34 @@ class KubeflowPipelines(object):
         return body
 
     def create_run_on_argo(
-        self, kubernetes_namespace: str, flow_parameters: dict
-    ) -> Dict[str, Any]:
+        self,
+        kubernetes_namespace: str,
+        flow_parameters: dict,
+        max_run_concurrency: Optional[int] = 10,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Creates a new run on Argo using the `KubernetesClient()`.
         """
-        workflow = self._create_workflow_yaml(
+        workflow_template: Dict[str, Any] = self._create_workflow_yaml(
             flow_parameters, output_format="argo-workflow"
         )
 
         try:
-            return ArgoClient(namespace=kubernetes_namespace).run_workflow(workflow)
+            argo_workflow_name = sanitize_k8s_name(self.name)
+
+            config_map: Dict[str, Any] = KubeflowPipelines._create_config_map(
+                argo_workflow_name, max_run_concurrency
+            )
+            # Create the Argo synchronization ConfigMap
+            config = ArgoClient(
+                namespace=kubernetes_namespace
+            ).create_workflow_config_map(argo_workflow_name, config_map)
+
+            # Create/Run the Argo Workflow
+            workflow = ArgoClient(namespace=kubernetes_namespace).run_workflow(
+                workflow_template
+            )
+            return workflow, config
         except Exception as e:
             raise KfpException(str(e))
 
@@ -342,10 +388,10 @@ class KubeflowPipelines(object):
         name: Optional[str] = None,
         recurring_run_enable: Optional[bool] = None,
         recurring_run_cron: Optional[str] = None,
-        recurring_run_concurrency: Optional[str] = None,
-        max_concurrency: Optional[int] = 10,
+        recurring_run_policy: Optional[str] = None,
+        max_run_concurrency: Optional[int] = 10,
     ) -> str:
-        workflow = self._create_workflow_yaml(
+        workflow: Dict[str, Any] = self._create_workflow_yaml(
             flow_parameters,
             output_format,
             name,
@@ -354,7 +400,7 @@ class KubeflowPipelines(object):
         kfp.compiler.Compiler()._write_workflow(workflow, output_path)
 
         config_map = KubeflowPipelines._create_config_map(
-            workflow["metadata"]["name"], max_concurrency
+            workflow["metadata"]["name"], max_run_concurrency
         )
 
         with open(output_path, "a") as yaml_file:
@@ -364,7 +410,7 @@ class KubeflowPipelines(object):
             cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
                 workflow["metadata"]["name"],
                 schedule=recurring_run_cron,
-                concurrency=recurring_run_concurrency,
+                concurrency=recurring_run_policy,
                 recurring_run_enable=recurring_run_enable,
             )
             yaml_file.write("\n---\n")
@@ -447,7 +493,7 @@ class KubeflowPipelines(object):
             environment=self.environment.TYPE,
             event_logger=self.event_logger.logger_type,
             monitor=self.monitor.monitor_type,
-            user_namespace=self.user_namespace,
+            namespace=self.namespace,
             tags=list(self.tags),
             sys_tags=list(self.sys_tags),
             package_commands=self._get_package_commands(
@@ -1259,10 +1305,8 @@ class KubeflowPipelines(object):
             )
         if node.type == "foreach":
             metaflow_execution_cmd += f" --is_foreach_step"
-        if flow_variables.user_namespace:
-            metaflow_execution_cmd += (
-                f" --user_namespace {flow_variables.user_namespace}"
-            )
+        if flow_variables.namespace:
+            metaflow_execution_cmd += f" --namespace {flow_variables.namespace}"
         if step_variables.is_split_index:
             metaflow_execution_cmd += " --is_split_index"
 

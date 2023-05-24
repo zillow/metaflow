@@ -1,6 +1,5 @@
 import functools
 import json
-import re
 import shutil
 import subprocess
 from typing import Dict, Any
@@ -15,7 +14,7 @@ from metaflow.metaflow_config import (
     KUBERNETES_NAMESPACE,
     ARGO_RUN_URL_PREFIX,
     METAFLOW_RUN_URL_PREFIX,
-    KFP_MAX_CONCURRENCY,
+    KFP_MAX_RUN_CONCURRENCY,
 )
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
@@ -26,7 +25,6 @@ from metaflow.plugins.kfp.argo_utils import (
     run_id_to_metaflow_url,
     to_metaflow_run_id,
 )
-from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_init import save_step_environment_variables
 from metaflow.util import get_username
 
@@ -154,13 +152,20 @@ def common_create_run_options(func):
         "-m",
         default=KFP_MAX_PARALLELISM,
         show_default=True,
-        help="Maximum number of parallel pods.",
+        help="Maximum number of parallel pods within a single run.",
     )
     @click.option(
         "--workflow-timeout",
         default=None,
         type=int,
         help="Workflow timeout in seconds.",
+    )
+    # TODO(talebz) AIP-7386 kfp->argo: don't override max_run_concurrency with default
+    @click.option(
+        "--max-run-concurrency",
+        default=KFP_MAX_RUN_CONCURRENCY,
+        help="Maximum number of parallel runs of this workflow triggered manually or by a recurring run."
+        f" defaults to {KFP_MAX_RUN_CONCURRENCY=}",
     )
     @click.option(
         "--notify",
@@ -244,6 +249,7 @@ def run(
     base_image=None,
     max_parallelism=None,
     workflow_timeout=None,
+    max_run_concurrency=None,
     notify=False,
     notify_on_error=None,
     notify_on_success=None,
@@ -283,8 +289,11 @@ def run(
         if pipeline_path is None:
             raise CommandException("Please specify --pipeline-path")
 
-        workflow, pipeline_path = flow.create_workflow_yaml_file(
-            pipeline_path, flow_parameters, yaml_format
+        pipeline_path = flow.create_workflow_yaml_file(
+            output_path=pipeline_path,
+            flow_parameters=flow_parameters,
+            output_format=yaml_format,
+            max_run_concurrency=max_run_concurrency,
         )
         obj.echo(f"\nDone compiling *{current.flow_name}* to {pipeline_path}")
     else:
@@ -297,8 +306,8 @@ def run(
             f"Deploying *{current.flow_name}* to Argo...",
             bold=True,
         )
-        workflow_manifest: Dict[str, Any] = flow.create_run_on_argo(
-            kubernetes_namespace, flow_parameters
+        workflow_manifest, _ = flow.create_run_on_argo(
+            kubernetes_namespace, flow_parameters, max_run_concurrency
         )
         obj.echo("\nRun created successfully!\n")
         (
@@ -389,6 +398,31 @@ def _argo_wait(
 
 @kubeflow_pipelines.command(help="Deploy a new version of this flow to the cluster.")
 @common_create_run_options
+@click.option(
+    "--recurring-run-enable/--no-recurring-run-enable",
+    "recurring_run_enable",
+    default=False,
+    help="Whether to enable or disable the recurring run",
+    show_default=True,
+)
+@click.option(
+    "--recurring-run-cron",
+    "recurring_run_cron",
+    default=None,
+    help="Cron expression (6 fields format) for automatically re-triggering a recurring run. "
+    "To disable recurring run see the ENABLE_RECURRING_RUN varibles in the Functionality section.",
+    show_default=True,
+)
+@click.option(
+    "--recurring-run-concurrency",
+    "recurring_run_concurrency",
+    default="Allow",
+    type=click.Choice(["Allow", "Replace", "Forbid"]),
+    help="Policy that determines what to do if multiple Workflows are scheduled at the same time. "
+    "Available options: Allow: allow all, Replace: remove all old before scheduling a new, "
+    "Forbid: do not allow any new while there are old",
+    show_default=True,
+)
 @click.pass_obj
 def create(
     obj,
@@ -405,13 +439,13 @@ def create(
     base_image=None,
     max_parallelism=None,
     workflow_timeout=None,
+    max_run_concurrency=None,
     notify=False,
     notify_on_error=None,
     notify_on_success=None,
     recurring_run_enable=None,
     recurring_run_cron=None,
     recurring_run_concurrency=None,
-    max_concurrency=KFP_MAX_CONCURRENCY,
 ):
     """
     References:
@@ -432,7 +466,7 @@ def create(
         tags=tags,
         sys_tags=sys_tags,
         experiment=experiment,
-        user_namespace=user_namespace,
+        namespace=user_namespace,
         base_image=base_image,
         s3_code_package=s3_code_package,
         max_parallelism=max_parallelism,
@@ -442,7 +476,9 @@ def create(
         notify_on_success=notify_on_success,
     )
 
-    workflow_name: str = name
+    from kfp.compiler._k8s_helper import sanitize_k8s_name
+
+    workflow_name: str = name if name else sanitize_k8s_name(flow.name)
     if yaml_only:
         if pipeline_path is None:
             raise CommandException("Please specify --pipeline-path")
@@ -458,14 +494,19 @@ def create(
             output_format="argo-workflow-template",
             recurring_run_enable=recurring_run_enable,
             recurring_run_cron=recurring_run_cron,
-            recurring_run_concurrency=recurring_run_concurrency,
-            max_concurrency=max_concurrency,
+            recurring_run_policy=recurring_run_concurrency,
+            max_run_concurrency=max_run_concurrency,
         )
         obj.echo(f"\nDone compiling *{current.flow_name}* to {pipeline_path}")
     else:
         obj.echo(f"Deploying *{flow.name}* to Argo Workflows...", bold=True)
-        workflow_template: Dict[str, Any] = flow.deploy(
-            kubernetes_namespace, workflow_name
+        workflow_template, _, _ = flow.deploy(
+            kubernetes_namespace,
+            workflow_name,
+            recurring_run_enable=recurring_run_enable,
+            recurring_run_cron=recurring_run_cron,
+            recurring_run_policy=recurring_run_concurrency,
+            max_run_concurrency=max_run_concurrency,
         )
         template_name = workflow_template["metadata"]["name"]
         obj.echo(
