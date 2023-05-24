@@ -191,6 +191,7 @@ class KubeflowPipelines(object):
         self,
         kubernetes_namespace: str,
         name: Optional[str],
+        flow_parameters: Optional[Dict] = None,
         recurring_run_enable: Optional[bool] = None,
         recurring_run_cron: Optional[str] = None,
         recurring_run_policy: Optional[str] = None,
@@ -199,7 +200,9 @@ class KubeflowPipelines(object):
         try:
             # Register workflow template.
             workflow_template: Dict[str, Any] = self._create_workflow_yaml(
-                output_format="argo-workflow-template", name=name
+                flow_parameters=flow_parameters,
+                output_format="argo-workflow-template",
+                name=name,
             )
             config_map: Dict[str, Any] = KubeflowPipelines._create_config_map(
                 workflow_template["metadata"]["name"], max_run_concurrency

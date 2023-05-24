@@ -396,6 +396,7 @@ def _argo_wait(
     show_status(metaflow_run_id, argo_ui_url, metaflow_ui_url, obj.echo, succeeded)
 
 
+@parameters.add_custom_parameters(deploy_mode=True)
 @kubeflow_pipelines.command(help="Deploy a new version of this flow to the cluster.")
 @common_create_run_options
 @click.option(
@@ -446,6 +447,7 @@ def create(
     recurring_run_enable=None,
     recurring_run_cron=None,
     recurring_run_concurrency=None,
+    **kwargs,
 ):
     """
     References:
@@ -457,6 +459,8 @@ def create(
       RECURRING_RUN_END_TIME: ""
       RECURRING_RUN_BACKFILL: "false" # this is what enables backfill
     """
+    flow_parameters: Dict[str, Any] = _get_flow_parameters(kwargs, obj)
+
     obj.check(obj.graph, obj.flow, obj.environment, pylint=obj.pylint)
 
     check_metadata_service_version(obj)
@@ -490,7 +494,7 @@ def create(
 
         pipeline_path = flow.create_workflow_yaml_file(
             output_path=pipeline_path,
-            flow_parameters=None,
+            flow_parameters=flow_parameters,
             output_format="argo-workflow-template",
             recurring_run_enable=recurring_run_enable,
             recurring_run_cron=recurring_run_cron,
@@ -503,6 +507,7 @@ def create(
         workflow_template, _, _ = flow.deploy(
             kubernetes_namespace,
             workflow_name,
+            flow_parameters=flow_parameters,
             recurring_run_enable=recurring_run_enable,
             recurring_run_cron=recurring_run_cron,
             recurring_run_policy=recurring_run_concurrency,
