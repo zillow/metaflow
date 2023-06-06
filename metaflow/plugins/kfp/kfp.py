@@ -149,7 +149,7 @@ class KubeflowPipelines(object):
         tags=None,
         sys_tags=None,
         experiment=None,
-        user_namespace=None,
+        namespace=None,
         username=None,
         max_parallelism=None,
         workflow_timeout=None,
@@ -174,7 +174,7 @@ class KubeflowPipelines(object):
         self.tags = tags
         self.sys_tags = sys_tags
         self.experiment = experiment
-        self.user_namespace = user_namespace
+        self.namespace = namespace
         self.username = username
         self.base_image = base_image
         self.s3_code_package = s3_code_package
