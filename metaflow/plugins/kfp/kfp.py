@@ -205,7 +205,7 @@ class KubeflowPipelines(object):
                 name=name,
             )
             config_map: Dict[str, Any] = KubeflowPipelines._create_config_map(
-                workflow_template["metadata"]["name"], max_run_concurrency
+                sanitize_k8s_name(self.name), max_run_concurrency
             )
             argo_workflow_name = workflow_template["metadata"]["name"]
 
@@ -221,7 +221,7 @@ class KubeflowPipelines(object):
 
             # Create CronWorkflow
             cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
-                workflow["metadata"]["name"],
+                sanitize_k8s_name(self.name),
                 schedule=recurring_run_cron,
                 concurrency=recurring_run_policy,
                 recurring_run_enable=recurring_run_enable,
@@ -403,7 +403,7 @@ class KubeflowPipelines(object):
         kfp.compiler.Compiler()._write_workflow(workflow, output_path)
 
         config_map = KubeflowPipelines._create_config_map(
-            workflow["metadata"]["name"], max_run_concurrency
+            sanitize_k8s_name(self.name), max_run_concurrency
         )
 
         with open(output_path, "a") as yaml_file:
@@ -411,7 +411,7 @@ class KubeflowPipelines(object):
             yaml.safe_dump(config_map, yaml_file, default_flow_style=False)
 
             cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
-                workflow["metadata"]["name"],
+                sanitize_k8s_name(self.name),
                 schedule=recurring_run_cron,
                 concurrency=recurring_run_policy,
                 recurring_run_enable=recurring_run_enable,
