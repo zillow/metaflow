@@ -365,10 +365,12 @@ def _echo_workflow_run(
     # obj.echo(f"*ddog dashboard:* {ddog_wf_url}", fg="cyan")
     # obj.echo(f"*ddog pod groups:* {ddog_ui_url}\n", fg="cyan")
     argo_workflow_name = workflow_manifest["metadata"]["name"]
-    obj.echo(
-        f"*Argo workflow:* argo -n {kubernetes_namespace} watch {argo_workflow_name}\n",
-        fg="cyan",
-    )
+    if shutil.which("argo"):
+        # only print this to the console if `argo` is in the path
+        obj.echo(
+            f"*Argo workflow:* argo -n {kubernetes_namespace} watch {argo_workflow_name}\n",
+            fg="cyan",
+        )
     return argo_ui_url, argo_workflow_name, metaflow_run_id, metaflow_ui_url
 
 
