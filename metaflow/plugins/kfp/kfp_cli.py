@@ -65,6 +65,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
 def common_create_run_options(func):
     @click.option(
         "--name",
+        "--pipeline-name",
         "name",
         default=None,
         help="The workflow name. The default is the flow name.",
