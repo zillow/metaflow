@@ -37,6 +37,7 @@ from metaflow.decorators import FlowDecorator
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
     KFP_TTL_SECONDS_AFTER_FINISHED,
+    KFP_ARGO_COMPILE_WORKFLOW_ONLY,
     KUBERNETES_SERVICE_ACCOUNT,
     METAFLOW_USER,
     ZILLOW_INDIVIDUAL_NAMESPACE,
@@ -307,14 +308,15 @@ class KubeflowPipelines(object):
         else:
             raise NotImplementedError(f"Unsupported output format {output_format}.")
 
-        workflow["spec"]["synchronization"] = {
-            "semaphore": {
-                "configMapKeyRef": {
-                    "name": sanitize_k8s_name(self.name),
-                    "key": "max_run_concurrency",
+        if not KFP_ARGO_COMPILE_WORKFLOW_ONLY:
+            workflow["spec"]["synchronization"] = {
+                "semaphore": {
+                    "configMapKeyRef": {
+                        "name": sanitize_k8s_name(self.name),
+                        "key": "max_run_concurrency",
+                    }
                 }
             }
-        }
 
         return workflow
 
@@ -406,18 +408,19 @@ class KubeflowPipelines(object):
             sanitize_k8s_name(self.name), max_run_concurrency
         )
 
-        with open(output_path, "a") as yaml_file:
-            yaml_file.write("\n---\n")
-            yaml.safe_dump(config_map, yaml_file, default_flow_style=False)
+        if not KFP_ARGO_COMPILE_WORKFLOW_ONLY:
+            with open(output_path, "a") as yaml_file:
+                yaml_file.write("\n---\n")
+                yaml.safe_dump(config_map, yaml_file, default_flow_style=False)
 
-            cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
-                sanitize_k8s_name(self.name),
-                schedule=recurring_run_cron,
-                concurrency=recurring_run_policy,
-                recurring_run_enable=recurring_run_enable,
-            )
-            yaml_file.write("\n---\n")
-            yaml.safe_dump(cron_workflow, yaml_file, default_flow_style=False)
+                cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
+                    sanitize_k8s_name(self.name),
+                    schedule=recurring_run_cron,
+                    concurrency=recurring_run_policy,
+                    recurring_run_enable=recurring_run_enable,
+                )
+                yaml_file.write("\n---\n")
+                yaml.safe_dump(cron_workflow, yaml_file, default_flow_style=False)
 
         return os.path.abspath(output_path)
 
