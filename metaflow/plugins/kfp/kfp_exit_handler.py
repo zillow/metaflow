@@ -150,10 +150,13 @@ def exit_handler(
     if metaflow_sqs_url:
         if status == "Failed":
             message_body = sqs_message_json
-            metaflow_sqs_role_arn = get_env("METAFLOW_SQS_ROLE_ARN")
-            send_sqs_message(metaflow_sqs_url, message_body, role_arn = metaflow_sqs_role_arn)
+            if message_body:
+                metaflow_sqs_role_arn = get_env("METAFLOW_SQS_ROLE_ARN")
+                send_sqs_message(metaflow_sqs_url, message_body, role_arn = metaflow_sqs_role_arn)
+            else:
+                print("Workflow failed but message_body is empty, thus no SQS message is sent to SQS!")
         else:
-            print("Workflow succeeds, thus no SQS message is sent to SQS!")
+            print("Workflow succeeded, thus no SQS message is sent to SQS!")
     else:
         print("SQS is not configured!")
 
