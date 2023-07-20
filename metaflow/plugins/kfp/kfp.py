@@ -1006,7 +1006,7 @@ class KubeflowPipelines(object):
                     ),
                 )
 
-            if self.notify:
+            if self.notify or self.sqs_url:
                 with dsl.ExitHandler(
                     self._create_exit_handler_op(flow_variables.package_commands)
                 ):
