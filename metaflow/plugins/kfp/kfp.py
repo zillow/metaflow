@@ -158,6 +158,8 @@ class KubeflowPipelines(object):
         notify=False,
         notify_on_error=None,
         notify_on_success=None,
+        sqs_url=None,
+        sqs_role_arn=None,
         **kwargs,
     ):
         """
@@ -189,6 +191,8 @@ class KubeflowPipelines(object):
         self.notify = notify
         self.notify_on_error = notify_on_error
         self.notify_on_success = notify_on_success
+        self.sqs_url = sqs_url
+        self.sqs_role_arn = sqs_role_arn
         self._client = None
 
     def set_kfp_client(self):
@@ -1315,6 +1319,12 @@ class KubeflowPipelines(object):
         if self.notify_on_success:
             notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
 
+        if self.sqs_url:
+            notify_variables["METAFLOW_SQS_URL"] = self.sqs_url
+
+        if self.sqs_role_arn:
+            notify_variables["METAFLOW_SQS_ROLE_ARN"] = self.sqs_role_arn
+
         exit_handler_command = [
             "bash",
             "-ec",
@@ -1324,6 +1334,7 @@ class KubeflowPipelines(object):
                 f" --flow_name {self.name}"
                 f" --kfp_run_id {dsl.RUN_ID_PLACEHOLDER}"
                 f" --notify_variables_json {json.dumps(json.dumps(notify_variables))}"
+                "  --sqs_message_json {{workflow.parameters.flow_parameters_json}}"
                 "  --status {{workflow.status}}"
             ),
         ]
