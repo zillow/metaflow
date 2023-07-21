@@ -158,8 +158,8 @@ class KubeflowPipelines(object):
         notify=False,
         notify_on_error=None,
         notify_on_success=None,
-        sqs_url=None,
-        sqs_role_arn=None,
+        sqs_url_on_error=None,
+        sqs_role_arn_on_error=None,
         **kwargs,
     ):
         """
@@ -191,8 +191,8 @@ class KubeflowPipelines(object):
         self.notify = notify
         self.notify_on_error = notify_on_error
         self.notify_on_success = notify_on_success
-        self.sqs_url = sqs_url
-        self.sqs_role_arn = sqs_role_arn
+        self.sqs_url_on_error = sqs_url_on_error
+        self.sqs_role_arn_on_error = sqs_role_arn_on_error
         self._client = None
 
     def set_kfp_client(self):
@@ -1006,7 +1006,7 @@ class KubeflowPipelines(object):
                     ),
                 )
 
-            if self.notify or self.sqs_url:
+            if self.notify or self.sqs_url_on_error:
                 with dsl.ExitHandler(
                     self._create_exit_handler_op(flow_variables.package_commands)
                 ):
@@ -1319,11 +1319,11 @@ class KubeflowPipelines(object):
         if self.notify_on_success:
             notify_variables["METAFLOW_NOTIFY_ON_SUCCESS"] = self.notify_on_success
 
-        if self.sqs_url:
-            notify_variables["METAFLOW_SQS_URL"] = self.sqs_url
+        if self.sqs_url_on_error:
+            notify_variables["METAFLOW_SQS_URL_ON_ERROR"] = self.sqs_url_on_error
 
-        if self.sqs_role_arn:
-            notify_variables["METAFLOW_SQS_ROLE_ARN"] = self.sqs_role_arn
+        if self.sqs_role_arn_on_error:
+            notify_variables["METAFLOW_SQS_ROLE_ARN_ON_ERROR"] = self.sqs_role_arn_on_error
 
         exit_handler_command = [
             "bash",
