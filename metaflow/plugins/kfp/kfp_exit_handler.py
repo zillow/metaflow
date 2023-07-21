@@ -5,6 +5,7 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+
 @click.command()
 @click.option("--flow_name")
 @click.option("--status")
@@ -25,8 +26,8 @@ def exit_handler(
         METAFLOW_NOTIFY_EMAIL_SMTP_HOST
         METAFLOW_NOTIFY_EMAIL_SMTP_PORT
         METAFLOW_NOTIFY_EMAIL_FROM
-        METAFLOW_SQS_URL
-        METAFLOW_SQS_ROLE_ARN
+        METAFLOW_SQS_URL_ON_ERROR
+        METAFLOW_SQS_ROLE_ARN_ON_ERROR
         K8S_CLUSTER_ENV
         POD_NAMESPACE
         MF_ARGO_WORKFLOW_NAME
@@ -113,7 +114,7 @@ def exit_handler(
 
         return boto3.Session(botocore_session=botocore_session, region_name=region_name)
 
-    def send_sqs_message(queue_url: str,  message_body: str, *, role_arn: str = None):
+    def send_sqs_message(queue_url: str, message_body: str, *, role_arn: str = None):
         try:
             # Create session from given iam role
             session = get_aws_session(role_arn)
@@ -129,7 +130,9 @@ def exit_handler(
                 f"to sqs {queue_url} with MessageId {response['MessageId']}"
             )
         except Exception as err:
-            _logger.error(f"Failed to send the message {message_body} to sqs {queue_url}")
+            _logger.error(
+                f"Failed to send the message {message_body} to sqs {queue_url}"
+            )
             _logger.error(err)
             raise err
 
@@ -144,17 +147,18 @@ def exit_handler(
     else:
         print("No notification is necessary!")
 
-    # Send message to SQS if 'METAFLOW_SQS_URL' is set
-    metaflow_sqs_url = get_env("METAFLOW_SQS_URL")
+    # Send message to SQS if 'METAFLOW_SQS_URL_ON_ERROR' is set
+    metaflow_sqs_url_on_error = get_env("METAFLOW_SQS_URL_ON_ERROR")
 
-    if metaflow_sqs_url:
+    if metaflow_sqs_url_on_error:
         if status == "Failed":
             message_body = sqs_message_json
-            if message_body:
-                metaflow_sqs_role_arn = get_env("METAFLOW_SQS_ROLE_ARN")
-                send_sqs_message(metaflow_sqs_url, message_body, role_arn = metaflow_sqs_role_arn)
-            else:
-                print("Workflow failed but message_body is empty, thus no SQS message is sent to SQS!")
+            print(f"message to be sent: {message_body}")
+            metaflow_sqs_role_arn_on_error = get_env("METAFLOW_SQS_ROLE_ARN_ON_ERROR")
+            send_sqs_message(
+                metaflow_sqs_url_on_error, message_body, role_arn=metaflow_sqs_role_arn_on_error
+            )
+            print(f"message was sent to: {metaflow_sqs_url_on_error} successfully")
         else:
             print("Workflow succeeded, thus no SQS message is sent to SQS!")
     else:
