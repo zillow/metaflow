@@ -156,7 +156,9 @@ def exit_handler(
             print(f"message to be sent: {message_body}")
             metaflow_sqs_role_arn_on_error = get_env("METAFLOW_SQS_ROLE_ARN_ON_ERROR")
             send_sqs_message(
-                metaflow_sqs_url_on_error, message_body, role_arn=metaflow_sqs_role_arn_on_error
+                metaflow_sqs_url_on_error,
+                message_body,
+                role_arn=metaflow_sqs_role_arn_on_error,
             )
             print(f"message was sent to: {metaflow_sqs_url_on_error} successfully")
         else:
