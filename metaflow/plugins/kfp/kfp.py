@@ -1323,7 +1323,9 @@ class KubeflowPipelines(object):
             notify_variables["METAFLOW_SQS_URL_ON_ERROR"] = self.sqs_url_on_error
 
         if self.sqs_role_arn_on_error:
-            notify_variables["METAFLOW_SQS_ROLE_ARN_ON_ERROR"] = self.sqs_role_arn_on_error
+            notify_variables[
+                "METAFLOW_SQS_ROLE_ARN_ON_ERROR"
+            ] = self.sqs_role_arn_on_error
 
         exit_handler_command = [
             "bash",
