@@ -153,7 +153,6 @@ def exit_handler(
     if metaflow_sqs_url_on_error:
         if status == "Failed":
             message_body = sqs_message_json
-            print(f"message to be sent: {message_body}")
             metaflow_sqs_role_arn_on_error = get_env("METAFLOW_SQS_ROLE_ARN_ON_ERROR")
             send_sqs_message(
                 metaflow_sqs_url_on_error,
