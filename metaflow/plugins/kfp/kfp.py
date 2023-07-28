@@ -275,17 +275,16 @@ class KubeflowPipelines(object):
         Creates a new Argo Workflow pipeline YAML using `kfp.compiler.Compiler()`.
         Note: Intermediate pipeline YAML is saved at `pipeline_file_path`
         """
-        pipeline_func, pipeline_conf = self.create_kfp_pipeline_from_flow_graph()
+        pipeline_func, pipeline_conf = self.create_kfp_pipeline_from_flow_graph(
+            flow_parameters
+        )
         workflow: Dict[Text, Any] = kfp.compiler.Compiler()._create_workflow(
             pipeline_func=pipeline_func,
             pipeline_conf=pipeline_conf,
         )
 
         workflow["spec"]["arguments"]["parameters"] = [
-            {
-                "name": "flow_parameters_json",
-                "value": json.dumps(flow_parameters if flow_parameters else {}),
-            }
+            dict(name=k, value=v) for k, v in flow_parameters.items()
         ]
 
         if output_format == "argo-workflow":
@@ -944,7 +943,10 @@ class KubeflowPipelines(object):
                 f"log.fluentd-z1.{ZILLOW_ZODIAC_SERVICE}.dev",
             )
 
-    def create_kfp_pipeline_from_flow_graph(self) -> Tuple[Callable, PipelineConf]:
+    def create_kfp_pipeline_from_flow_graph(
+        self,
+        flow_parameters: Optional[Dict] = None,
+    ) -> Tuple[Callable, PipelineConf]:
         """
         Returns a KFP DSL Pipeline function by walking the Metaflow Graph
         and constructing the KFP Pipeline using the KFP DSL.
@@ -1002,9 +1004,10 @@ class KubeflowPipelines(object):
         pipeline_conf = None  # return variable
 
         @dsl.pipeline(name=self.name, description=self.graph.doc)
-        def kfp_pipeline_from_flow(
-            flow_parameters_json: str = "{}",
-        ):
+        def kfp_pipeline_from_flow(**kwargs):
+            """
+            **kwargs is defined to allow keyword signature modification
+            """
             visited: Dict[str, ContainerOp] = {}
             visited_resource_ops: Dict[str, ResourceOp] = {}
 
@@ -1058,7 +1061,8 @@ class KubeflowPipelines(object):
                     step_variables,
                     flow_variables,
                     metaflow_configs,
-                    flow_parameters_json,
+                    flow_parameters,
+                    "{{workflow.parameters}}",
                     passed_in_split_indexes,
                     preceding_component_inputs,
                     preceding_component_outputs_dict,
@@ -1181,7 +1185,7 @@ class KubeflowPipelines(object):
                     self._create_exit_handler_op(flow_variables.package_commands)
                 ):
                     s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
-                        flow_parameters_json,
+                        "{{workflow.parameters}}",
                         flow_variables,
                     )
                     workflow_uid_op: Optional[
@@ -1195,7 +1199,7 @@ class KubeflowPipelines(object):
             else:
                 # TODO: can this and above duplicated code be in a function?
                 s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
-                    flow_parameters_json,
+                    "{{workflow.parameters}}",
                     flow_variables,
                 )
                 workflow_uid_op: Optional[ContainerOp] = self._create_workflow_uid_op(
@@ -1232,7 +1236,19 @@ class KubeflowPipelines(object):
                 )
             pipeline_conf = dsl.get_pipeline_conf()
 
+        # replace the pipeline signature parameters with flow_parameters
+        # and the pipeline name
         kfp_pipeline_from_flow.__name__ = self.name
+        kfp_pipeline_from_flow.__signature__ = inspect.signature(
+            kfp_pipeline_from_flow
+        ).replace(
+            parameters=[
+                inspect.Parameter(
+                    key, kind=inspect.Parameter.KEYWORD_ONLY, default=value
+                )
+                for key, value in flow_parameters.items()
+            ]
+        )
         return kfp_pipeline_from_flow, pipeline_conf
 
     def create_shared_volumes(
@@ -1276,6 +1292,7 @@ class KubeflowPipelines(object):
         step_variables: StepVariables,
         flow_variables: FlowVariables,
         metaflow_configs: Dict[str, str],
+        flow_parameters: Optional[Dict],
         flow_parameters_json: str,
         passed_in_split_indexes: str,
         preceding_component_inputs: List[str],
@@ -1313,9 +1330,7 @@ class KubeflowPipelines(object):
         )
 
         if node.name == "start":
-            metaflow_execution_cmd += (
-                f" --flow_parameters_json='{flow_parameters_json}'"
-            )
+            metaflow_execution_cmd += f" --flow_parameters_json='{flow_parameters_json if flow_parameters else []}'"
         if node.type == "foreach":
             metaflow_execution_cmd += f" --is_foreach_step"
         if flow_variables.namespace:
@@ -1505,7 +1520,7 @@ class KubeflowPipelines(object):
                 f" --flow_name {self.name}"
                 " --run_id {{workflow.name}}"
                 f" --notify_variables_json {json.dumps(json.dumps(notify_variables))}"
-                "  --sqs_message_json {{workflow.parameters.flow_parameters_json}}"
+                "  --sqs_message_json '{{workflow.parameters}}'"
                 "  --status {{workflow.status}}"
             ),
         ]

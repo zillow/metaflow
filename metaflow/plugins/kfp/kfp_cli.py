@@ -469,6 +469,8 @@ def create(
     notify=False,
     notify_on_error=None,
     notify_on_success=None,
+    sqs_url_on_error=None,
+    sqs_role_arn_on_error=None,
     recurring_run_enable=None,
     recurring_run_cron=None,
     recurring_run_concurrency=None,
@@ -503,6 +505,8 @@ def create(
         notify=notify,
         notify_on_error=notify_on_error,
         notify_on_success=notify_on_success,
+        sqs_url_on_error=sqs_url_on_error,
+        sqs_role_arn_on_error=sqs_role_arn_on_error,
     )
 
     from kfp.compiler._k8s_helper import sanitize_k8s_name

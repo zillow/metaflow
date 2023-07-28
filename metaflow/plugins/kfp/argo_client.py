@@ -196,13 +196,10 @@ class ArgoClient(object):
             "spec": {
                 "workflowTemplateRef": {"name": name},
                 "arguments": {
-                    "parameters": [
-                        {
-                            "name": "flow_parameters_json",
-                            "value": json.dumps(parameters if parameters else {}),
-                        }
-                    ]
-                },
+                    "parameters": [dict(name=k, value=v) for k, v in parameters.items()]
+                }
+                if parameters
+                else None,
             },
         }
         try:
