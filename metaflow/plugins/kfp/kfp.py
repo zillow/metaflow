@@ -284,7 +284,8 @@ class KubeflowPipelines(object):
         )
 
         workflow["spec"]["arguments"]["parameters"] = [
-            dict(name=k, value=v) for k, v in flow_parameters.items()
+            dict(name=k, value=json.dumps(v) if isinstance(v, dict) else v)
+            for k, v in flow_parameters.items()
         ]
 
         if output_format == "argo-workflow":
@@ -1330,7 +1331,7 @@ class KubeflowPipelines(object):
         )
 
         if node.name == "start":
-            metaflow_execution_cmd += f" --flow_parameters_json='{flow_parameters_json if flow_parameters else []}'"
+            metaflow_execution_cmd += f" --flow_parameters_json '{flow_parameters_json if flow_parameters else []}'"
         if node.type == "foreach":
             metaflow_execution_cmd += f" --is_foreach_step"
         if flow_variables.namespace:
