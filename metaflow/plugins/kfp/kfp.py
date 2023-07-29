@@ -199,7 +199,7 @@ class KubeflowPipelines(object):
         self,
         kubernetes_namespace: str,
         name: Optional[str],
-        flow_parameters: Optional[Dict] = None,
+        flow_parameters: Dict,
         recurring_run_enable: Optional[bool] = None,
         recurring_run_cron: Optional[str] = None,
         recurring_run_policy: Optional[str] = None,
@@ -267,7 +267,7 @@ class KubeflowPipelines(object):
 
     def _create_workflow_yaml(
         self,
-        flow_parameters: Optional[Dict] = None,
+        flow_parameters: Dict,
         output_format: str = "argo-workflow",
         name: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -395,7 +395,7 @@ class KubeflowPipelines(object):
     def create_workflow_yaml_file(
         self,
         output_path: str,
-        flow_parameters: Optional[dict] = None,
+        flow_parameters: Dict,
         output_format: str = "argo-workflow",
         name: Optional[str] = None,
         recurring_run_enable: Optional[bool] = None,
@@ -946,7 +946,7 @@ class KubeflowPipelines(object):
 
     def create_kfp_pipeline_from_flow_graph(
         self,
-        flow_parameters: Optional[Dict] = None,
+        flow_parameters: Dict,
     ) -> Tuple[Callable, PipelineConf]:
         """
         Returns a KFP DSL Pipeline function by walking the Metaflow Graph
@@ -1183,7 +1183,9 @@ class KubeflowPipelines(object):
 
             if self.notify or self.sqs_url_on_error:
                 with dsl.ExitHandler(
-                    self._create_exit_handler_op(flow_variables.package_commands)
+                    self._create_exit_handler_op(
+                        flow_variables.package_commands, flow_parameters
+                    )
                 ):
                     s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
                         "{{workflow.parameters}}",
@@ -1293,7 +1295,7 @@ class KubeflowPipelines(object):
         step_variables: StepVariables,
         flow_variables: FlowVariables,
         metaflow_configs: Dict[str, str],
-        flow_parameters: Optional[Dict],
+        flow_parameters: Dict,
         flow_parameters_json: str,
         passed_in_split_indexes: str,
         preceding_component_inputs: List[str],
@@ -1485,7 +1487,11 @@ class KubeflowPipelines(object):
         s3_sensor_op.set_retry(S3_SENSOR_RETRY_COUNT, policy="Always")
         return s3_sensor_op
 
-    def _create_exit_handler_op(self, package_commands: str) -> ContainerOp:
+    def _create_exit_handler_op(
+        self,
+        package_commands: str,
+        flow_parameters: Dict,
+    ) -> ContainerOp:
         notify_variables: dict = {
             key: from_conf(key)
             for key in [
@@ -1512,6 +1518,10 @@ class KubeflowPipelines(object):
                 "METAFLOW_SQS_ROLE_ARN_ON_ERROR"
             ] = self.sqs_role_arn_on_error
 
+        # when there are no flow parameters argo complains
+        # that {{workflow.parameters}} failed to resolve
+        # see https://github.com/argoproj/argo-workflows/issues/6036
+        flow_parameters_json = "{{workflow.parameters}}"
         exit_handler_command = [
             "bash",
             "-ec",
@@ -1521,7 +1531,7 @@ class KubeflowPipelines(object):
                 f" --flow_name {self.name}"
                 " --run_id {{workflow.name}}"
                 f" --notify_variables_json {json.dumps(json.dumps(notify_variables))}"
-                "  --sqs_message_json '{{workflow.parameters}}'"
+                f"  --flow_parameters_json {flow_parameters_json if flow_parameters else '{}'}"
                 "  --status {{workflow.status}}"
             ),
         ]
