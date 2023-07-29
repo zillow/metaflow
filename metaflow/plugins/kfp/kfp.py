@@ -1521,7 +1521,7 @@ class KubeflowPipelines(object):
         # when there are no flow parameters argo complains
         # that {{workflow.parameters}} failed to resolve
         # see https://github.com/argoproj/argo-workflows/issues/6036
-        flow_parameters_json = "{{workflow.parameters}}"
+        flow_parameters_json = "'{{workflow.parameters}}'"
         exit_handler_command = [
             "bash",
             "-ec",
