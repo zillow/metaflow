@@ -37,7 +37,6 @@ from metaflow.decorators import FlowDecorator
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
     KFP_TTL_SECONDS_AFTER_FINISHED,
-    KFP_ARGO_COMPILE_WORKFLOW_ONLY,
     KUBERNETES_SERVICE_ACCOUNT,
     METAFLOW_USER,
     ZILLOW_INDIVIDUAL_NAMESPACE,
@@ -209,10 +208,10 @@ class KubeflowPipelines(object):
             # Register workflow template.
             workflow_template: Dict[str, Any] = self._create_workflow_yaml(
                 flow_parameters=flow_parameters,
-                output_format="argo-workflow-template",
+                kind="WorkflowTemplate",
                 name=name,
             )
-            config_map: Dict[str, Any] = KubeflowPipelines._create_config_map(
+            config_map: Dict[str, Any] = KubeflowPipelines._config_map(
                 sanitize_k8s_name(self.name), max_run_concurrency
             )
             argo_workflow_name = workflow_template["metadata"]["name"]
@@ -228,7 +227,7 @@ class KubeflowPipelines(object):
             ).register_workflow_template(argo_workflow_name, workflow_template)
 
             # Create CronWorkflow
-            cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
+            cron_workflow: Dict[str, Any] = KubeflowPipelines._cron_workflow(
                 sanitize_k8s_name(self.name),
                 schedule=recurring_run_cron,
                 concurrency=recurring_run_policy,
@@ -267,8 +266,9 @@ class KubeflowPipelines(object):
 
     def _create_workflow_yaml(
         self,
-        flow_parameters: Optional[Dict] = None,
-        output_format: str = "argo-workflow",
+        flow_parameters: Dict,
+        kind: str,
+        max_run_concurrency: Optional[int] = 10,
         name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
@@ -288,14 +288,14 @@ class KubeflowPipelines(object):
             }
         ]
 
-        if output_format == "argo-workflow":
+        if kind == "Workflow":
             # Output of KFP compiler already has workflow["kind"] = "Workflow".
 
             # Keep generateName - Argo Workflow is usually used in single run.
 
             # Service account is added through webhooks.
             workflow["spec"].pop("serviceAccountName", None)
-        elif output_format == "argo-workflow-template":
+        elif kind == "WorkflowTemplate":
             workflow["kind"] = "WorkflowTemplate"
             workflow["spec"]["serviceAccountName"] = (
                 KUBERNETES_SERVICE_ACCOUNT or "default-editor"
@@ -313,9 +313,9 @@ class KubeflowPipelines(object):
             # Service account is added through webhooks.
             workflow["spec"].pop("serviceAccountName", None)
         else:
-            raise NotImplementedError(f"Unsupported output format {output_format}.")
+            raise NotImplementedError(f"Unsupported output format {kind}.")
 
-        if not KFP_ARGO_COMPILE_WORKFLOW_ONLY:
+        if max_run_concurrency and max_run_concurrency > 0:
             workflow["spec"]["synchronization"] = {
                 "semaphore": {
                     "configMapKeyRef": {
@@ -328,7 +328,7 @@ class KubeflowPipelines(object):
         return workflow
 
     @staticmethod
-    def _create_config_map(workflow_name: str, max_run_concurrency: int):
+    def _config_map(workflow_name: str, max_run_concurrency: int):
         config_map = {
             "apiVersion": "v1",
             "kind": "ConfigMap",
@@ -338,7 +338,7 @@ class KubeflowPipelines(object):
         return config_map
 
     @staticmethod
-    def _create_cron_workflow(
+    def _cron_workflow(
         name: str,
         schedule: Optional[str] = None,
         concurrency: Optional[str] = None,
@@ -360,7 +360,7 @@ class KubeflowPipelines(object):
 
         return body
 
-    def create_run_on_argo(
+    def run_workflow_on_argo(
         self,
         kubernetes_namespace: str,
         flow_parameters: dict,
@@ -369,65 +369,65 @@ class KubeflowPipelines(object):
         """
         Creates a new run on Argo using the `KubernetesClient()`.
         """
-        workflow_template: Dict[str, Any] = self._create_workflow_yaml(
-            flow_parameters, output_format="argo-workflow"
+        workflow: Dict[str, Any] = self._create_workflow_yaml(
+            flow_parameters, kind="Workflow", max_run_concurrency=max_run_concurrency
+        )
+        argo_workflow_name: str = sanitize_k8s_name(self.name)
+
+        config_map: Dict[str, Any] = KubeflowPipelines._config_map(
+            argo_workflow_name, max_run_concurrency
         )
 
         try:
-            argo_workflow_name = sanitize_k8s_name(self.name)
-
-            config_map: Dict[str, Any] = KubeflowPipelines._create_config_map(
-                argo_workflow_name, max_run_concurrency
-            )
             # Create the Argo synchronization ConfigMap
             config = ArgoClient(
                 namespace=kubernetes_namespace
             ).create_workflow_config_map(argo_workflow_name, config_map)
 
             # Create/Run the Argo Workflow
-            workflow = ArgoClient(namespace=kubernetes_namespace).run_workflow(
-                workflow_template
+            running_workflow = ArgoClient(namespace=kubernetes_namespace).run_workflow(
+                workflow
             )
-            return workflow, config
+            return running_workflow, config
         except Exception as e:
             raise KfpException(str(e))
 
-    def create_workflow_yaml_file(
+    def write_workflow_kind(
         self,
         output_path: str,
         flow_parameters: Optional[dict] = None,
-        output_format: str = "argo-workflow",
+        kind: str = None,
         name: Optional[str] = None,
         recurring_run_enable: Optional[bool] = None,
         recurring_run_cron: Optional[str] = None,
         recurring_run_policy: Optional[str] = None,
         max_run_concurrency: Optional[int] = 10,
     ) -> str:
-        workflow: Dict[str, Any] = self._create_workflow_yaml(
-            flow_parameters,
-            output_format,
-            name,
-        )
-
-        kfp.compiler.Compiler()._write_workflow(workflow, output_path)
-
-        config_map = KubeflowPipelines._create_config_map(
-            sanitize_k8s_name(self.name), max_run_concurrency
-        )
-
-        if not KFP_ARGO_COMPILE_WORKFLOW_ONLY:
-            with open(output_path, "a") as yaml_file:
-                yaml_file.write("\n---\n")
-                yaml.safe_dump(config_map, yaml_file, default_flow_style=False)
-
-                cron_workflow: Dict[str, Any] = KubeflowPipelines._create_cron_workflow(
-                    sanitize_k8s_name(self.name),
-                    schedule=recurring_run_cron,
-                    concurrency=recurring_run_policy,
-                    recurring_run_enable=recurring_run_enable,
-                )
-                yaml_file.write("\n---\n")
+        if kind in ["Workflow", "WorkflowTemplate"]:
+            workflow: Dict[str, Any] = self._create_workflow_yaml(
+                flow_parameters,
+                kind,
+                max_run_concurrency,
+                name,
+            )
+            kfp.compiler.Compiler()._write_workflow(workflow, output_path)
+        elif kind == "CronWorkflow":
+            cron_workflow: Dict[str, Any] = KubeflowPipelines._cron_workflow(
+                sanitize_k8s_name(self.name),
+                schedule=recurring_run_cron,
+                concurrency=recurring_run_policy,
+                recurring_run_enable=recurring_run_enable,
+            )
+            with open(output_path, "w") as yaml_file:
                 yaml.safe_dump(cron_workflow, yaml_file, default_flow_style=False)
+        elif kind == "ConfigMap":
+            config_map = KubeflowPipelines._config_map(
+                sanitize_k8s_name(self.name), max_run_concurrency
+            )
+            with open(output_path, "w") as yaml_file:
+                yaml.safe_dump(config_map, yaml_file, default_flow_style=False)
+        else:
+            raise NotImplementedError(f"Unsupported output format {kind}.")
 
         return os.path.abspath(output_path)
 

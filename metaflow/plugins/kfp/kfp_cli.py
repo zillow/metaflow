@@ -2,7 +2,7 @@ import functools
 import json
 import shutil
 import subprocess
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 
 from metaflow import JSONType, current, decorators, parameters
 from metaflow._vendor import click
@@ -13,7 +13,6 @@ from metaflow.metaflow_config import (
     from_conf,
     KUBERNETES_NAMESPACE,
     ARGO_RUN_URL_PREFIX,
-    METAFLOW_RUN_URL_PREFIX,
     KFP_MAX_RUN_CONCURRENCY,
 )
 from metaflow.package import MetaflowPackage
@@ -62,164 +61,169 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     )
 
 
-def common_create_run_options(func):
-    @click.option(
-        "--name",
-        "--pipeline-name",
-        "name",
-        default=None,
-        help="The workflow name. The default is the flow name.",
-        show_default=True,
-    )
-    @click.option(
-        "--experiment",
-        "-e",
-        "experiment",
-        default=None,
-        help="The associated experiment name for the run. ",
-        show_default=True,
-    )
-    @click.option(
-        "--tag",
-        "tags",
-        multiple=True,
-        default=None,
-        help="Annotate all objects produced by Argo Workflows runs "
-        "with the given tag. You can specify this option multiple "
-        "times to attach multiple tags.",
-    )
-    @click.option(
-        "--sys-tag",
-        "sys_tags",
-        multiple=True,
-        default=None,
-        help="Annotate all Metaflow objects produced by Argo Metaflow runs "
-        "with the given system tag. You can specify this option multiple "
-        "times to attach multiple tags.",
-    )
-    @click.option(
-        "--namespace",
-        "user_namespace",
-        default=None,
-        help="Change the namespace from the default (production token) "
-        "to the given tag. See run --help for more information.",
-    )
-    @click.option(
-        "--k8s-namespace",
-        "--kubernetes-namespace",
-        "kubernetes_namespace",
-        default=KUBERNETES_NAMESPACE,
-        help="Kubernetes Namespace for your run in Argo.",
-        show_default=True,
-    )
-    @click.option(
-        "--yaml-only",
-        "yaml_only",
-        is_flag=True,
-        default=False,
-        help="Generate the Workflow YAML which is used to run the workflow on Argo.",
-        show_default=True,
-    )
-    @click.option(
-        "--yaml-format",
-        "yaml_format",
-        default="argo-workflow",
-        type=click.Choice(["argo-workflow", "argo-workflow-template"]),
-        show_default=True,
-    )
-    @click.option(
-        "--pipeline-path",
-        "pipeline_path",
-        default=None,
-        help="The output path of the generated Argo pipeline yaml file",
-        show_default=False,
-    )
-    @click.option(
-        "--s3-code-package/--no-s3-code-package",
-        "s3_code_package",
-        default=True,
-        help="Whether to package the code to S3 datastore",
-        show_default=True,
-    )
-    @click.option(
-        "--base-image",
-        "base_image",
-        default=KFP_DEFAULT_CONTAINER_IMAGE,
-        help="Base docker image used in Argo.",
-        show_default=True,
-    )
-    @click.option(
-        "--max-parallelism",
-        "-m",
-        default=KFP_MAX_PARALLELISM,
-        show_default=True,
-        help="Maximum number of parallel pods within a single run.",
-    )
-    @click.option(
-        "--workflow-timeout",
-        default=None,
-        type=int,
-        help="Workflow timeout in seconds.",
-    )
-    # TODO(talebz) AIP-7386 kfp->argo: don't override max_run_concurrency with default
-    @click.option(
-        "--max-run-concurrency",
-        default=KFP_MAX_RUN_CONCURRENCY,
-        help="Maximum number of parallel runs of this workflow triggered manually or by a recurring run."
-        f" defaults to {KFP_MAX_RUN_CONCURRENCY=}",
-    )
-    @click.option(
-        "--notify",
-        "-n",
-        "notify",
-        is_flag=True,
-        default=bool(from_conf("METAFLOW_NOTIFY")),
-        help="Whether to notify upon completion.  Default is METAFLOW_NOTIFY env variable. "
-        "METAFLOW_NOTIFY_ON_SUCCESS and METAFLOW_NOTIFY_ON_ERROR env variables determine "
-        "whether a notification is sent.",
-        show_default=True,
-    )
-    @click.option(
-        "--notify-on-error",
-        "-noe",
-        "notify_on_error",
-        default=from_conf("METAFLOW_NOTIFY_ON_ERROR", default=None),
-        help="Email address to notify upon error. "
-        "If not set, METAFLOW_NOTIFY_ON_ERROR is used from Metaflow config or environment variable",
-        show_default=True,
-    )
-    @click.option(
-        "--notify-on-success",
-        "-nos",
-        "notify_on_success",
-        default=from_conf("METAFLOW_NOTIFY_ON_SUCCESS", default=None),
-        help="Email address to notify upon success"
-        "If not set, METAFLOW_NOTIFY_ON_SUCCESS is used from Metaflow config or environment variable",
-        show_default=True,
-    )
-    @click.option(
-        "--sqs-url-on-error",
-        "-su",
-        "sqs_url_on_error",
-        default=from_conf("METAFLOW_SQS_URL_ON_ERROR", default=None),
-        help="SQS url to send messages upon error"
-        "If not set, messages will NOT be sent to SQS",
-        show_default=True,
-    )
-    @click.option(
-        "--sqs-role-arn-on-error",
-        "-sra",
-        "sqs_role_arn_on_error",
-        default=from_conf("METAFLOW_SQS_ROLE_ARN_ON_ERROR", default=None),
-        help="aws iam role used for sending messages to SQS upon error"
-        "If not set, the default iam role associated with the pod will be used",
-        show_default=True,
-    )
-    @functools.wraps(func)
-    def wrapper_common_options(*args, **kwargs):
-        return func(*args, **kwargs)
+def common_create_run_options(run_type):
+    def cli_decorator(func: Callable):
+        @click.option(
+            "--name",
+            "--pipeline-name",
+            "name",
+            default=None,
+            help="The workflow name. The default is the flow name.",
+            show_default=True,
+        )
+        @click.option(
+            "--experiment",
+            "-e",
+            "experiment",
+            default=None,
+            help="The associated experiment name for the run. ",
+            show_default=True,
+        )
+        @click.option(
+            "--tag",
+            "tags",
+            multiple=True,
+            default=None,
+            help="Annotate all objects produced by Argo Workflows runs "
+            "with the given tag. You can specify this option multiple "
+            "times to attach multiple tags.",
+        )
+        @click.option(
+            "--sys-tag",
+            "sys_tags",
+            multiple=True,
+            default=None,
+            help="Annotate all Metaflow objects produced by Argo Metaflow runs "
+            "with the given system tag. You can specify this option multiple "
+            "times to attach multiple tags.",
+        )
+        @click.option(
+            "--namespace",
+            "user_namespace",
+            default=None,
+            help="Change the namespace from the default (production token) "
+            "to the given tag. See run --help for more information.",
+        )
+        @click.option(
+            "--k8s-namespace",
+            "--kubernetes-namespace",
+            "kubernetes_namespace",
+            default=KUBERNETES_NAMESPACE,
+            help="Kubernetes Namespace for your run in Argo.",
+            show_default=True,
+        )
+        @click.option(
+            "--yaml-only",
+            "yaml_only",
+            is_flag=True,
+            default=False,
+            help="Generate the Workflow YAML which is used to run the workflow on Argo.",
+            show_default=True,
+        )
+        @click.option(
+            "--kind",
+            "kind",
+            default="Workflow" if run_type == "run" else "WorkflowTemplate",
+            type=click.Choice(
+                ["Workflow", "WorkflowTemplate", "CronWorkflow", "ConfigMap"]
+            ),
+            show_default=True,
+        )
+        @click.option(
+            "--pipeline-path",
+            "pipeline_path",
+            default=None,
+            help="The output path of the generated Argo pipeline yaml file",
+            show_default=False,
+        )
+        @click.option(
+            "--s3-code-package/--no-s3-code-package",
+            "s3_code_package",
+            default=True,
+            help="Whether to package the code to S3 datastore",
+            show_default=True,
+        )
+        @click.option(
+            "--base-image",
+            "base_image",
+            default=KFP_DEFAULT_CONTAINER_IMAGE,
+            help="Base docker image used in Argo.",
+            show_default=True,
+        )
+        @click.option(
+            "--max-parallelism",
+            "-m",
+            default=KFP_MAX_PARALLELISM,
+            show_default=True,
+            help="Maximum number of parallel pods within a single run.",
+        )
+        @click.option(
+            "--workflow-timeout",
+            default=None,
+            type=int,
+            help="Workflow timeout in seconds.",
+        )
+        # TODO(talebz) AIP-7386 kfp->argo: don't override max_run_concurrency with default
+        @click.option(
+            "--max-run-concurrency",
+            default=KFP_MAX_RUN_CONCURRENCY,
+            help="Maximum number of parallel runs of this workflow triggered manually or by a recurring run."
+            f" defaults to {KFP_MAX_RUN_CONCURRENCY=}",
+        )
+        @click.option(
+            "--notify",
+            "-n",
+            "notify",
+            is_flag=True,
+            default=bool(from_conf("METAFLOW_NOTIFY")),
+            help="Whether to notify upon completion.  Default is METAFLOW_NOTIFY env variable. "
+            "METAFLOW_NOTIFY_ON_SUCCESS and METAFLOW_NOTIFY_ON_ERROR env variables determine "
+            "whether a notification is sent.",
+            show_default=True,
+        )
+        @click.option(
+            "--notify-on-error",
+            "-noe",
+            "notify_on_error",
+            default=from_conf("METAFLOW_NOTIFY_ON_ERROR", default=None),
+            help="Email address to notify upon error. "
+            "If not set, METAFLOW_NOTIFY_ON_ERROR is used from Metaflow config or environment variable",
+            show_default=True,
+        )
+        @click.option(
+            "--notify-on-success",
+            "-nos",
+            "notify_on_success",
+            default=from_conf("METAFLOW_NOTIFY_ON_SUCCESS", default=None),
+            help="Email address to notify upon success"
+            "If not set, METAFLOW_NOTIFY_ON_SUCCESS is used from Metaflow config or environment variable",
+            show_default=True,
+        )
+        @click.option(
+            "--sqs-url-on-error",
+            "-su",
+            "sqs_url_on_error",
+            default=from_conf("METAFLOW_SQS_URL_ON_ERROR", default=None),
+            help="SQS url to send messages upon error"
+            "If not set, messages will NOT be sent to SQS",
+            show_default=True,
+        )
+        @click.option(
+            "--sqs-role-arn-on-error",
+            "-sra",
+            "sqs_role_arn_on_error",
+            default=from_conf("METAFLOW_SQS_ROLE_ARN_ON_ERROR", default=None),
+            help="aws iam role used for sending messages to SQS upon error"
+            "If not set, the default iam role associated with the pod will be used",
+            show_default=True,
+        )
+        @functools.wraps(func)
+        def wrapper_common_options(*args, **kwargs):
+            return func(*args, **kwargs)
 
-    return wrapper_common_options
+        return wrapper_common_options
+
+    return cli_decorator
 
 
 def common_wait_options(func):
@@ -250,7 +254,7 @@ def common_wait_options(func):
 
 @parameters.add_custom_parameters(deploy_mode=True)
 @kubeflow_pipelines.command(help="Submit this flow to run in the cluster.")
-@common_create_run_options
+@common_create_run_options("run")
 @common_wait_options
 @click.pass_obj
 def run(
@@ -262,7 +266,7 @@ def run(
     user_namespace=None,
     kubernetes_namespace=KUBERNETES_NAMESPACE,
     yaml_only=False,
-    yaml_format=None,
+    kind=None,
     pipeline_path=None,
     s3_code_package=True,
     base_image=None,
@@ -312,13 +316,17 @@ def run(
         if pipeline_path is None:
             raise CommandException("Please specify --pipeline-path")
 
-        pipeline_path = flow.create_workflow_yaml_file(
+        if kind not in ["Workflow", "ConfigMap"]:
+            raise CommandException("Please specify --kind=Workflow or --kind=ConfigMap")
+
+        pipeline_path = flow.write_workflow_kind(
             output_path=pipeline_path,
             flow_parameters=flow_parameters,
-            output_format=yaml_format,
+            kind=kind,
+            name=name,
             max_run_concurrency=max_run_concurrency,
         )
-        obj.echo(f"\nDone compiling *{current.flow_name}* to {pipeline_path}")
+        obj.echo(f"\nDone writing *{current.flow_name}* {kind} to {pipeline_path}")
     else:
         if s3_code_package and obj.flow_datastore.TYPE != "s3":
             raise CommandException(
@@ -329,7 +337,7 @@ def run(
             f"Deploying *{current.flow_name}* to Argo...",
             bold=True,
         )
-        workflow_manifest, _ = flow.create_run_on_argo(
+        workflow_manifest, _ = flow.run_workflow_on_argo(
             kubernetes_namespace, flow_parameters, max_run_concurrency
         )
         obj.echo("\nRun created successfully!\n")
@@ -423,7 +431,7 @@ def _argo_wait(
 
 @parameters.add_custom_parameters(deploy_mode=True)
 @kubeflow_pipelines.command(help="Deploy a new version of this flow to the cluster.")
-@common_create_run_options
+@common_create_run_options("create")
 @click.option(
     "--recurring-run-enable/--no-recurring-run-enable",
     "recurring_run_enable",
@@ -459,7 +467,7 @@ def create(
     user_namespace=None,
     kubernetes_namespace=KUBERNETES_NAMESPACE,
     yaml_only=False,
-    yaml_format=None,
+    kind=None,
     pipeline_path=None,
     s3_code_package=True,
     base_image=None,
@@ -469,6 +477,8 @@ def create(
     notify=False,
     notify_on_error=None,
     notify_on_success=None,
+    sqs_url_on_error=None,
+    sqs_role_arn_on_error=None,
     recurring_run_enable=None,
     recurring_run_cron=None,
     recurring_run_concurrency=None,
@@ -503,6 +513,8 @@ def create(
         notify=notify,
         notify_on_error=notify_on_error,
         notify_on_success=notify_on_success,
+        sqs_url_on_error=sqs_url_on_error,
+        sqs_role_arn_on_error=sqs_role_arn_on_error,
     )
 
     from kfp.compiler._k8s_helper import sanitize_k8s_name
@@ -512,21 +524,18 @@ def create(
         if pipeline_path is None:
             raise CommandException("Please specify --pipeline-path")
 
-        if yaml_format != "argo-workflow-template":
-            raise CommandException(
-                f"create requires --yaml-format argo-workflow-template"
-            )
-
-        pipeline_path = flow.create_workflow_yaml_file(
+        # This path allows the creation of any kind
+        pipeline_path = flow.write_workflow_kind(
             output_path=pipeline_path,
             flow_parameters=flow_parameters,
-            output_format="argo-workflow-template",
+            kind=kind,
+            name=name,
             recurring_run_enable=recurring_run_enable,
             recurring_run_cron=recurring_run_cron,
             recurring_run_policy=recurring_run_concurrency,
             max_run_concurrency=max_run_concurrency,
         )
-        obj.echo(f"\nDone compiling *{current.flow_name}* to {pipeline_path}")
+        obj.echo(f"\nDone writing *{current.flow_name}* {kind} to {pipeline_path}")
     else:
         obj.echo(f"Deploying *{flow.name}* to Argo Workflows...", bold=True)
         workflow_template, _, _ = flow.deploy(
