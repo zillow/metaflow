@@ -395,8 +395,8 @@ class KubeflowPipelines(object):
     def write_workflow_kind(
         self,
         output_path: str,
+        kind: str,
         flow_parameters: Optional[dict] = None,
-        kind: str = None,
         name: Optional[str] = None,
         recurring_run_enable: Optional[bool] = None,
         recurring_run_cron: Optional[str] = None,

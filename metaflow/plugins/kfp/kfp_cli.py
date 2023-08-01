@@ -61,7 +61,7 @@ def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
     )
 
 
-def common_create_run_options(run_type):
+def common_create_run_options(default_yaml_kind: str):
     def cli_decorator(func: Callable):
         @click.option(
             "--name",
@@ -123,10 +123,14 @@ def common_create_run_options(run_type):
         @click.option(
             "--kind",
             "kind",
-            default="Workflow" if run_type == "run" else "WorkflowTemplate",
+            default=default_yaml_kind,
             type=click.Choice(
                 ["Workflow", "WorkflowTemplate", "CronWorkflow", "ConfigMap"]
             ),
+            help="The kind of the generated k8s yaml.  Only used when --yaml-only is set."
+            "It specifies the k8s kind of the yaml file created.  The ConfigMap value "
+            "is used to create a ConfigMap with an Argo synchronization semaphore whose "
+            "value is set by the --max-run-concurrency command line parameter",
             show_default=True,
         )
         @click.option(
@@ -254,7 +258,7 @@ def common_wait_options(func):
 
 @parameters.add_custom_parameters(deploy_mode=True)
 @kubeflow_pipelines.command(help="Submit this flow to run in the cluster.")
-@common_create_run_options("run")
+@common_create_run_options(default_yaml_kind="Workflow")
 @common_wait_options
 @click.pass_obj
 def run(
@@ -321,8 +325,8 @@ def run(
 
         pipeline_path = flow.write_workflow_kind(
             output_path=pipeline_path,
-            flow_parameters=flow_parameters,
             kind=kind,
+            flow_parameters=flow_parameters,
             name=name,
             max_run_concurrency=max_run_concurrency,
         )
@@ -431,7 +435,7 @@ def _argo_wait(
 
 @parameters.add_custom_parameters(deploy_mode=True)
 @kubeflow_pipelines.command(help="Deploy a new version of this flow to the cluster.")
-@common_create_run_options("create")
+@common_create_run_options(default_yaml_kind="WorkflowTemplate")
 @click.option(
     "--recurring-run-enable/--no-recurring-run-enable",
     "recurring_run_enable",
@@ -527,8 +531,8 @@ def create(
         # This path allows the creation of any kind
         pipeline_path = flow.write_workflow_kind(
             output_path=pipeline_path,
-            flow_parameters=flow_parameters,
             kind=kind,
+            flow_parameters=flow_parameters,
             name=name,
             recurring_run_enable=recurring_run_enable,
             recurring_run_cron=recurring_run_cron,
