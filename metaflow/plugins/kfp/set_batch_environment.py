@@ -14,7 +14,7 @@ def cli():
 def parameters(output_file: str):
     metaflow_parameters = json.loads(os.environ.get("METAFLOW_PARAMETERS", "{}"))
     # metaflow_parameters is of json form [{"name": "foo", "value": "bar"}, ...]
-    input_parameters = {x["name"]: x["value"] for x in metaflow_parameters}
+    input_parameters = {param["name"]: param["value"] for param in metaflow_parameters}
     params = json.loads(os.environ.get("METAFLOW_DEFAULT_PARAMETERS", "{}"))
     params.update(input_parameters)
     with open(output_file, "w") as f:

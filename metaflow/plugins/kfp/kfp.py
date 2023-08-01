@@ -1531,7 +1531,7 @@ class KubeflowPipelines(object):
                 f" --flow_name {self.name}"
                 " --run_id {{workflow.name}}"
                 f" --notify_variables_json {json.dumps(json.dumps(notify_variables))}"
-                f"  --flow_parameters_json {flow_parameters_json if flow_parameters else '{}'}"
+                f" --flow_parameters_json {flow_parameters_json if flow_parameters else '{}'}"
                 "  --status {{workflow.status}}"
             ),
         ]
