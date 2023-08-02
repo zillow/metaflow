@@ -542,7 +542,7 @@ def create(
         obj.echo(f"\nDone writing *{current.flow_name}* {kind} to {pipeline_path}")
     else:
         obj.echo(f"Deploying *{flow.name}* to Argo Workflows...", bold=True)
-        workflow_template, _, _ = flow.deploy(
+        workflow_template = flow.deploy(
             kubernetes_namespace,
             workflow_name,
             flow_parameters=flow_parameters,

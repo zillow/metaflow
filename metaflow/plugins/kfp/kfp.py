@@ -89,6 +89,7 @@ class StepVariables:
 
 
 METAFLOW_RUN_ID = "argo-{{workflow.name}}"
+FLOW_PARAMETERS_JSON = "{{workflow.parameters}}"
 
 
 class KfpComponent(object):
@@ -203,30 +204,19 @@ class KubeflowPipelines(object):
         recurring_run_cron: Optional[str] = None,
         recurring_run_policy: Optional[str] = None,
         max_run_concurrency: Optional[int] = 10,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         try:
-            # Register workflow template.
+            # Step 1: Create the resources definitions
             workflow_template: Dict[str, Any] = self._create_workflow_yaml(
                 flow_parameters=flow_parameters,
                 kind="WorkflowTemplate",
                 name=name,
             )
+
             config_map: Dict[str, Any] = KubeflowPipelines._config_map(
                 sanitize_k8s_name(self.name), max_run_concurrency
             )
-            argo_workflow_name = workflow_template["metadata"]["name"]
 
-            # Create the Argo synchronization ConfigMap
-            config = ArgoClient(
-                namespace=kubernetes_namespace
-            ).create_workflow_config_map(argo_workflow_name, config_map)
-
-            # Create the Argo Workflow Template
-            workflow = ArgoClient(
-                namespace=kubernetes_namespace
-            ).register_workflow_template(argo_workflow_name, workflow_template)
-
-            # Create CronWorkflow
             cron_workflow: Dict[str, Any] = KubeflowPipelines._cron_workflow(
                 sanitize_k8s_name(self.name),
                 schedule=recurring_run_cron,
@@ -234,11 +224,22 @@ class KubeflowPipelines(object):
                 recurring_run_enable=recurring_run_enable,
             )
 
-            cron_workflow = ArgoClient(
-                namespace=kubernetes_namespace
-            ).create_cron_workflow(argo_workflow_name, cron_workflow)
+            # Step 2: Deploy the resources definitions
+            argo_workflow_name = workflow_template["metadata"]["name"]
 
-            return workflow, config, cron_workflow
+            ArgoClient(namespace=kubernetes_namespace).create_workflow_config_map(
+                argo_workflow_name, config_map
+            )
+
+            k8s_workflow = ArgoClient(
+                namespace=kubernetes_namespace
+            ).register_workflow_template(argo_workflow_name, workflow_template)
+
+            ArgoClient(namespace=kubernetes_namespace).create_cron_workflow(
+                argo_workflow_name, cron_workflow
+            )
+
+            return k8s_workflow
         except Exception as e:
             raise KfpException(str(e))
 
@@ -305,10 +306,9 @@ class KubeflowPipelines(object):
             # Note the name has to follow k8s format.
             # self.name is typically CamelCase as it's python class name.
             # generateName contains a sanitized version of self.name from kfp.compiler
-            workflow_name = (
+            workflow["metadata"]["name"] = (
                 name if name else workflow["metadata"].pop("generateName").rstrip("-")
             )
-            workflow["metadata"]["name"] = workflow_name
 
             # Service account is added through webhooks.
             workflow["spec"].pop("serviceAccountName", None)
@@ -329,6 +329,9 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _config_map(workflow_name: str, max_run_concurrency: int):
+        if not max_run_concurrency or max_run_concurrency <= 0:
+            raise KfpException(f"{max_run_concurrency=} must be > 0.")
+
         config_map = {
             "apiVersion": "v1",
             "kind": "ConfigMap",
@@ -1063,7 +1066,6 @@ class KubeflowPipelines(object):
                     flow_variables,
                     metaflow_configs,
                     flow_parameters,
-                    "{{workflow.parameters}}",
                     passed_in_split_indexes,
                     preceding_component_inputs,
                     preceding_component_outputs_dict,
@@ -1188,7 +1190,6 @@ class KubeflowPipelines(object):
                     )
                 ):
                     s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
-                        "{{workflow.parameters}}",
                         flow_variables,
                     )
                     workflow_uid_op: Optional[
@@ -1202,7 +1203,6 @@ class KubeflowPipelines(object):
             else:
                 # TODO: can this and above duplicated code be in a function?
                 s3_sensor_op: Optional[ContainerOp] = self.create_s3_sensor_op(
-                    "{{workflow.parameters}}",
                     flow_variables,
                 )
                 workflow_uid_op: Optional[ContainerOp] = self._create_workflow_uid_op(
@@ -1296,7 +1296,6 @@ class KubeflowPipelines(object):
         flow_variables: FlowVariables,
         metaflow_configs: Dict[str, str],
         flow_parameters: Dict,
-        flow_parameters_json: str,
         passed_in_split_indexes: str,
         preceding_component_inputs: List[str],
         preceding_component_outputs_dict: Dict[str, dsl.PipelineParam],
@@ -1333,7 +1332,7 @@ class KubeflowPipelines(object):
         )
 
         if node.name == "start":
-            metaflow_execution_cmd += f" --flow_parameters_json '{flow_parameters_json if flow_parameters else []}'"
+            metaflow_execution_cmd += f" --flow_parameters_json '{FLOW_PARAMETERS_JSON if flow_parameters else []}'"
         if node.type == "foreach":
             metaflow_execution_cmd += f" --is_foreach_step"
         if flow_variables.namespace:
@@ -1417,7 +1416,6 @@ class KubeflowPipelines(object):
 
     def create_s3_sensor_op(
         self,
-        flow_parameters_json: str,
         flow_variables: FlowVariables,
     ):
         s3_sensor_deco: Optional[FlowDecorator] = self.flow._flow_decorators.get(
@@ -1426,7 +1424,6 @@ class KubeflowPipelines(object):
         if s3_sensor_deco:
             return self._create_s3_sensor_op(
                 s3_sensor_deco=s3_sensor_deco,
-                flow_parameters_json=flow_parameters_json,
                 package_commands=flow_variables.package_commands,
             )
         else:
@@ -1435,7 +1432,6 @@ class KubeflowPipelines(object):
     def _create_s3_sensor_op(
         self,
         s3_sensor_deco: FlowDecorator,
-        flow_parameters_json: str,
         package_commands: str,
     ) -> ContainerOp:
         path = s3_sensor_deco.path
@@ -1466,7 +1462,7 @@ class KubeflowPipelines(object):
                 " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
                 " --run_id argo-{{workflow.name}}"
                 f" --flow_name {self.name}"
-                f" --flow_parameters_json '{flow_parameters_json}'"
+                f" --flow_parameters_json '{FLOW_PARAMETERS_JSON}'"
                 f" --path {path}"
                 f" --path_formatter_code_encoded '{path_formatter_code_encoded}'"
                 f" --polling_interval_seconds {polling_interval_seconds}"
@@ -1521,7 +1517,7 @@ class KubeflowPipelines(object):
         # when there are no flow parameters argo complains
         # that {{workflow.parameters}} failed to resolve
         # see https://github.com/argoproj/argo-workflows/issues/6036
-        flow_parameters_json = "'{{workflow.parameters}}'"
+        flow_parameters_json = f"'{FLOW_PARAMETERS_JSON}'"
         exit_handler_command = [
             "bash",
             "-ec",
