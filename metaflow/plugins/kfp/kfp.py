@@ -319,7 +319,7 @@ class KubeflowPipelines(object):
             workflow["spec"]["synchronization"] = {
                 "semaphore": {
                     "configMapKeyRef": {
-                        "name": sanitize_k8s_name(self.name),
+                        "name": sanitize_k8s_name(name if name else self.name),
                         "key": "max_run_concurrency",
                     }
                 }
