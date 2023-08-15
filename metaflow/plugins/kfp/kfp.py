@@ -219,6 +219,7 @@ class KubeflowPipelines(object):
 
             cron_workflow: Dict[str, Any] = KubeflowPipelines._cron_workflow(
                 sanitize_k8s_name(self.name),
+                flow_parameters=flow_parameters,
                 schedule=recurring_run_cron,
                 concurrency=recurring_run_policy,
                 recurring_run_enable=recurring_run_enable,
@@ -343,6 +344,7 @@ class KubeflowPipelines(object):
     @staticmethod
     def _cron_workflow(
         name: str,
+        flow_parameters: Optional[dict] = None,
         schedule: Optional[str] = None,
         concurrency: Optional[str] = None,
         recurring_run_enable: Optional[bool] = False,
@@ -360,6 +362,16 @@ class KubeflowPipelines(object):
                 "workflowSpec": {"workflowTemplateRef": {"name": name}},
             },
         }
+
+        if flow_parameters:
+            body["spec"]["workflowSpec"] = {
+                "arguments": {
+                    "parameters": [
+                        dict(name=k, value=json.dumps(v) if isinstance(v, dict) else v)
+                        for k, v in flow_parameters.items()
+                    ]
+                }
+            }
 
         return body
 
@@ -417,6 +429,7 @@ class KubeflowPipelines(object):
         elif kind == "CronWorkflow":
             cron_workflow: Dict[str, Any] = KubeflowPipelines._cron_workflow(
                 sanitize_k8s_name(name if name else self.name),
+                flow_parameters=flow_parameters,
                 schedule=recurring_run_cron,
                 concurrency=recurring_run_policy,
                 recurring_run_enable=recurring_run_enable,
