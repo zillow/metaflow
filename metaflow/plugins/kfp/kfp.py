@@ -364,13 +364,11 @@ class KubeflowPipelines(object):
         }
 
         if flow_parameters:
-            body["spec"]["workflowSpec"] = {
-                "arguments": {
-                    "parameters": [
-                        dict(name=k, value=json.dumps(v) if isinstance(v, dict) else v)
-                        for k, v in flow_parameters.items()
-                    ]
-                }
+            body["spec"]["workflowSpec"]["arguments"] = {
+                "parameters": [
+                    dict(name=k, value=json.dumps(v) if isinstance(v, dict) else v)
+                    for k, v in flow_parameters.items()
+                ]
             }
 
         return body
