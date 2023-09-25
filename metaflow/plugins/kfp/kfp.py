@@ -287,14 +287,12 @@ class KubeflowPipelines(object):
         return max_user_code_retries, max_user_code_retries + max_error_retries
 
     @staticmethod
-    def _get_minutes_between_retries(node: DAGNode) -> str:
+    def _get_minutes_between_retries(node: DAGNode) -> Optional[str]:
         retry_deco = [deco for deco in node.decorators if deco.name == "retry"]
         if retry_deco:
-            val = retry_deco[0].attributes.get(
-                "minutes_between_retries", BACKOFF_DURATION
-            )
+            val = retry_deco[0].attributes.get("minutes_between_retries")
             return f"{val}m" if isinstance(val, numbers.Number) else val
-        return BACKOFF_DURATION
+        return None
 
     @staticmethod
     def _get_resource_requirements(node: DAGNode) -> Dict[str, str]:
