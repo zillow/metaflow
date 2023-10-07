@@ -10,9 +10,9 @@ from metaflow.exception import CommandException, MetaflowException
 from metaflow.metaflow_config import (
     KFP_DEFAULT_CONTAINER_IMAGE,
     KFP_MAX_PARALLELISM,
+    KFP_SHOW_METAFLOW_UI_URL,
     from_conf,
     KUBERNETES_NAMESPACE,
-    ARGO_RUN_URL_PREFIX,
     KFP_MAX_RUN_CONCURRENCY,
 )
 from metaflow.package import MetaflowPackage
@@ -24,6 +24,7 @@ from metaflow.plugins.kfp.argo_utils import (
     run_id_to_metaflow_url,
     to_metaflow_run_id,
 )
+from metaflow.plugins.kfp.kfp_decorator import KfpException
 from metaflow.plugins.kfp.kfp_step_init import save_step_environment_variables
 from metaflow.util import get_username
 
@@ -384,21 +385,10 @@ def _echo_workflow_run(
     metaflow_run_id = to_metaflow_run_id(argo_workflow_name)
     metaflow_ui_url = run_id_to_metaflow_url(flow_name, argo_workflow_name)
     argo_ui_url = run_id_to_url(argo_workflow_name, kubernetes_namespace)
-    # ddog_ui_url = (
-    #     f"https://ai-platform.datadoghq.com/orchestration/overview/pod?query=annotation%23metaflow.org%2F"
-    #     f"run_id%3A{metaflow_run_id}"
-    #     f"&groups=tag%23kube_namespace%2Cannotation%23metaflow.org%2Fflow_name"
-    #     "%2Cannotation%23metaflow.org%2Fstep&inspect=&inspect_group=&panel_tab=yaml&pg=0"
-    # )
-    # ddog_wf_url = (
-    #     "https://ai-platform.datadoghq.com/dashboard/mtq-j2e-p6g"
-    #     f"?tpl_var_env%5B0%5D=%2A&tpl_var_run_id%5B0%5D={metaflow_run_id}"
-    # )
     obj.echo(f"Metaflow run_id=*{metaflow_run_id}*\n", fg="magenta")
     obj.echo(f"*Argo UI:* {argo_ui_url}", fg="cyan")
-    obj.echo(f"*Metaflow UI:* {metaflow_ui_url}", fg="cyan")
-    # obj.echo(f"*ddog dashboard:* {ddog_wf_url}", fg="cyan")
-    # obj.echo(f"*ddog pod groups:* {ddog_ui_url}\n", fg="cyan")
+    if KFP_SHOW_METAFLOW_UI_URL:
+        obj.echo(f"*Metaflow UI:* {metaflow_ui_url}", fg="cyan")
     argo_workflow_name = workflow_manifest["metadata"]["name"]
     if shutil.which("argo"):
         # only print this to the console if `argo` is in the path
@@ -521,9 +511,6 @@ def create(
         sqs_role_arn_on_error=sqs_role_arn_on_error,
     )
 
-    from kfp.compiler._k8s_helper import sanitize_k8s_name
-
-    workflow_name: str = name if name else sanitize_k8s_name(flow.name)
     if yaml_only:
         if pipeline_path is None:
             raise CommandException("Please specify --pipeline-path")
@@ -541,30 +528,7 @@ def create(
         )
         obj.echo(f"\nDone writing *{current.flow_name}* {kind} to {pipeline_path}")
     else:
-        obj.echo(f"Deploying *{flow.name}* to Argo Workflows...", bold=True)
-        workflow_template = flow.deploy(
-            kubernetes_namespace,
-            workflow_name,
-            flow_parameters=flow_parameters,
-            recurring_run_enable=recurring_run_enable,
-            recurring_run_cron=recurring_run_cron,
-            recurring_run_policy=recurring_run_concurrency,
-            max_run_concurrency=max_run_concurrency,
-        )
-        template_name = workflow_template["metadata"]["name"]
-        obj.echo(
-            f"Workflow Template *{template_name}* "
-            f"for flow *{current.flow_name}* pushed to "
-            "Argo Workflows successfully.\n",
-            bold=True,
-        )
-        argo_ui_url = f"{ARGO_RUN_URL_PREFIX}/argo-ui/workflow-templates/{kubernetes_namespace}/{template_name}"
-        obj.echo(f"*Argo:* {argo_ui_url}", fg="cyan")
-
-        # TODO(talebz): using @schedule decorator?
-        #  flow.schedule()
-        #  obj.echo("What will trigger execution of the workflow:", bold=True)
-        #  obj.echo(flow.trigger_explanation(), indent=True)
+        raise KfpException("create command is only supported with --yaml-only")
 
 
 @parameters.add_custom_parameters(deploy_mode=False)

@@ -200,55 +200,6 @@ class KubeflowPipelines(object):
         self.sqs_role_arn_on_error = sqs_role_arn_on_error
         self._client = None
 
-    def deploy(
-        self,
-        kubernetes_namespace: str,
-        name: Optional[str],
-        flow_parameters: Dict,
-        recurring_run_enable: Optional[bool] = None,
-        recurring_run_cron: Optional[str] = None,
-        recurring_run_policy: Optional[str] = None,
-        max_run_concurrency: Optional[int] = 10,
-    ) -> Dict[str, Any]:
-        try:
-            # Step 1: Create the resources definitions
-            workflow_template: Dict[str, Any] = self._create_workflow_yaml(
-                flow_parameters=flow_parameters,
-                kind="WorkflowTemplate",
-                name=name,
-            )
-
-            config_map: Dict[str, Any] = KubeflowPipelines._config_map(
-                sanitize_k8s_name(self.name), max_run_concurrency
-            )
-
-            cron_workflow: Dict[str, Any] = KubeflowPipelines._cron_workflow(
-                sanitize_k8s_name(self.name),
-                flow_parameters=flow_parameters,
-                schedule=recurring_run_cron,
-                concurrency=recurring_run_policy,
-                recurring_run_enable=recurring_run_enable,
-            )
-
-            # Step 2: Deploy the resources definitions
-            argo_workflow_name = workflow_template["metadata"]["name"]
-
-            ArgoClient(namespace=kubernetes_namespace).create_workflow_config_map(
-                argo_workflow_name, config_map
-            )
-
-            k8s_workflow = ArgoClient(
-                namespace=kubernetes_namespace
-            ).register_workflow_template(argo_workflow_name, workflow_template)
-
-            ArgoClient(namespace=kubernetes_namespace).create_cron_workflow(
-                argo_workflow_name, cron_workflow
-            )
-
-            return k8s_workflow
-        except Exception as e:
-            raise KfpException(str(e))
-
     @classmethod
     def trigger(cls, kubernetes_namespace: str, name: str, parameters=None):
         if parameters is None:
