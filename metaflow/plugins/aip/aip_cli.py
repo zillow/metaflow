@@ -8,24 +8,24 @@ from metaflow import JSONType, current, decorators, parameters
 from metaflow._vendor import click
 from metaflow.exception import CommandException, MetaflowException
 from metaflow.metaflow_config import (
-    KFP_DEFAULT_CONTAINER_IMAGE,
-    KFP_MAX_PARALLELISM,
-    KFP_SHOW_METAFLOW_UI_URL,
+    AIP_DEFAULT_CONTAINER_IMAGE,
+    AIP_MAX_PARALLELISM,
+    AIP_SHOW_METAFLOW_UI_URL,
     from_conf,
     KUBERNETES_NAMESPACE,
-    KFP_MAX_RUN_CONCURRENCY,
+    AIP_MAX_RUN_CONCURRENCY,
 )
 from metaflow.package import MetaflowPackage
 from metaflow.plugins.aws.step_functions.step_functions_cli import (
     check_metadata_service_version,
 )
-from metaflow.plugins.kfp.argo_utils import (
+from metaflow.plugins.aip.argo_utils import (
     run_id_to_url,
     run_id_to_metaflow_url,
     to_metaflow_run_id,
 )
-from metaflow.plugins.kfp.kfp_decorator import KfpException
-from metaflow.plugins.kfp.kfp_step_init import save_step_environment_variables
+from metaflow.plugins.aip.aip_decorator import AIPException
+from metaflow.plugins.aip.aip_step_init import save_step_environment_variables
 from metaflow.util import get_username
 
 
@@ -38,7 +38,7 @@ def cli():
     pass
 
 
-@cli.group(name="kfp", help="Commands related to Workflow SDK.")
+@cli.group(name="aip", help="Commands related to Workflow SDK.")
 @click.pass_obj
 def kubeflow_pipelines(obj):
     pass
@@ -151,14 +151,14 @@ def common_create_run_options(default_yaml_kind: str):
         @click.option(
             "--base-image",
             "base_image",
-            default=KFP_DEFAULT_CONTAINER_IMAGE,
+            default=AIP_DEFAULT_CONTAINER_IMAGE,
             help="Base docker image used in Argo.",
             show_default=True,
         )
         @click.option(
             "--max-parallelism",
             "-m",
-            default=KFP_MAX_PARALLELISM,
+            default=AIP_MAX_PARALLELISM,
             show_default=True,
             help="Maximum number of parallel pods within a single run.",
         )
@@ -168,12 +168,12 @@ def common_create_run_options(default_yaml_kind: str):
             type=int,
             help="Workflow timeout in seconds.",
         )
-        # TODO(talebz) AIP-7386 kfp->argo: don't override max_run_concurrency with default
+        # TODO(talebz) AIP-7386 aip->argo: don't override max_run_concurrency with default
         @click.option(
             "--max-run-concurrency",
-            default=KFP_MAX_RUN_CONCURRENCY,
+            default=AIP_MAX_RUN_CONCURRENCY,
             help="Maximum number of parallel runs of this workflow triggered manually or by a recurring run."
-            f" defaults to {KFP_MAX_RUN_CONCURRENCY=}",
+            f" defaults to {AIP_MAX_RUN_CONCURRENCY=}",
         )
         @click.option(
             "--notify",
@@ -387,7 +387,7 @@ def _echo_workflow_run(
     argo_ui_url = run_id_to_url(argo_workflow_name, kubernetes_namespace)
     obj.echo(f"Metaflow run_id=*{metaflow_run_id}*\n", fg="magenta")
     obj.echo(f"*Argo UI:* {argo_ui_url}", fg="cyan")
-    if KFP_SHOW_METAFLOW_UI_URL:
+    if AIP_SHOW_METAFLOW_UI_URL:
         obj.echo(f"*Metaflow UI:* {metaflow_ui_url}", fg="cyan")
     argo_workflow_name = workflow_manifest["metadata"]["name"]
     if shutil.which("argo"):
@@ -528,7 +528,7 @@ def create(
         )
         obj.echo(f"\nDone writing *{current.flow_name}* {kind} to {pipeline_path}")
     else:
-        raise KfpException("create command is only supported with --yaml-only")
+        raise AIPException("create command is only supported with --yaml-only")
 
 
 @parameters.add_custom_parameters(deploy_mode=False)
@@ -566,7 +566,7 @@ def trigger(
     wait_for_completion_timeout=None,
     **kwargs,
 ):
-    from metaflow.plugins.kfp.kfp import KubeflowPipelines
+    from metaflow.plugins.aip.aip import KubeflowPipelines
     from kfp.compiler._k8s_helper import sanitize_k8s_name
 
     flow_parameters: Dict[str, Any] = _get_flow_parameters(kwargs, obj)
@@ -635,13 +635,13 @@ def make_flow(
     """
 
     # Import declared inside here because this file has Python3 syntax while
-    # Metaflow supports Python2 for backward compat, so only load Python3 if the KFP plugin
+    # Metaflow supports Python2 for backward compat, so only load Python3 if the AIP plugin
     # is being run.
-    from metaflow.plugins.kfp.kfp import KubeflowPipelines
-    from metaflow.plugins.kfp.kfp_decorator import KfpInternalDecorator
+    from metaflow.plugins.aip.aip import KubeflowPipelines
+    from metaflow.plugins.aip.aip_decorator import AIPInternalDecorator
 
-    # Attach KFP decorator to the flow
-    decorators._attach_decorators(obj.flow, [KfpInternalDecorator.name])
+    # Attach AIP decorator to the flow
+    decorators._attach_decorators(obj.flow, [AIPInternalDecorator.name])
     decorators._init_step_decorators(
         obj.flow, obj.graph, obj.environment, obj.flow_datastore, obj.logger
     )

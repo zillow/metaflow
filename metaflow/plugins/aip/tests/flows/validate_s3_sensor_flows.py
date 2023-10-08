@@ -23,9 +23,9 @@ find the the file.
 2. It deletes the s3_sensor pod in the above 2 flows to ensure s3_sensor recovers
 from workflow failures.
 3. It waits for the completion of the above 2 flows. This is necesary because we don't
-specify --wait-for-completion in the above 2 flows, so the kfp run command will return
+specify --wait-for-completion in the above 2 flows, so the aip run command will return
 immediately with success. We didn't specify --wait-for-completion because we parse the
-output of the kfp run command to obtain the workflow_name, which is used within this
+output of the aip run command to obtain the workflow_name, which is used within this
 flow to delete the s3_sensor pods.
 """
 

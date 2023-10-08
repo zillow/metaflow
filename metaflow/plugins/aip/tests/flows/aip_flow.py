@@ -4,7 +4,7 @@ from typing import NamedTuple
 from kfp.components import func_to_container_op
 from kubernetes import client, config
 
-from metaflow import FlowSpec, kfp, resources, step
+from metaflow import FlowSpec, aip, resources, step
 
 
 def div_mod(
@@ -18,7 +18,7 @@ def is_on_kubernetes():
     return os.getenv("K8S_CLUSTER_NAME")
 
 
-def assert_step_image(kfp_step_image: str):
+def assert_step_image(aip_step_image: str):
     if (
         is_on_kubernetes()
     ):  # only perform this test on the cluster, not on local machine
@@ -35,12 +35,12 @@ def assert_step_image(kfp_step_image: str):
 
             for container_status in pod_detail.status.container_statuses:
                 if container_status.name == "main":
-                    assert container_status.image == kfp_step_image
+                    assert container_status.image == aip_step_image
 
 
-class KfpFlow(FlowSpec):
+class AipFlow(FlowSpec):
     """
-    Test adding a KFP Component and decorators and testing use of image=...
+    Test adding a AIP Component and decorators and testing use of image=...
     """
 
     @resources(cpu=5, memory="1G")
@@ -57,11 +57,11 @@ class KfpFlow(FlowSpec):
             assert_step_image(env_image_tag)
         self.next(self.end)
 
-    @kfp(
+    @aip(
         preceding_component=func_to_container_op(div_mod, use_code_pickling=False),
         preceding_component_inputs="dividend divisor",
         preceding_component_outputs="quotient remainder",
-        image=os.getenv("KFP_STEP_IMAGE", None),
+        image=os.getenv("AIP_STEP_IMAGE", None),
     )
     @step
     def end(self):
@@ -80,4 +80,4 @@ class KfpFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    KfpFlow()
+    AipFlow()

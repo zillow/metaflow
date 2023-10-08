@@ -10,12 +10,12 @@ import pytest
 from botocore.exceptions import ClientError
 from moto import mock_s3
 
-from metaflow.plugins.kfp.kfp_s3_sensor import wait_for_s3_path
+from metaflow.plugins.aip.aip_s3_sensor import wait_for_s3_path
 
 """
 To run these tests from your terminal, go to the root directory and run:
 
-`python -m pytest metaflow/plugins/kfp/tests/test_kfp_s3_sensor.py -c /dev/null`
+`python -m pytest metaflow/plugins/aip/tests/test_aip_s3_sensor.py -c /dev/null`
 
 The `-c` flag above tells PyTest to ignore the setup.cfg config file which is used
 for the integration tests.

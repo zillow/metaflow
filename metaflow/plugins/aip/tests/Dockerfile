@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:experimental
 # This image acts as both a CICD image used within the Gitlab runners run pytest which
-# kicks off KFP runs using the Metaflow KFP plugin as well as the base image of Kubeflow
+# kicks off KFP runs using the Metaflow AIP plugin as well as the base image of Kubeflow
 # pods running on the Kubeflow cluster.
 FROM analytics-docker.artifactory.zgtools.net/artificial-intelligence/ai-platform/aip-py39-cpu:4.0.1380
 

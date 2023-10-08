@@ -1,9 +1,8 @@
-# Constants used in run MF flow on KFP
+# Constants used in run MF flow in the AIP plugin
 
-# Defaults for running MF on KFP
 import os
 
-KFP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/kfp_metaflow_foreach_splits_dict.json"
+AIP_METAFLOW_FOREACH_SPLITS_PATH = "/tmp/aip_metaflow_foreach_splits_dict.json"
 PRECEDING_COMPONENT_INPUTS_PATH = "/tmp/preceding_component_inputs.json"
 
 SPLIT_INDEX_SEPARATOR = "_"
@@ -26,4 +25,4 @@ STDERR_FILE = "mflog_stderr"
 STDOUT_PATH = os.path.join(LOGS_DIR, STDOUT_FILE)
 STDERR_PATH = os.path.join(LOGS_DIR, STDERR_FILE)
 
-KFP_CLI_DEFAULT_RETRY = 3
+AIP_CLI_DEFAULT_RETRY = 3

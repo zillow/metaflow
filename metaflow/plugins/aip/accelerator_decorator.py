@@ -1,7 +1,7 @@
 from metaflow.decorators import StepDecorator
 from metaflow.exception import MetaflowException
 
-from metaflow.plugins.kfp.kfp_decorator import KfpException
+from metaflow.plugins.aip.aip_decorator import AIPException
 
 
 class AcceleratorDecorator(StepDecorator):
@@ -44,4 +44,4 @@ class AcceleratorDecorator(StepDecorator):
         self, flow, graph, step_name, decorators, environment, flow_datastore, logger
     ):
         if self.attributes["type"] and not isinstance(self.attributes["type"], str):
-            raise KfpException("type must be a string.")
+            raise AIPException("type must be a string.")

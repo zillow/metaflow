@@ -1,4 +1,4 @@
-# Integration Tests for Metaflow on KFP
+# Integration Tests for Metaflow on AIP
 
 These integration tests are based on Metaflow flows that test edge cases (nested foreaches, complex branching, merging artifacts, etc). They can be run from the user's terminal or on a mirrored Gitlab repo through a push to this Github repo.
 

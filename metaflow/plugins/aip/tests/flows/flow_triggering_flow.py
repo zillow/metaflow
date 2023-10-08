@@ -7,14 +7,14 @@ from typing import Callable
 
 from metaflow import FlowSpec, Parameter, Step, current, step
 from metaflow.metaflow_config import KUBERNETES_NAMESPACE
-from metaflow.plugins.kfp import (
+from metaflow.plugins.aip import (
     run_id_to_url,
     run_argo_workflow,
     wait_for_argo_run_completion,
     delete_argo_workflow,
     to_metaflow_run_id,
 )
-from metaflow.plugins.kfp import logger
+from metaflow.plugins.aip import logger
 
 TEST_TEMPLATE_NAME = "wfdsk-ftf-test"
 
@@ -61,7 +61,7 @@ class FlowTriggeringFlow(FlowSpec):
             )
             logger.info(f"Creating workflow: {self.template_name}")
             subprocess.run(
-                ["python", __file__, "kfp", "create", "--name", self.template_name],
+                ["python", __file__, "aip", "create", "--name", self.template_name],
                 check=True,
             )
 

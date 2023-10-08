@@ -5,7 +5,7 @@
 #### Installing the correct forked version of Metaflow
 To install Metaflow: 
 ```
-pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@feature/kfp
+pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@feature/aip
 ```
 
 ##### Configure Metaflow for laptop development
@@ -13,10 +13,10 @@ pip3 install --user --upgrade git+https://github.com/zillow/metaflow.git@feature
 `~/.metaflowconfig/`) and set the required values. Required fields to run on Argo are shared below*.
 2. Create your runs on Argo using the following command template: 
 ```
-python <program-name.py> kfp run
+python <program-name.py> aip run
 ```
 
-The kfp Metaflow plugin name remains for historical reasons, however it submits the 
+The AIP Metaflow plugin name remains for historical reasons, however it submits the 
 Argo workflow directly to Argo.
 
 ##### Example METAFLOW_PROFILE:
@@ -34,14 +34,14 @@ Contents of the config file:
 }
 ```
 
-To `run-on-kfp` using this profile:
+To `run-on-aip` using this profile:
 ```
-python hello.py kfp run
+python hello.py aip run
 ```
 
-To `generate-kfp-yaml` using this profile:
+To `generate-aip-yaml` using this profile:
 ```
-python helloworld.py kfp run --yaml-only --no-s3-code-package
+python helloworld.py aip run --yaml-only --no-s3-code-package
 ```
 
 

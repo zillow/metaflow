@@ -1,4 +1,4 @@
-from .kfp_utils import (
+from .aip_utils import (
     logger,
 )
 

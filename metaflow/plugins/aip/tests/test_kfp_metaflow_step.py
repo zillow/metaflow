@@ -3,13 +3,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from metaflow.plugins.kfp.kfp_constants import STDERR_PATH, STDOUT_PATH
-from metaflow.plugins.kfp.kfp_metaflow_step import _command, _step_cli
+from metaflow.plugins.aip.aip_constants import STDERR_PATH, STDOUT_PATH
+from metaflow.plugins.aip.aip_metaflow_step import _command, _step_cli
 
 """
 To run these tests from your terminal, go to the root directory and run:
 
-`python -m pytest metaflow/plugins/kfp/tests/test_kfp_metaflow_step.py -c /dev/null`
+`python -m pytest metaflow/plugins/aip/tests/test_aip_metaflow_step.py -c /dev/null`
 
 The `-c` flag above tells PyTest to ignore the setup.cfg config file which is used
 for the integration tests.
@@ -20,7 +20,7 @@ for the integration tests.
 @pytest.fixture
 def bash_capture_logs():
     with patch(
-        "metaflow.plugins.kfp.kfp_metaflow_step.bash_capture_logs",
+        "metaflow.plugins.aip.aip_metaflow_step.bash_capture_logs",
         return_value="bash_capture_logs_cmd",
     ) as bash_capture_logs:
         yield bash_capture_logs
@@ -29,7 +29,7 @@ def bash_capture_logs():
 @pytest.fixture
 def export_mflog_env_vars():
     with patch(
-        "metaflow.plugins.kfp.kfp_metaflow_step.export_mflog_env_vars",
+        "metaflow.plugins.aip.aip_metaflow_step.export_mflog_env_vars",
         return_value="export_mflog_env_vars_cmd",
     ) as export_mflog_env_vars:
         yield export_mflog_env_vars
@@ -43,7 +43,7 @@ def export_mflog_env_vars():
         (
             "start",
             "kfp1",
-            "kfp-1234",
+            "aip-1234",
             "aip_namespace",
             ["tag1", "tag2"],
             True,
@@ -62,7 +62,7 @@ def export_mflog_env_vars():
                 "--max-user-code-retries 3",
                 "--monitor=nullSidecarMonitor",
                 "--namespace aip_namespace",
-                "--run-id kfp-1234",
+                "--run-id aip-1234",
                 "--split-index",
                 "--tag tag1 --tag tag2",
                 "--task_id kfp1",
@@ -72,7 +72,7 @@ def export_mflog_env_vars():
         (
             "end",
             "kfp1",
-            "kfp-1234",
+            "aip-1234",
             "aip_namespace",
             [],
             False,

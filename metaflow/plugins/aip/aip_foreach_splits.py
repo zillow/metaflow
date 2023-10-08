@@ -5,8 +5,8 @@ from typing import Callable, Dict, List
 from metaflow import S3, FlowSpec, current
 from metaflow.datastore import FlowDataStore, S3Storage
 from metaflow.graph import DAGNode, FlowGraph
-from metaflow.plugins.kfp.kfp_constants import (
-    KFP_METAFLOW_FOREACH_SPLITS_PATH,
+from metaflow.plugins.aip.aip_constants import (
+    AIP_METAFLOW_FOREACH_SPLITS_PATH,
     PASSED_IN_SPLIT_INDEXES_ENV_NAME,
     SPLIT_INDEX_SEPARATOR,
 )
@@ -39,7 +39,7 @@ def graph_to_task_ids(graph: FlowGraph) -> Dict[str, str]:
     return step_to_task_id
 
 
-class KfpForEachSplits(object):
+class AIPForEachSplits(object):
     """
     passed_in_split_indexes is a string of foreach split_index ordinals.
     A nested foreach appends the new split index ordinal with a "_" separator.
@@ -90,7 +90,7 @@ class KfpForEachSplits(object):
         assert self.node.type == "foreach"
         passed_in_split_indexes = os.environ[PASSED_IN_SPLIT_INDEXES_ENV_NAME]
 
-        # The splits are fed to kfp.ParallelFor to downstream steps as
+        # The splits are fed to aip.ParallelFor to downstream steps as
         # "passed_in_split_indexes" variable and become the step task_id
         # Example: 0_3_1
         foreach_splits = [
@@ -115,7 +115,7 @@ class KfpForEachSplits(object):
         Only use on a foreach node type!
 
         Returns:
-            Task context dict built by build_foreach_splits() that was saved to S3 by kfp_decorator.
+            Task context dict built by build_foreach_splits() that was saved to S3 by aip_decorator.
         """
         assert self.graph[parent_context_step_name].type == "foreach"
 
@@ -179,15 +179,15 @@ class KfpForEachSplits(object):
     @staticmethod
     def save_foreach_splits_to_local_fs(foreach_splits: Dict):
         """
-        Used by kfp_decorator.py to save the context to disk.
+        Used by aip_decorator.py to save the context to disk.
         step_op_func opens this file to read out and return foreach_splits
         """
         # write: context_dict to local FS to return
-        with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "w") as file:
+        with open(AIP_METAFLOW_FOREACH_SPLITS_PATH, "w") as file:
             json.dump(foreach_splits, file)
 
     def upload_foreach_splits_to_flow_root(self, foreach_splits: Dict):
-        # Only S3_datastore is supported for KFP plug-in.
+        # Only S3_datastore is supported for AIP plug-in.
         # Safely assume _storage_impl is of type S3Storage here
         s3_datastore: S3Storage = self.flow_datastore._storage_impl
         foreach_splits_path: str = self._build_foreach_splits_prefix(

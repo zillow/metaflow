@@ -13,7 +13,7 @@ def _get_ec2_metadata(path: str) -> Optional[str]:
 
 class interruptibleDecorator(StepDecorator):
     """
-    For KFP orchestrator plugin only.
+    For AIP orchestrator plugin only.
 
     Step decorator to specify that the pod be can be interrupted (ex: Spot, pod consolidation, etc)
 

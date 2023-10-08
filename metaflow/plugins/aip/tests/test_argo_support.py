@@ -8,7 +8,7 @@ from . import _python, obtain_flow_file_paths
 
 
 disabled_test_flows = [
-    "kfp_flow.py",  # kfp_preceding_component feature has been deprecated.
+    "aip_flow.py",  # kfp_preceding_component feature has been deprecated.
 ]
 
 

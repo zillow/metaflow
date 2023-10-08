@@ -11,9 +11,9 @@ from metaflow.mflog import (
     bash_capture_logs,
     export_mflog_env_vars,
 )
-from metaflow.plugins.kfp.kfp_constants import (
+from metaflow.plugins.aip.aip_constants import (
     INPUT_PATHS_ENV_NAME,
-    KFP_METAFLOW_FOREACH_SPLITS_PATH,
+    AIP_METAFLOW_FOREACH_SPLITS_PATH,
     LOGS_DIR,
     PRECEDING_COMPONENT_INPUTS_PATH,
     RETRY_COUNT,
@@ -70,10 +70,10 @@ def _step_cli(
 
         # Export user-defined parameters into runtime environment
         param_file = "parameters.sh"
-        # TODO: move to KFP plugin
+        # TODO: move to AIP plugin
         export_params = (
             "python -m "
-            "metaflow.plugins.kfp.set_batch_environment "
+            "metaflow.plugins.aip.set_batch_environment "
             "parameters --output_file %s && . `pwd`/%s" % (param_file, param_file)
         )
         params: List[str] = entrypoint + [
@@ -124,7 +124,7 @@ def _step_cli(
             entrypoint
             + top_level
             + [
-                "kfp step-init",
+                "aip step-init",
                 "--run-id %s" % run_id,
                 "--step_name %s" % step_name,
                 '--passed_in_split_indexes "{passed_in_split_indexes}"',
@@ -137,7 +137,7 @@ def _step_cli(
     cmds.append(f". {STEP_ENVIRONMENT_VARIABLES}")
 
     step: List[str] = [
-        "--with=kfp",
+        "--with=aip",
         "step",
         step_name,
         "--run-id %s" % run_id,
@@ -246,7 +246,7 @@ def _command(
 @click.option("--user_code_retries", type=int)
 @click.option("--workflow_name")
 @click.option("--is-interruptible/--not-interruptible", default=False)
-def kfp_metaflow_step(
+def aip_metaflow_step(
     volume_dir: str,
     environment: str,
     flow_name: str,
@@ -335,7 +335,7 @@ def kfp_metaflow_step(
         not "METAFLOW_USER" in metaflow_configs_new
         or metaflow_configs_new["METAFLOW_USER"] is None
     ):
-        metaflow_configs_new["METAFLOW_USER"] = "kfp-user"
+        metaflow_configs_new["METAFLOW_USER"] = "aip-user"
 
     env: Dict[str, str] = {
         **os.environ,
@@ -365,9 +365,9 @@ def kfp_metaflow_step(
     output_paths: List[str] = []
     if is_foreach_step:
         task_context_dict = {}
-        # File written by kfp_decorator.py:task_finished
-        if os.path.exists(KFP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
-            with open(KFP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
+        # File written by aip_decorator.py:task_finished
+        if os.path.exists(AIP_METAFLOW_FOREACH_SPLITS_PATH):  # is a foreach step
+            with open(AIP_METAFLOW_FOREACH_SPLITS_PATH, "r") as file:
                 task_context_dict = json.load(file)
 
         # json serialize foreach_splits else, the NamedTuple gets serialized
@@ -378,7 +378,7 @@ def kfp_metaflow_step(
 
     # read fields to return from Flow state to KFP
     if len(preceding_component_inputs) > 0:
-        # File written by kfp_decorator.py:task_finished
+        # File written by aip_decorator.py:task_finished
         with open(PRECEDING_COMPONENT_INPUTS_PATH, "r") as file:
             preceding_component_inputs_dict: Dict = json.load(file)
             values.extend(list(preceding_component_inputs_dict.values()))
@@ -390,7 +390,7 @@ def kfp_metaflow_step(
     for preceding_component_input in preceding_component_inputs:
         output_paths.append(f"/tmp/outputs/{preceding_component_input}")
 
-    # Write all the outputs of the kfp_step_function into the appropriate
+    # Write all the outputs of the aip_step_function into the appropriate
     # output files which KFP uses to produce outputs for the container op.
     for idx, output_path in enumerate(output_paths):
         output_file = os.path.join(output_path, "data")
@@ -400,4 +400,4 @@ def kfp_metaflow_step(
 
 
 if __name__ == "__main__":
-    kfp_metaflow_step()
+    aip_metaflow_step()

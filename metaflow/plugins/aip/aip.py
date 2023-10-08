@@ -37,7 +37,7 @@ from kubernetes.client import (
 from metaflow.decorators import FlowDecorator
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
-    KFP_TTL_SECONDS_AFTER_FINISHED,
+    AIP_TTL_SECONDS_AFTER_FINISHED,
     KUBERNETES_SERVICE_ACCOUNT,
     METAFLOW_USER,
     ZILLOW_INDIVIDUAL_NAMESPACE,
@@ -45,18 +45,18 @@ from metaflow.metaflow_config import (
     ZILLOW_ZODIAC_TEAM,
     from_conf,
 )
-from metaflow.plugins import EnvironmentDecorator, KfpInternalDecorator
-from metaflow.plugins.kfp.kfp_constants import (
+from metaflow.plugins import EnvironmentDecorator, AIPInternalDecorator
+from metaflow.plugins.aip.aip_constants import (
     S3_SENSOR_RETRY_COUNT,
     PVC_CREATE_RETRY_COUNT,
     EXIT_HANDLER_RETRY_COUNT,
     BACKOFF_DURATION,
 )
-from metaflow.plugins.kfp.kfp_decorator import KfpException
+from metaflow.plugins.aip.aip_decorator import AIPException
 from .accelerator_decorator import AcceleratorDecorator
 from .argo_client import ArgoClient
 from .interruptible_decorator import interruptibleDecorator
-from .kfp_foreach_splits import graph_to_task_ids
+from .aip_foreach_splits import graph_to_task_ids
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
 from ...graph import DAGNode
@@ -95,12 +95,12 @@ METAFLOW_RUN_ID = "argo-{{workflow.name}}"
 FLOW_PARAMETERS_JSON = "{{workflow.parameters}}"
 
 
-class KfpComponent(object):
+class AIPComponent(object):
     def __init__(
         self,
         step_name: str,
         resource_requirements: Dict[str, str],
-        kfp_decorator: KfpInternalDecorator,
+        aip_decorator: AIPInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
         interruptible_decorator: interruptibleDecorator,
         environment_decorator: EnvironmentDecorator,
@@ -109,7 +109,7 @@ class KfpComponent(object):
     ):
         self.step_name = step_name
         self.resource_requirements = resource_requirements
-        self.kfp_decorator = kfp_decorator
+        self.aip_decorator = aip_decorator
         self.accelerator_decorator = accelerator_decorator
         self.interruptible_decorator = interruptible_decorator
         self.environment_decorator = environment_decorator
@@ -117,14 +117,14 @@ class KfpComponent(object):
         self.minutes_between_retries = minutes_between_retries
 
         self.preceding_kfp_func: Callable = (
-            kfp_decorator.attributes.get("preceding_component", None)
-            if kfp_decorator
+            aip_decorator.attributes.get("preceding_component", None)
+            if aip_decorator
             else None
         )
 
         def bindings(binding_name: str) -> List[str]:
-            if kfp_decorator:
-                binding_fields = kfp_decorator.attributes[binding_name]
+            if aip_decorator:
+                binding_fields = aip_decorator.attributes[binding_name]
                 if isinstance(binding_fields, str):
                     return binding_fields.split(" ")
                 else:
@@ -209,9 +209,9 @@ class KubeflowPipelines(object):
                 namespace=kubernetes_namespace
             ).get_workflow_template(name)
         except Exception as e:
-            raise KfpException(str(e))
+            raise AIPException(str(e))
         if workflow_template is None:
-            raise KfpException(
+            raise AIPException(
                 f"The workflow *{name}* doesn't exist on Argo Workflows in namespace *{kubernetes_namespace}*. "
                 "Please deploy your flow first."
             )
@@ -220,7 +220,7 @@ class KubeflowPipelines(object):
                 name, parameters
             )
         except Exception as e:
-            raise KfpException(str(e))
+            raise AIPException(str(e))
 
     def _create_workflow_yaml(
         self,
@@ -230,7 +230,7 @@ class KubeflowPipelines(object):
         name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Creates a new Argo Workflow pipeline YAML using `kfp.compiler.Compiler()`.
+        Creates a new Argo Workflow pipeline YAML using `aip.compiler.Compiler()`.
         Note: Intermediate pipeline YAML is saved at `pipeline_file_path`
         """
         pipeline_func, pipeline_conf = self.create_kfp_pipeline_from_flow_graph(
@@ -262,7 +262,7 @@ class KubeflowPipelines(object):
             # Use static name to make referencing easier.
             # Note the name has to follow k8s format.
             # self.name is typically CamelCase as it's python class name.
-            # generateName contains a sanitized version of self.name from kfp.compiler
+            # generateName contains a sanitized version of self.name from aip.compiler
             workflow["metadata"]["name"] = (
                 name if name else workflow["metadata"].pop("generateName").rstrip("-")
             )
@@ -287,7 +287,7 @@ class KubeflowPipelines(object):
     @staticmethod
     def _config_map(workflow_name: str, max_run_concurrency: int):
         if not max_run_concurrency or max_run_concurrency <= 0:
-            raise KfpException(f"{max_run_concurrency=} must be > 0.")
+            raise AIPException(f"{max_run_concurrency=} must be > 0.")
 
         config_map = {
             "apiVersion": "v1",
@@ -359,7 +359,7 @@ class KubeflowPipelines(object):
             )
             return running_workflow, config
         except Exception as e:
-            raise KfpException(str(e))
+            raise AIPException(str(e))
 
     def write_workflow_kind(
         self,
@@ -443,7 +443,7 @@ class KubeflowPipelines(object):
         Example using resource decorator:
             @resource(cpu=0.5, gpu=1, memory=300)
             @step
-            def my_kfp_step(): ...
+            def my_aip_step(): ...
         """
 
         def to_k8s_resource_format(resource: str, value: Union[int, float, str]) -> str:
@@ -505,7 +505,7 @@ class KubeflowPipelines(object):
                 "export MFLOG_STDOUT=/opt/metaflow_volume/metaflow_logs/mflog_stdout",
             ]
             cmd.extend(
-                environment.get_package_commands(code_package_url, is_kfp_plugin=True)
+                environment.get_package_commands(code_package_url, is_aip_plugin=True)
             )
             return " && ".join(cmd)
         else:
@@ -514,7 +514,7 @@ class KubeflowPipelines(object):
     def _create_step_variables(self, node: DAGNode) -> StepVariables:
         """
         Returns the Metaflow Node StepVariables, which is
-        used to run Metaflow on KFP "kfp_metaflow_step()"
+        used to run Metaflow on KFP "aip_metaflow_step()"
         """
 
         task_id: str = graph_to_task_ids(self.graph)[node.name]
@@ -540,36 +540,36 @@ class KubeflowPipelines(object):
             user_code_retries=user_code_retries,
         )
 
-    def _create_kfp_components_from_graph(self) -> Dict[str, KfpComponent]:
+    def _create_aip_components_from_graph(self) -> Dict[str, AIPComponent]:
         """
-        Returns a map of steps to their corresponding KfpComponent.
-        The KfpComponent defines the component attributes
+        Returns a map of steps to their corresponding AIPComponent.
+        The AIPComponent defines the component attributes
         and step command to be used to run that particular step.
         """
 
-        def build_kfp_component(node: DAGNode, task_id: str) -> KfpComponent:
+        def build_aip_component(node: DAGNode, task_id: str) -> AIPComponent:
             """
-            Returns the KfpComponent for each step.
+            Returns the AIPComponent for each step.
             """
 
             for deco in node.decorators:
                 if isinstance(deco, UNSUPPORTED_DECORATORS):
-                    raise KfpException(
-                        f"{type(deco)} in {node.name} step is not yet supported by kfp"
+                    raise AIPException(
+                        f"{type(deco)} in {node.name} step is not yet supported by aip"
                     )
 
             user_code_retries, total_retries = KubeflowPipelines._get_retries(node)
             resource_requirements = self._get_resource_requirements(node)
             minutes_between_retries = self._get_minutes_between_retries(node)
 
-            return KfpComponent(
+            return AIPComponent(
                 step_name=node.name,
                 resource_requirements=resource_requirements,
-                kfp_decorator=next(
+                aip_decorator=next(
                     (
                         deco
                         for deco in node.decorators
-                        if isinstance(deco, KfpInternalDecorator)
+                        if isinstance(deco, AIPInternalDecorator)
                     ),
                     None,  # default
                 ),
@@ -601,14 +601,14 @@ class KubeflowPipelines(object):
                 minutes_between_retries=minutes_between_retries,
             )
 
-        # Mapping of steps to their KfpComponent
+        # Mapping of steps to their AIPComponent
         task_ids: Dict[str, str] = graph_to_task_ids(self.graph)
-        step_name_to_kfp_component: Dict[str, KfpComponent] = {}
+        step_name_to_aip_component: Dict[str, AIPComponent] = {}
         for step_name, task_id in task_ids.items():
             node = self.graph[step_name]
-            step_name_to_kfp_component[step_name] = build_kfp_component(node, task_id)
+            step_name_to_aip_component[step_name] = build_aip_component(node, task_id)
 
-        return step_name_to_kfp_component
+        return step_name_to_aip_component
 
     @staticmethod
     def _create_resource_based_node_type_toleration(
@@ -662,11 +662,11 @@ class KubeflowPipelines(object):
     def _set_container_volume(
         self,
         container_op: ContainerOp,
-        kfp_component: KfpComponent,
+        aip_component: AIPComponent,
         workflow_uid: str,
         shared_volumes: Dict[str, Dict[str, Tuple[ResourceOp, PipelineVolume]]],
     ) -> ResourceOp:
-        resource_requirements: Dict[str, Any] = kfp_component.resource_requirements
+        resource_requirements: Dict[str, Any] = aip_component.resource_requirements
         resource_op: Optional[ResourceOp] = None
 
         if "volume" in resource_requirements:
@@ -675,11 +675,11 @@ class KubeflowPipelines(object):
 
             if mode == "ReadWriteMany":
                 # ReadWriteMany shared volumes are created way before
-                (resource_op, volume) = shared_volumes[kfp_component.step_name]
+                (resource_op, volume) = shared_volumes[aip_component.step_name]
                 container_op.add_pvolumes(volume)
             else:
                 (resource_op, volume) = self._create_volume(
-                    step_name=kfp_component.step_name,
+                    step_name=aip_component.step_name,
                     size=resource_requirements["volume"],
                     workflow_uid=workflow_uid,
                     mode=mode,
@@ -691,9 +691,9 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _set_container_resources(
-        container_op: ContainerOp, kfp_component: KfpComponent
+        container_op: ContainerOp, aip_component: AIPComponent
     ):
-        resource_requirements: Dict[str, Any] = kfp_component.resource_requirements
+        resource_requirements: Dict[str, Any] = aip_component.resource_requirements
         if "memory" in resource_requirements:
             container_op.container.set_memory_request(resource_requirements["memory"])
             container_op.container.set_memory_limit(resource_requirements["memory"])
@@ -714,7 +714,7 @@ class KubeflowPipelines(object):
                     # k8s volume name must consist of lower case alphanumeric characters or '-',
                     # and must start and end with an alphanumeric character,
                     # but step name is python function name that tends to be alphanumeric chars with '_'
-                    name=f"{kfp_component.step_name.lower().replace('_', '-')}-shm",
+                    name=f"{aip_component.step_name.lower().replace('_', '-')}-shm",
                     empty_dir=V1EmptyDirVolumeSource(
                         medium="Memory",
                         size_limit=resource_requirements["shared_memory"],
@@ -725,10 +725,10 @@ class KubeflowPipelines(object):
 
         affinity_match_expressions: List[V1NodeSelectorRequirement] = []
 
-        if kfp_component.accelerator_decorator:
+        if aip_component.accelerator_decorator:
             accelerator_type: Optional[
                 str
-            ] = kfp_component.accelerator_decorator.attributes["type"]
+            ] = aip_component.accelerator_decorator.attributes["type"]
 
             if accelerator_type:
                 # ensures we only select a node with the correct accelerator type (based on selector)
@@ -760,7 +760,7 @@ class KubeflowPipelines(object):
             if toleration:
                 container_op.add_toleration(toleration)
 
-        if kfp_component.interruptible_decorator:
+        if aip_component.interruptible_decorator:
             affinity_match_expressions.append(
                 V1NodeSelectorRequirement(
                     key="node.k8s.zgtools.net/capacity-type",
@@ -861,7 +861,7 @@ class KubeflowPipelines(object):
 
     def _set_container_labels(self, container_op: ContainerOp):
         # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
-        container_op.add_pod_label("aip.zillowgroup.net/kfp-pod-default", "true")
+        container_op.add_pod_label("aip.zillowgroup.net/aip-pod-default", "true")
 
         # https://github.com/argoproj/argo-workflows/issues/4525
         # all argo workflows need istio-injection disabled, else the workflow hangs.
@@ -909,7 +909,7 @@ class KubeflowPipelines(object):
             owner = owner.split("@")[0]
         container_op.add_pod_label("zodiac.zillowgroup.net/owner", owner)
 
-        # Add in Zodiac service and team labels to the kfp pods if the environment variable is
+        # Add in Zodiac service and team labels to the aip pods if the environment variable is
         # present in the notebook (individual profile notebooks only) and set them. These labels
         # are not being added by poddefaults as they were removed. Workflows launched in project
         # profiles still get these labels added via poddefaults. Also adds in logging topic
@@ -934,9 +934,9 @@ class KubeflowPipelines(object):
         Returns a KFP DSL Pipeline function by walking the Metaflow Graph
         and constructing the KFP Pipeline using the KFP DSL.
         """
-        step_name_to_kfp_component: Dict[
-            str, KfpComponent
-        ] = self._create_kfp_components_from_graph()
+        step_name_to_aip_component: Dict[
+            str, AIPComponent
+        ] = self._create_aip_components_from_graph()
         flow_variables: FlowVariables = self._create_flow_variables()
 
         def pipeline_transform(op: ContainerOp):
@@ -1015,21 +1015,21 @@ class KubeflowPipelines(object):
 
                 # If any of this node's children has a preceding_kfp_func then
                 # create (kfp_decorator_component, preceding_component_inputs)
-                next_kfp_decorator_component: Optional[KfpComponent] = None
+                next_aip_decorator_component: Optional[AIPComponent] = None
                 preceding_component_inputs: List[str] = []
                 if any(
-                    step_name_to_kfp_component[child].preceding_kfp_func
+                    step_name_to_aip_component[child].preceding_kfp_func
                     for child in node.out_funcs
                 ):
-                    next_kfp_decorator_component: KfpComponent = (
-                        step_name_to_kfp_component[node.out_funcs[0]]
+                    next_aip_decorator_component: AIPComponent = (
+                        step_name_to_aip_component[node.out_funcs[0]]
                     )
                     # fields to return from Flow state to KFP
                     preceding_component_inputs: List[
                         str
-                    ] = next_kfp_decorator_component.preceding_component_inputs
+                    ] = next_aip_decorator_component.preceding_component_inputs
 
-                kfp_component: KfpComponent = step_name_to_kfp_component[node.name]
+                aip_component: AIPComponent = step_name_to_aip_component[node.name]
                 step_variables: StepVariables = self._create_step_variables(node)
                 # capture metaflow configs from client to be used at runtime
                 # client configs have the highest precedence
@@ -1040,7 +1040,7 @@ class KubeflowPipelines(object):
 
                 metaflow_step_op: ContainerOp = self._create_metaflow_step_op(
                     node,
-                    kfp_component,
+                    aip_component,
                     step_variables,
                     flow_variables,
                     metaflow_configs,
@@ -1051,55 +1051,55 @@ class KubeflowPipelines(object):
                 )
                 visited[node.name] = metaflow_step_op
 
-                if kfp_component.environment_decorator:
-                    envs = kfp_component.environment_decorator.attributes[
+                if aip_component.environment_decorator:
+                    envs = aip_component.environment_decorator.attributes[
                         "kubernetes_vars"
                     ]
                     for env in envs if envs else []:
                         metaflow_step_op.container.add_env_variable(env)
 
-                if kfp_component.total_retries and kfp_component.total_retries > 0:
+                if aip_component.total_retries and aip_component.total_retries > 0:
                     metaflow_step_op.set_retry(
-                        kfp_component.total_retries,
+                        aip_component.total_retries,
                         policy="Always",
-                        backoff_duration=kfp_component.minutes_between_retries,
+                        backoff_duration=aip_component.minutes_between_retries,
                     )
 
                 if preceding_kfp_component_op:
                     metaflow_step_op.after(preceding_kfp_component_op)
 
                 # If any of this node's children has a preceding_kfp_func then
-                # create (next_preceding_component_outputs_dict, next_kfp_component_op)
+                # create (next_preceding_component_outputs_dict, next_aip_component_op)
                 # to pass along to next step
-                next_kfp_component_op: Optional[ContainerOp] = None
+                next_aip_component_op: Optional[ContainerOp] = None
                 next_preceding_component_outputs_dict: Dict[str, dsl.PipelineParam] = {}
-                if next_kfp_decorator_component:
-                    next_kfp_component_op: ContainerOp = next_kfp_decorator_component.preceding_kfp_func(
+                if next_aip_decorator_component:
+                    next_aip_component_op: ContainerOp = next_aip_decorator_component.preceding_kfp_func(
                         *[
                             metaflow_step_op.outputs[mf_field]
-                            for mf_field in next_kfp_decorator_component.preceding_component_inputs
+                            for mf_field in next_aip_decorator_component.preceding_component_inputs
                         ]
                     )
 
-                    next_kfp_component_op.after(metaflow_step_op)
+                    next_aip_component_op.after(metaflow_step_op)
 
                     num_outputs = len(
-                        next_kfp_decorator_component.preceding_component_outputs
+                        next_aip_decorator_component.preceding_component_outputs
                     )
                     next_preceding_component_outputs_dict = {
                         name: (
-                            next_kfp_component_op.outputs[name]
+                            next_aip_component_op.outputs[name]
                             if num_outputs > 1
-                            else next_kfp_component_op.output
+                            else next_aip_component_op.output
                         )
-                        for name in next_kfp_decorator_component.preceding_component_outputs
+                        for name in next_aip_decorator_component.preceding_component_outputs
                     }
 
                 KubeflowPipelines._set_container_resources(
-                    metaflow_step_op, kfp_component
+                    metaflow_step_op, aip_component
                 )
                 resource_op: ResourceOp = self._set_container_volume(
-                    metaflow_step_op, kfp_component, workflow_uid, shared_volumes
+                    metaflow_step_op, aip_component, workflow_uid, shared_volumes
                 )
                 if resource_op:
                     visited_resource_ops[node.name] = resource_op
@@ -1117,7 +1117,7 @@ class KubeflowPipelines(object):
                         build_kfp_dag(
                             self.graph[next_step_name],
                             split_index,
-                            preceding_kfp_component_op=next_kfp_component_op,
+                            preceding_kfp_component_op=next_aip_component_op,
                             preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                             workflow_uid=workflow_uid,
                             shared_volumes=shared_volumes,
@@ -1128,7 +1128,7 @@ class KubeflowPipelines(object):
                     build_kfp_dag(
                         self.graph[node.matching_join],
                         passed_in_split_indexes,
-                        preceding_kfp_component_op=next_kfp_component_op,
+                        preceding_kfp_component_op=next_aip_component_op,
                         preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                         workflow_uid=workflow_uid,
                         shared_volumes=shared_volumes,
@@ -1149,7 +1149,7 @@ class KubeflowPipelines(object):
                             build_kfp_dag(
                                 step_node,
                                 passed_in_split_indexes,
-                                preceding_kfp_component_op=next_kfp_component_op,
+                                preceding_kfp_component_op=next_aip_component_op,
                                 preceding_component_outputs_dict=next_preceding_component_outputs_dict,
                                 workflow_uid=workflow_uid,
                                 shared_volumes=shared_volumes,
@@ -1160,7 +1160,7 @@ class KubeflowPipelines(object):
                     self.graph["start"],
                     workflow_uid=workflow_uid_op.output if workflow_uid_op else None,
                     shared_volumes=self.create_shared_volumes(
-                        step_name_to_kfp_component, workflow_uid_op
+                        step_name_to_aip_component, workflow_uid_op
                     ),
                 )
 
@@ -1177,7 +1177,7 @@ class KubeflowPipelines(object):
                         ContainerOp
                     ] = self._create_workflow_uid_op(
                         s3_sensor_op.output if s3_sensor_op else "",
-                        step_name_to_kfp_component,
+                        step_name_to_aip_component,
                         flow_variables.package_commands,
                     )
                     call_build_kfp_dag(workflow_uid_op)
@@ -1188,7 +1188,7 @@ class KubeflowPipelines(object):
                 )
                 workflow_uid_op: Optional[ContainerOp] = self._create_workflow_uid_op(
                     s3_sensor_op.output if s3_sensor_op else "",
-                    step_name_to_kfp_component,
+                    step_name_to_aip_component,
                     flow_variables.package_commands,
                 )
                 call_build_kfp_dag(workflow_uid_op)
@@ -1213,10 +1213,10 @@ class KubeflowPipelines(object):
             dsl.get_pipeline_conf().set_parallelism(self.max_parallelism)
             dsl.get_pipeline_conf().set_timeout(self.workflow_timeout)
             if (
-                KFP_TTL_SECONDS_AFTER_FINISHED is not None
+                AIP_TTL_SECONDS_AFTER_FINISHED is not None
             ):  # if None, KFP falls back to the Argo defaults
                 dsl.get_pipeline_conf().set_ttl_seconds_after_finished(
-                    KFP_TTL_SECONDS_AFTER_FINISHED
+                    AIP_TTL_SECONDS_AFTER_FINISHED
                 )
             pipeline_conf = dsl.get_pipeline_conf()
 
@@ -1237,7 +1237,7 @@ class KubeflowPipelines(object):
 
     def create_shared_volumes(
         self,
-        step_name_to_kfp_component: Dict[str, KfpComponent],
+        step_name_to_aip_component: Dict[str, AIPComponent],
         workflow_uid_op: ContainerOp,
     ) -> Dict[str, Dict[str, Tuple[ResourceOp, PipelineVolume]]]:
         """
@@ -1248,21 +1248,21 @@ class KubeflowPipelines(object):
         """
         shared_volumes: Dict[str, Dict[str, Tuple[ResourceOp, PipelineVolume]]] = {}
 
-        for kfp_component in step_name_to_kfp_component.values():
-            resources = kfp_component.resource_requirements
+        for aip_component in step_name_to_aip_component.values():
+            resources = aip_component.resource_requirements
             if (
                 "volume_mode" in resources
                 and resources["volume_mode"] == "ReadWriteMany"
             ):
                 volume_dir = resources["volume_dir"]
                 (resource_op, volume) = self._create_volume(
-                    step_name=f"{kfp_component.step_name}-shared",
+                    step_name=f"{aip_component.step_name}-shared",
                     size=resources["volume"],
                     workflow_uid=workflow_uid_op.output,
                     mode=resources["volume_mode"],
                     volume_type=resources.get("volume_type"),
                 )
-                shared_volumes[kfp_component.step_name] = (
+                shared_volumes[aip_component.step_name] = (
                     resource_op,
                     {volume_dir: volume},
                 )
@@ -1272,7 +1272,7 @@ class KubeflowPipelines(object):
     def _create_metaflow_step_op(
         self,
         node: DAGNode,
-        kfp_component: KfpComponent,
+        aip_component: AIPComponent,
         step_variables: StepVariables,
         flow_variables: FlowVariables,
         metaflow_configs: Dict[str, str],
@@ -1287,7 +1287,7 @@ class KubeflowPipelines(object):
         # on the outside of the string to be passed as a command line environment
         # and still be a valid JSON string when loaded by the Python module.
         metaflow_execution_cmd: str = (
-            " && python -m metaflow.plugins.kfp.kfp_metaflow_step"
+            " && python -m metaflow.plugins.aip.aip_metaflow_step"
             f' --volume_dir "{step_variables.volume_dir}"'
             f" --environment {flow_variables.environment}"
             f" --event_logger {flow_variables.event_logger}"
@@ -1297,7 +1297,7 @@ class KubeflowPipelines(object):
             f" --monitor {flow_variables.monitor}"
             f' --passed_in_split_indexes "{passed_in_split_indexes}"'
             f" --preceding_component_inputs_json {json.dumps(json.dumps(preceding_component_inputs))}"
-            f" --preceding_component_outputs_json {json.dumps(json.dumps(kfp_component.preceding_component_outputs))}"
+            f" --preceding_component_outputs_json {json.dumps(json.dumps(aip_component.preceding_component_outputs))}"
             f" --script_name {os.path.basename(sys.argv[0])}"
             f" --step_name {step_variables.step_name}"
             f" --tags_json {json.dumps(json.dumps(flow_variables.tags))}"
@@ -1306,7 +1306,7 @@ class KubeflowPipelines(object):
             f" --user_code_retries {step_variables.user_code_retries}"
             + (
                 " --is-interruptible "
-                if kfp_component.interruptible_decorator
+                if aip_component.interruptible_decorator
                 else " --not-interruptible "
             )
             + " --workflow_name {{workflow.name}}"
@@ -1336,10 +1336,10 @@ class KubeflowPipelines(object):
         ]
 
         if (
-            kfp_component.kfp_decorator
-            and kfp_component.kfp_decorator.attributes["image"]
+            aip_component.aip_decorator
+            and aip_component.aip_decorator.attributes["image"]
         ):
-            step_image = kfp_component.kfp_decorator.attributes["image"]
+            step_image = aip_component.aip_decorator.attributes["image"]
         else:
             step_image = self.base_image
 
@@ -1367,19 +1367,19 @@ class KubeflowPipelines(object):
     def _create_workflow_uid_op(
         self,
         s3_sensor_path: str,
-        step_name_to_kfp_component: Dict[str, KfpComponent],
+        step_name_to_aip_component: Dict[str, AIPComponent],
         package_commands: str,
     ) -> Optional[ContainerOp]:
         if any(
             "volume" in s.resource_requirements
-            for s in step_name_to_kfp_component.values()
+            for s in step_name_to_aip_component.values()
         ):
             get_workflow_uid_command = [
                 "bash",
                 "-ec",
                 (
                     f"{package_commands}"
-                    " && python -m metaflow.plugins.kfp.kfp_get_workflow_uid"
+                    " && python -m metaflow.plugins.aip.aip_get_workflow_uid"
                     f" --s3_sensor_path '{s3_sensor_path}'"
                     " --workflow_name {{workflow.name}}"
                 ),
@@ -1427,7 +1427,7 @@ class KubeflowPipelines(object):
         # in this case because pickling a function directly stores references to the function's path,
         # which couldn't be resolved when the path_formatter function was unpickled within the running
         # container. Instead, we took the approach of marshalling just the code of the path_formatter
-        # function, and reconstructing the function within the kfp_s3_sensor.py code.
+        # function, and reconstructing the function within the aip_s3_sensor.py code.
         if path_formatter:
             path_formatter_code_encoded = base64.b64encode(
                 marshal.dumps(path_formatter.__code__)
@@ -1440,7 +1440,7 @@ class KubeflowPipelines(object):
             "-ec",
             (
                 f"{package_commands}"
-                " && python -m metaflow.plugins.kfp.kfp_s3_sensor"
+                " && python -m metaflow.plugins.aip.aip_s3_sensor"
                 " --run_id argo-{{workflow.name}}"
                 f" --flow_name {self.name}"
                 f" --flow_parameters_json '{FLOW_PARAMETERS_JSON}'"
@@ -1506,7 +1506,7 @@ class KubeflowPipelines(object):
             "-ec",
             (
                 f"{package_commands}"
-                " && python -m metaflow.plugins.kfp.kfp_exit_handler"
+                " && python -m metaflow.plugins.aip.aip_exit_handler"
                 f" --flow_name {self.name}"
                 " --run_id {{workflow.name}}"
                 f" --notify_variables_json {json.dumps(json.dumps(notify_variables))}"

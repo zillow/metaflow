@@ -84,7 +84,7 @@ for annotation, env_name in annotations.items():
     )
 
 labels = {
-    "aip.zillowgroup.net/kfp-pod-default": "KF_POD_DEFAULT",
+    "aip.zillowgroup.net/aip-pod-default": "KF_POD_DEFAULT",
     "tags.ledger.zgtools.net/ai-flow-name": "AI_FLOW_NAME",
     "tags.ledger.zgtools.net/ai-step-name": "AI_STEP_NAME",
     "tags.ledger.zgtools.net/ai-experiment-name": "AI_EXPERIMENT_NAME",
@@ -106,7 +106,7 @@ sub_dict = dict(x=1, y="hello")
 default_dict = dict(a=1, hello="world", sub=sub_dict)
 
 # introduce our own type to test that it works, because JSONType is special handled
-# and JSON serialized in kfp_cli.py
+# and JSON serialized in aip_cli.py
 class TestTypeClass(click.ParamType):
     name = "TestType"
 

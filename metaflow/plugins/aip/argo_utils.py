@@ -4,12 +4,12 @@ import datetime
 from typing import Optional, Union, Dict, Any
 
 from metaflow.metaflow_config import ARGO_RUN_URL_PREFIX, METAFLOW_RUN_URL_PREFIX
-from metaflow.plugins.kfp.argo_client import ArgoClient
-from metaflow.plugins.kfp.kfp_decorator import KfpException
-from metaflow.plugins.kfp.kfp_utils import _get_kfp_logger
+from metaflow.plugins.aip.argo_client import ArgoClient
+from metaflow.plugins.aip.aip_decorator import AIPException
+from metaflow.plugins.aip.aip_utils import _get_aip_logger
 
 
-logger = _get_kfp_logger()
+logger = _get_aip_logger()
 
 
 def run_argo_workflow(
@@ -25,7 +25,7 @@ def run_argo_workflow(
             namespace=kubernetes_namespace,
         ).trigger_workflow_template(template_name, parameters)
     except Exception as e:
-        raise KfpException(str(e))
+        raise AIPException(str(e))
 
     argo_run_id = workflow_manifest["metadata"]["name"]
 
@@ -49,7 +49,7 @@ def delete_argo_workflow(
             template_name
         )
     except Exception as e:
-        raise KfpException(str(e))
+        raise AIPException(str(e))
 
 
 def to_metaflow_run_id(run_id: str):
@@ -138,7 +138,7 @@ def wait_for_argo_run_completion(
         if isinstance(wait_timeout, datetime.timedelta):
             wait_timeout = wait_timeout.total_seconds()
 
-        # A mimic of kfp.Client.wait_for_run_completion with customized logging
+        # A mimic of aip.Client.wait_for_run_completion with customized logging
         logger.info(
             f"Waiting for workflow {run_id} to finish. Timeout: {wait_timeout} second(s)"
         )

@@ -2,14 +2,14 @@ import os
 from typing import Callable
 
 from metaflow.graph import DAGNode, FlowGraph
-from metaflow.plugins.kfp.kfp_constants import (
+from metaflow.plugins.aip.aip_constants import (
     INPUT_PATHS_ENV_NAME,
     PASSED_IN_SPLIT_INDEXES_ENV_NAME,
     SPLIT_INDEX_ENV_NAME,
     STEP_ENVIRONMENT_VARIABLES,
     TASK_ID_ENV_NAME,
 )
-from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
+from metaflow.plugins.aip.aip_foreach_splits import AIPForEachSplits
 
 
 def save_step_environment_variables(
@@ -30,25 +30,25 @@ def save_step_environment_variables(
     These will be loaded in the step_op_func bash command to be used
     by Metaflow step command line arguments.
     """
-    with KfpForEachSplits(
+    with AIPForEachSplits(
         graph, step_name, run_id, flow_datastore, logger
     ) as split_contexts:
         environment_exports = {
             # The step task_id
-            TASK_ID_ENV_NAME: KfpForEachSplits.get_step_task_id(
+            TASK_ID_ENV_NAME: AIPForEachSplits.get_step_task_id(
                 task_id, passed_in_split_indexes
             ),
             # The current split index if this node is_inside_foreach
             SPLIT_INDEX_ENV_NAME: split_contexts.get_current_step_split_index(
                 passed_in_split_indexes
             ),
-            # PASSED_IN_SPLIT_INDEXES is used by build_foreach_splits in kfp_decorator to:
+            # PASSED_IN_SPLIT_INDEXES is used by build_foreach_splits in aip_decorator to:
             #   - pass along parent split_indexes to nested foreaches
             #   - get a parent foreach (in nested foreach case) split_index path
             #   - compute the task_id
             #   - get current foreach split index
             # see: nested_parallelfor.ipynb for a visual description
-            PASSED_IN_SPLIT_INDEXES_ENV_NAME: passed_in_split_indexes,  # for kfp_decorator.py
+            PASSED_IN_SPLIT_INDEXES_ENV_NAME: passed_in_split_indexes,  # for aip_decorator.py
         }
 
         if len(passed_in_split_indexes) > 0:
@@ -68,7 +68,7 @@ def _compute_input_paths(
     graph: FlowGraph,
     run_id: str,
     step_name: str,
-    split_contexts: KfpForEachSplits,
+    split_contexts: AIPForEachSplits,
     passed_in_split_indexes: str,
 ) -> str:
     """

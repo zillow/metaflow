@@ -1,7 +1,7 @@
 # Used to create the ghcr.io/zillow/metaflow/metaflow-zillow:2.2 image.
 #
-# The image is used in metaflow/plugins/kfp/kfp_constants.py, where it is used as a base image
-# when the user does not provide their own base image with python flow.py kfp run --base-image...
+# The image is used in metaflow/plugins/aip/aip_constants.py, where it is used as a base image
+# when the user does not provide their own base image with python flow.py aip run --base-image...
 #
 # Steps to build and push new versions of this image:
 # 1. Follow the page below to create access token and login to Github container registry:

@@ -6,12 +6,12 @@ from metaflow import current
 from metaflow.decorators import StepDecorator
 from metaflow.exception import MetaflowException
 from metaflow.metadata import MetaDatum
-from metaflow.plugins.kfp.kfp_constants import PRECEDING_COMPONENT_INPUTS_PATH
-from metaflow.plugins.kfp.kfp_foreach_splits import KfpForEachSplits
+from metaflow.plugins.aip.aip_constants import PRECEDING_COMPONENT_INPUTS_PATH
+from metaflow.plugins.aip.aip_foreach_splits import AIPForEachSplits
 from metaflow.sidecar import SidecarSubProcess
 
 
-class KfpException(MetaflowException):
+class AIPException(MetaflowException):
     headline = "WFSDK plugin error"
 
 
@@ -24,7 +24,7 @@ StepOpBinding = NamedTuple(
 )
 
 
-class KfpInternalDecorator(StepDecorator):
+class AIPInternalDecorator(StepDecorator):
     """
     **`preceding_component` feature is no longer supported as of Q3 2022.**
 
@@ -44,11 +44,11 @@ class KfpInternalDecorator(StepDecorator):
     image: str
       Defaults to None, where default is determined in the following order:
       1. specified with --base-image by the user running a flow with
-        python <flow_name>.py kfp run --base-image <image-url>
-      2. KFP_CONTAINER_IMAGE defined in metaflow_config.py
+        python <flow_name>.py aip run --base-image <image-url>
+      2. AIP_CONTAINER_IMAGE defined in metaflow_config.py
 
     @step
-    @kfp(
+    @aip(
         preceding_component=my_step_op_func,
         preceding_component_inputs=["var1", "var2"],
         preceding_component_outputs=["var3"],
@@ -58,7 +58,7 @@ class KfpInternalDecorator(StepDecorator):
         pass
     """
 
-    name = "kfp"
+    name = "aip"
     defaults = {
         "preceding_component": None,
         "preceding_component_inputs": [],
@@ -67,7 +67,7 @@ class KfpInternalDecorator(StepDecorator):
     }
 
     def __init__(self, attributes=None, statically_defined=False):
-        super(KfpInternalDecorator, self).__init__(attributes, statically_defined)
+        super(AIPInternalDecorator, self).__init__(attributes, statically_defined)
 
     def step_init(self, flow, graph, step, decos, environment, flow_datastore, logger):
         if self.attributes["preceding_component"] is not None:
@@ -79,8 +79,8 @@ class KfpInternalDecorator(StepDecorator):
         if self.attributes["preceding_component"] is not None:
             node = graph[step]
             if step == "start":
-                raise KfpException(
-                    "A @kfp preceding_component cannot be on the start step."
+                raise AIPException(
+                    "A @aip preceding_component cannot be on the start step."
                 )
 
             # Only support linear/start types to avoid complex merge_artifacts & inputs in "join" type
@@ -95,15 +95,15 @@ class KfpInternalDecorator(StepDecorator):
                 len(node.in_funcs) > 1
                 or graph[node.in_funcs[0]].type not in linear_types
             ):
-                raise KfpException(
-                    "The incoming step of a @kfp with a preceding_component must be linear."
+                raise AIPException(
+                    "The incoming step of a @aip with a preceding_component must be linear."
                 )
 
         self.flow_datastore = flow_datastore
         self.logger = logger
 
         # Add env vars from the optional @environment decorator.
-        # FIXME: may be cleaner implementation to decouple @environment from kfp
+        # FIXME: may be cleaner implementation to decouple @environment from aip
         # ref: step function is also handling environment decorator ad-hoc
         # See plugins/aws/step_functions/step_functions.StepFunctions._batch
         env_deco = [
@@ -133,7 +133,7 @@ class KfpInternalDecorator(StepDecorator):
         self.metadata = metadata
         self.task_datastore = task_datastore
 
-        # TODO: any other KFP environment variables to get and register to Metadata service?
+        # TODO: any other AIP/KFP environment variables to get and register to Metadata service?
         meta = {
             "pod-name": os.environ.get("MF_POD_NAME"),
             "argo-workflow": os.environ.get("MF_ARGO_WORKFLOW_NAME"),
@@ -192,7 +192,7 @@ class KfpInternalDecorator(StepDecorator):
             if graph[step_name].type == "foreach":
                 # Save context to S3 for downstream DAG steps to access this
                 # step's foreach_splits
-                with KfpForEachSplits(
+                with AIPForEachSplits(
                     graph,
                     step_name,
                     current.run_id,
@@ -202,7 +202,7 @@ class KfpInternalDecorator(StepDecorator):
                     foreach_splits: Dict = split_contexts.build_foreach_splits(flow)
 
                     # Pass along foreach_splits to step_op_func
-                    KfpForEachSplits.save_foreach_splits_to_local_fs(foreach_splits)
+                    AIPForEachSplits.save_foreach_splits_to_local_fs(foreach_splits)
 
                     # If this step is retried, then S3 doesn't guarantee
                     # consistency that the last uploaded data is returned. It'd
