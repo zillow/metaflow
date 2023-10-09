@@ -83,6 +83,7 @@ def get_plugin_cli():
     from .aws.eks import kubernetes_cli
     from .aws.step_functions import step_functions_cli
     from .aip import aip_cli
+    from .aip import kfp_cli
     from .cards import card_cli
 
     return _ext_plugins["get_plugin_cli"]() + [
@@ -90,6 +91,7 @@ def get_plugin_cli():
         batch_cli.cli,
         card_cli.cli,
         aip_cli.cli,
+        kfp_cli.cli,
         kubernetes_cli.cli,
         step_functions_cli.cli,
     ]
