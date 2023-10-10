@@ -432,7 +432,6 @@ def aip_metaflow_step(
         step_name,
         task_id,
         metaflow_run_id,
-        environment,
         script_name,
     )
     cmd: str = card_cli.format(run_id=metaflow_run_id)
