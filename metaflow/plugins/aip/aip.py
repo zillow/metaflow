@@ -286,7 +286,22 @@ class KubeflowPipelines(object):
         for key, value in self._get_flow_labels().items():
             workflow["metadata"]["labels"][key] = value
 
+        KubeflowPipelines._add_archive_section_to_cards_artifacts(workflow)
+
         return workflow
+
+    @staticmethod
+    def _add_archive_section_to_cards_artifacts(workflow: dict):
+        # Add "archive" none section to "-cards" artifacts because by default
+        # they are tarred and hence not viewable in the Argo UI
+        for template in workflow["spec"]["templates"]:
+            print("first template")
+            if "outputs" in template and "artifacts" in template["outputs"]:
+                for artifact in template["outputs"]["artifacts"]:
+                    print(f"artifact: {artifact}")
+                    if "-cards" in artifact["name"]:
+                        print(f"adding archive none")
+                        artifact["archive"] = {"none": {}}
 
     @staticmethod
     def _config_map(workflow_name: str, max_run_concurrency: int):
@@ -910,7 +925,7 @@ class KubeflowPipelines(object):
 
     def _set_container_labels(self, container_op: ContainerOp):
         # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
-        container_op.add_pod_label("aip.zillowgroup.net/aip-pod-default", "true")
+        container_op.add_pod_label("aip.zillowgroup.net/aip-wfsdk-pod", "true")
 
         # https://github.com/argoproj/argo-workflows/issues/4525
         # all argo workflows need istio-injection disabled, else the workflow hangs.
@@ -1364,7 +1379,9 @@ class KubeflowPipelines(object):
             None if node.name == "start" else {"flow_parameters_json": "None"}
         )
 
-        file_outputs: Dict[str, str] = {}
+        file_outputs: Dict[str, str] = {
+            "cards_default": "/tmp/outputs/cards/default_card.html",
+        }
         if node.type == "foreach":
             file_outputs["foreach_splits"] = "/tmp/outputs/foreach_splits/data"
         for preceding_component_input in preceding_component_inputs:

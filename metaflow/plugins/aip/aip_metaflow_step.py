@@ -27,6 +27,34 @@ from metaflow.plugins.aip.aip_constants import (
 from ... import R
 
 
+def _get_cards_cli(
+    step_name: str,
+    task_id: str,
+    run_id: str,
+    script_name: str,
+) -> str:
+    cmds: List[str] = []
+    executable: str = "python3" if R.use_r() else "python"
+    entrypoint = [executable, script_name]
+
+    top_level: List[str] = [
+        "--quiet",
+        "--datastore=s3",
+        "--no-pylint",
+    ]
+
+    cards: List[str] = [
+        "card",
+        "get",
+        f"{run_id}/{step_name}/{task_id}",
+        "--type default",
+    ]
+
+    cmds.append(" ".join(entrypoint + top_level + cards))
+    cards_cli_string = " && ".join(cmds)
+    return cards_cli_string
+
+
 def _step_cli(
     step_name: str,
     task_id: str,
@@ -138,6 +166,7 @@ def _step_cli(
 
     step: List[str] = [
         "--with=aip",
+        "--with 'card:id=default'",
         "step",
         step_name,
         "--run-id %s" % run_id,
@@ -397,6 +426,28 @@ def aip_metaflow_step(
         pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
         with open(output_file, "w") as f:
             f.write(str(values[idx]))
+
+    # get card and write to output file
+    card_cli: str = _get_cards_cli(
+        step_name,
+        task_id,
+        metaflow_run_id,
+        script_name,
+    )
+    cmd: str = card_cli.format(run_id=metaflow_run_id)
+    cmd = f"{cmd} > /tmp/outputs/cards/default_card.html"
+
+    pathlib.Path("/tmp/outputs/cards/").mkdir(parents=True, exist_ok=True)
+    with Popen(
+        cmd, shell=True, universal_newlines=True, executable="/bin/bash", env=env
+    ) as process:
+        pass
+
+    if process.returncode != 0:
+        logging.info(f"---- Following command returned: {process.returncode}")
+        logging.info(cmd.replace(" && ", "\n"))
+        logging.info("----")
+        raise Exception("Returned: %s" % process.returncode)
 
 
 if __name__ == "__main__":

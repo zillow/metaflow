@@ -324,7 +324,7 @@ def test_kfp_pod_default() -> None:
     for step in flow_yaml["spec"]["templates"]:
         if step.get("container"):
             assert (
-                step["metadata"]["labels"]["aip.zillowgroup.net/aip-pod-default"]
+                step["metadata"]["labels"]["aip.zillowgroup.net/aip-wfsdk-pod"]
                 == "true"
             )
 
