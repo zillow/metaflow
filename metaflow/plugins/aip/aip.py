@@ -925,7 +925,7 @@ class KubeflowPipelines(object):
 
     def _set_container_labels(self, container_op: ContainerOp):
         # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
-        container_op.add_pod_label("aip.zillowgroup.net/aip-pod-default", "true")
+        container_op.add_pod_label("aip.zillowgroup.net/aip-wfsdk-pod", "true")
 
         # https://github.com/argoproj/argo-workflows/issues/4525
         # all argo workflows need istio-injection disabled, else the workflow hangs.

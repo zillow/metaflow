@@ -84,7 +84,7 @@ for annotation, env_name in annotations.items():
     )
 
 labels = {
-    "aip.zillowgroup.net/aip-pod-default": "KF_POD_DEFAULT",
+    "aip.zillowgroup.net/aip-wfsdk-pod": "AIP_WFSDK_POD",
     "tags.ledger.zgtools.net/ai-flow-name": "AI_FLOW_NAME",
     "tags.ledger.zgtools.net/ai-step-name": "AI_STEP_NAME",
     "tags.ledger.zgtools.net/ai-experiment-name": "AI_EXPERIMENT_NAME",
@@ -162,7 +162,7 @@ class ResourcesFlow(FlowSpec):
         assert os.environ.get("MF_TAG_TEST_T1") == "true"
         assert os.environ.get("MF_SYS_TAG_TEST_T1") == "sys_tag_value"
 
-        assert os.environ.get("KF_POD_DEFAULT") == "true"
+        assert os.environ.get("AIP_WFSDK_POD") == "true"
 
         assert os.environ.get("AI_FLOW_NAME") == current.flow_name
         assert os.environ.get("AI_STEP_NAME") == current.step_name
