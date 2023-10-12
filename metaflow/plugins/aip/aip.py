@@ -954,7 +954,7 @@ class KubeflowPipelines(object):
             # This is done to support user-supplied Zodiac service per AIP Notebook.
             # Please see comments on how and why ZILLOW_ZODIAC_SERVICE label for more.
             container_op.add_pod_annotation(
-                "logging.zgtools.net/topic",
+                "logging.zgtools.net/index",
                 f"log.fluentd-z1.{ZILLOW_ZODIAC_SERVICE}.dev",
             )
 
