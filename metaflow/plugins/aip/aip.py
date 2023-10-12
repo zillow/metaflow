@@ -292,8 +292,8 @@ class KubeflowPipelines(object):
 
     @staticmethod
     def _add_archive_section_to_cards_artifacts(workflow: dict):
-        print("in _add_archive_section_to_cards_artifacts")
-        # for any "-cards" artifacts add "archive" section with "none" value
+        # Add "archive" none section to "-cards" artifacts because by default
+        # they are tarred and hence not viewable in the Argo UI
         for template in workflow["spec"]["templates"]:
             print("first template")
             if "outputs" in template and "artifacts" in template["outputs"]:

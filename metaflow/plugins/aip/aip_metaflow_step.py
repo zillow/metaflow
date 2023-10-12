@@ -166,7 +166,7 @@ def _step_cli(
 
     step: List[str] = [
         "--with=aip",
-        "--with=card",
+        "--with 'card:id=default'",
         "step",
         step_name,
         "--run-id %s" % run_id,
