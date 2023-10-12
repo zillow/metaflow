@@ -865,12 +865,12 @@ class KubeflowPipelines(object):
 
     def _get_flow_labels(self) -> Dict[str, str]:
         # function return variable
-        ret: Dict[str, str] = {}
+        ret_flow_labels: Dict[str, str] = {}
 
         prefix = "metaflow.org"
-        ret[f"{prefix}/flow_name"] = self.name
+        ret_flow_labels[f"{prefix}/flow_name"] = self.name
         if self.experiment:
-            ret[f"{prefix}/experiment"] = self.experiment
+            ret_flow_labels[f"{prefix}/experiment"] = self.experiment
 
         all_tags = list()
         all_tags += self.tags if self.tags else []
@@ -888,7 +888,7 @@ class KubeflowPipelines(object):
                 raise ValueError(
                     f"Tag name {annotation_name} must be no more than 63 characters"
                 )
-            ret[annotation_name] = annotation_value
+            ret_flow_labels[annotation_name] = annotation_value
 
         # - In context of Zillow CICD self.username == "cicd_compile"
         # - In the context of a Zillow NB self.username == METAFLOW_USER (user_alias)
@@ -896,18 +896,17 @@ class KubeflowPipelines(object):
         owner = self.username
         if "@" in owner:
             owner = owner.split("@")[0]
-        ret["zodiac.zillowgroup.net/owner"] = owner
+        ret_flow_labels["zodiac.zillowgroup.net/owner"] = owner
 
-        # Add in Zodiac service and team labels to the aip pods if the environment variable is
-        # present in the notebook (individual profile notebooks only) and set them. These labels
-        # are not being added by poddefaults as they were removed. Workflows launched in project
-        # profiles still get these labels added via poddefaults. Also adds in logging topic
-        # annotation as this value is specific to zodiac service as well.
+        # If the Zodiac environment variable is present in the notebook (individual profile notebooks only),
+        # the Zodiac service and team labels are added to the AIP pods and set. These labels are not added
+        # by the AIP webhook to support user-supplied Zodiac service per AIP Notebook. Workflows launched
+        # in project CICD profiles will still have these labels added via the AIP webhook.
         if ZILLOW_ZODIAC_SERVICE and ZILLOW_ZODIAC_TEAM:
-            ret["zodiac.zillowgroup.net/service"] = ZILLOW_ZODIAC_SERVICE
-            ret["zodiac.zillowgroup.net/team"] = ZILLOW_ZODIAC_TEAM
+            ret_flow_labels["zodiac.zillowgroup.net/service"] = ZILLOW_ZODIAC_SERVICE
+            ret_flow_labels["zodiac.zillowgroup.net/team"] = ZILLOW_ZODIAC_TEAM
 
-        return ret
+        return ret_flow_labels
 
     def _set_container_labels(self, container_op: ContainerOp):
         # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
@@ -935,12 +934,10 @@ class KubeflowPipelines(object):
                 "tags.ledger.zgtools.net/ai-experiment-name", self.experiment
             )
 
-        # Add in Zodiac service and team labels to the aip pods if the environment variable is
-        # present in the notebook (individual profile notebooks only) and set them. These labels
-        # are not being added by poddefaults as they were removed. Workflows launched in project
-        # profiles still get these labels added via poddefaults. Also adds in logging topic
-        # annotation as this value is specific to zodiac service as well.
         if ZILLOW_ZODIAC_SERVICE and ZILLOW_ZODIAC_TEAM:
+            # Add a logging topic annotation specific to the Zodiac service.
+            # This is done to support user-supplied Zodiac service per AIP Notebook.
+            # Please see comments on how and why ZILLOW_ZODIAC_SERVICE label for more.
             container_op.add_pod_annotation(
                 "logging.zgtools.net/topic",
                 f"log.fluentd-z1.{ZILLOW_ZODIAC_SERVICE}.dev",
