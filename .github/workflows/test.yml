@@ -3,14 +3,17 @@ on:
   push:
     branches:
     - master
-    - feature/aip
+    - feature/kfp
     - feature/aip
   pull_request:
     branches:
     - master
+    - feature/kfp
     - feature/aip
     - feature/aip-argo
     - tz/AIP-7299-argo-submit  # TODO(talebz) remove before merging
+    - feature/kfp-argo
+    - tz/AIP-7385-aip-plugin
   workflow_call:
   
 jobs:
