@@ -63,13 +63,8 @@ kubernetes_vars.append(
 )
 
 annotations = {
-    "metaflow.org/flow_name": "MF_NAME",
     "metaflow.org/step": "MF_STEP",
     "metaflow.org/run_id": "MF_RUN_ID",
-    "metaflow.org/experiment": "MF_EXPERIMENT",
-    "metaflow.org/tag_metaflow_test": "MF_TAG_METAFLOW_TEST",
-    "metaflow.org/tag_test_t1": "MF_TAG_TEST_T1",
-    "metaflow.org/tag_test_sys_t1": "MF_SYS_TAG_TEST_T1",
 }
 for annotation, env_name in annotations.items():
     kubernetes_vars.append(
@@ -84,6 +79,11 @@ for annotation, env_name in annotations.items():
     )
 
 labels = {
+    "metaflow.org/flow_name": "MF_NAME",
+    "metaflow.org/experiment": "MF_EXPERIMENT",
+    "metaflow.org/tag_metaflow_test": "MF_TAG_METAFLOW_TEST",
+    "metaflow.org/tag_test_t1": "MF_TAG_TEST_T1",
+    "metaflow.org/tag_test_sys_t1": "MF_SYS_TAG_TEST_T1",
     "aip.zillowgroup.net/aip-wfsdk-pod": "AIP_WFSDK_POD",
     "tags.ledger.zgtools.net/ai-flow-name": "AI_FLOW_NAME",
     "tags.ledger.zgtools.net/ai-step-name": "AI_STEP_NAME",
