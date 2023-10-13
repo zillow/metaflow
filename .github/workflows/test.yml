@@ -12,7 +12,6 @@ on:
     - feature/kfp
     - feature/aip
     - feature/kfp-argo
-    - tz/AIP-7385-aip-plugin
     - tz/AIP-7418-remove-create
   workflow_call:
   
