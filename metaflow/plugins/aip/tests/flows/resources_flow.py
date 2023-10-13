@@ -63,13 +63,8 @@ kubernetes_vars.append(
 )
 
 annotations = {
-    "metaflow.org/flow_name": "MF_NAME",
     "metaflow.org/step": "MF_STEP",
     "metaflow.org/run_id": "MF_RUN_ID",
-    "metaflow.org/experiment": "MF_EXPERIMENT",
-    "metaflow.org/tag_metaflow_test": "MF_TAG_METAFLOW_TEST",
-    "metaflow.org/tag_test_t1": "MF_TAG_TEST_T1",
-    "metaflow.org/tag_test_sys_t1": "MF_SYS_TAG_TEST_T1",
 }
 for annotation, env_name in annotations.items():
     kubernetes_vars.append(
@@ -84,7 +79,12 @@ for annotation, env_name in annotations.items():
     )
 
 labels = {
-    "aip.zillowgroup.net/aip-pod-default": "KF_POD_DEFAULT",
+    "metaflow.org/flow_name": "MF_NAME",
+    "metaflow.org/experiment": "MF_EXPERIMENT",
+    "metaflow.org/tag_metaflow_test": "MF_TAG_METAFLOW_TEST",
+    "metaflow.org/tag_test_t1": "MF_TAG_TEST_T1",
+    "metaflow.org/tag_test_sys_t1": "MF_SYS_TAG_TEST_T1",
+    "aip.zillowgroup.net/aip-wfsdk-pod": "AIP_WFSDK_POD",
     "tags.ledger.zgtools.net/ai-flow-name": "AI_FLOW_NAME",
     "tags.ledger.zgtools.net/ai-step-name": "AI_STEP_NAME",
     "tags.ledger.zgtools.net/ai-experiment-name": "AI_EXPERIMENT_NAME",
@@ -162,7 +162,7 @@ class ResourcesFlow(FlowSpec):
         assert os.environ.get("MF_TAG_TEST_T1") == "true"
         assert os.environ.get("MF_SYS_TAG_TEST_T1") == "sys_tag_value"
 
-        assert os.environ.get("KF_POD_DEFAULT") == "true"
+        assert os.environ.get("AIP_WFSDK_POD") == "true"
 
         assert os.environ.get("AI_FLOW_NAME") == current.flow_name
         assert os.environ.get("AI_STEP_NAME") == current.step_name

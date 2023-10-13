@@ -282,7 +282,23 @@ class KubeflowPipelines(object):
                 }
             }
 
+        # add Flow labels as Workflow labels to be searchable in the Argo UI
+        for key, value in self._get_flow_labels().items():
+            workflow["metadata"]["labels"][key] = value
+
+        KubeflowPipelines._add_archive_section_to_cards_artifacts(workflow)
+
         return workflow
+
+    @staticmethod
+    def _add_archive_section_to_cards_artifacts(workflow: dict):
+        # Add "archive" none section to "-cards" artifacts because by default
+        # they are tarred and hence not viewable in the Argo UI
+        for template in workflow["spec"]["templates"]:
+            if "outputs" in template and "artifacts" in template["outputs"]:
+                for artifact in template["outputs"]["artifacts"]:
+                    if "-cards" in artifact["name"]:
+                        artifact["archive"] = {"none": {}}
 
     @staticmethod
     def _config_map(workflow_name: str, max_run_concurrency: int):
@@ -859,20 +875,15 @@ class KubeflowPipelines(object):
         )
         return (resource, volume)
 
-    def _set_container_labels(self, container_op: ContainerOp):
-        # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
-        container_op.add_pod_label("aip.zillowgroup.net/aip-pod-default", "true")
-
-        # https://github.com/argoproj/argo-workflows/issues/4525
-        # all argo workflows need istio-injection disabled, else the workflow hangs.
-        container_op.add_pod_label("sidecar.istio.io/inject", "false")
+    def _get_flow_labels(self) -> Dict[str, str]:
+        # function return variable
+        ret_flow_labels: Dict[str, str] = {}
 
         prefix = "metaflow.org"
-        container_op.add_pod_annotation(f"{prefix}/flow_name", self.name)
-        container_op.add_pod_annotation(f"{prefix}/step", container_op.name)
-        container_op.add_pod_annotation(f"{prefix}/run_id", METAFLOW_RUN_ID)
+        ret_flow_labels[f"{prefix}/flow_name"] = self.name
         if self.experiment:
-            container_op.add_pod_annotation(f"{prefix}/experiment", self.experiment)
+            ret_flow_labels[f"{prefix}/experiment"] = self.experiment
+
         all_tags = list()
         all_tags += self.tags if self.tags else []
         all_tags += self.sys_tags if self.sys_tags else []
@@ -889,7 +900,41 @@ class KubeflowPipelines(object):
                 raise ValueError(
                     f"Tag name {annotation_name} must be no more than 63 characters"
                 )
-            container_op.add_pod_annotation(annotation_name, annotation_value)
+            ret_flow_labels[annotation_name] = annotation_value
+
+        # - In context of Zillow CICD self.username == "cicd_compile"
+        # - In the context of a Zillow NB self.username == METAFLOW_USER (user_alias)
+        # - In the context of Metaflow integration tests self.username == USER=$GITLAB_USER_EMAIL
+        owner = self.username
+        if "@" in owner:
+            owner = owner.split("@")[0]
+        ret_flow_labels["zodiac.zillowgroup.net/owner"] = owner
+
+        # If the Zodiac environment variable is present in the notebook (individual profile notebooks only),
+        # the Zodiac service and team labels are added to the AIP pods and set. These labels are not added
+        # by the AIP webhook to support user-supplied Zodiac service per AIP Notebook. Workflows launched
+        # in project CICD profiles will still have these labels added via the AIP webhook.
+        if ZILLOW_ZODIAC_SERVICE and ZILLOW_ZODIAC_TEAM:
+            ret_flow_labels["zodiac.zillowgroup.net/service"] = ZILLOW_ZODIAC_SERVICE
+            ret_flow_labels["zodiac.zillowgroup.net/team"] = ZILLOW_ZODIAC_TEAM
+
+        return ret_flow_labels
+
+    def _set_container_labels(self, container_op: ContainerOp):
+        # TODO(talebz): A Metaflow plugin framework to customize tags, labels, etc.
+        container_op.add_pod_label("aip.zillowgroup.net/aip-wfsdk-pod", "true")
+
+        # https://github.com/argoproj/argo-workflows/issues/4525
+        # all argo workflows need istio-injection disabled, else the workflow hangs.
+        container_op.add_pod_label("sidecar.istio.io/inject", "false")
+
+        # add Flow labels as container labels
+        for key, value in self._get_flow_labels().items():
+            container_op.add_pod_label(key, value)
+
+        prefix = "metaflow.org"
+        container_op.add_pod_annotation(f"{prefix}/step", container_op.name)
+        container_op.add_pod_annotation(f"{prefix}/run_id", METAFLOW_RUN_ID)
 
         # tags.ledger.zgtools.net/* pod labels required for the ZGCP Costs Ledger
         container_op.add_pod_label("tags.ledger.zgtools.net/ai-flow-name", self.name)
@@ -901,28 +946,12 @@ class KubeflowPipelines(object):
                 "tags.ledger.zgtools.net/ai-experiment-name", self.experiment
             )
 
-        # - In context of Zillow CICD self.username == "cicd_compile"
-        # - In the context of a Zillow NB self.username == METAFLOW_USER (user_alias)
-        # - In the context of Metaflow integration tests self.username == USER=$GITLAB_USER_EMAIL
-        owner = self.username
-        if "@" in owner:
-            owner = owner.split("@")[0]
-        container_op.add_pod_label("zodiac.zillowgroup.net/owner", owner)
-
-        # Add in Zodiac service and team labels to the aip pods if the environment variable is
-        # present in the notebook (individual profile notebooks only) and set them. These labels
-        # are not being added by poddefaults as they were removed. Workflows launched in project
-        # profiles still get these labels added via poddefaults. Also adds in logging topic
-        # annotation as this value is specific to zodiac service as well.
         if ZILLOW_ZODIAC_SERVICE and ZILLOW_ZODIAC_TEAM:
-            container_op.add_pod_label(
-                "zodiac.zillowgroup.net/service", ZILLOW_ZODIAC_SERVICE
-            )
-            container_op.add_pod_label(
-                "zodiac.zillowgroup.net/team", ZILLOW_ZODIAC_TEAM
-            )
+            # Add a logging topic annotation specific to the Zodiac service.
+            # This is done to support user-supplied Zodiac service per AIP Notebook.
+            # Please see comments on how and why ZILLOW_ZODIAC_SERVICE label for more.
             container_op.add_pod_annotation(
-                "logging.zgtools.net/topic",
+                "logging.zgtools.net/index",
                 f"log.fluentd-z1.{ZILLOW_ZODIAC_SERVICE}.dev",
             )
 
@@ -1347,7 +1376,9 @@ class KubeflowPipelines(object):
             None if node.name == "start" else {"flow_parameters_json": "None"}
         )
 
-        file_outputs: Dict[str, str] = {}
+        file_outputs: Dict[str, str] = {
+            "cards_default": "/tmp/outputs/cards/default_card.html",
+        }
         if node.type == "foreach":
             file_outputs["foreach_splits"] = "/tmp/outputs/foreach_splits/data"
         for preceding_component_input in preceding_component_inputs:
