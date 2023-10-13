@@ -5,15 +5,15 @@ on:
     - master
     - feature/kfp
     - feature/aip
+    - feature/kfp-argo
   pull_request:
     branches:
     - master
     - feature/kfp
     - feature/aip
-    - feature/aip-argo
-    - tz/AIP-7299-argo-submit  # TODO(talebz) remove before merging
     - feature/kfp-argo
     - tz/AIP-7385-aip-plugin
+    - tz/AIP-7418-remove-create
   workflow_call:
   
 jobs:
