@@ -30,6 +30,7 @@ from ... import R
 def _get_cards_cli(
     step_name: str,
     task_id: str,
+    passed_in_split_indexes: str,
     run_id: str,
     script_name: str,
 ) -> str:
@@ -43,12 +44,18 @@ def _get_cards_cli(
         "--no-pylint",
     ]
 
+    task_id_template: str = f"{task_id}.{passed_in_split_indexes}".strip(".")
+    run_pathspec = f"{run_id}/{step_name}/{task_id_template}"
+
     cards: List[str] = [
         "card",
         "get",
-        f"{run_id}/{step_name}/{task_id}",
-        "--type default",
+        run_pathspec,
+        "--id default",  # the default card id is also default
     ]
+
+    # load environment variables set in STEP_ENVIRONMENT_VARIABLES
+    cmds.append(f". {STEP_ENVIRONMENT_VARIABLES}")
 
     cmds.append(" ".join(entrypoint + top_level + cards))
     cards_cli_string = " && ".join(cmds)
@@ -431,6 +438,7 @@ def aip_metaflow_step(
     card_cli: str = _get_cards_cli(
         step_name,
         task_id,
+        passed_in_split_indexes,
         metaflow_run_id,
         script_name,
     )

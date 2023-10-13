@@ -295,12 +295,9 @@ class KubeflowPipelines(object):
         # Add "archive" none section to "-cards" artifacts because by default
         # they are tarred and hence not viewable in the Argo UI
         for template in workflow["spec"]["templates"]:
-            print("first template")
             if "outputs" in template and "artifacts" in template["outputs"]:
                 for artifact in template["outputs"]["artifacts"]:
-                    print(f"artifact: {artifact}")
                     if "-cards" in artifact["name"]:
-                        print(f"adding archive none")
                         artifact["archive"] = {"none": {}}
 
     @staticmethod
