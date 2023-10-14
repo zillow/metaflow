@@ -324,7 +324,7 @@ def test_kfp_pod_default(pytestconfig) -> None:
 
         compile_to_yaml_cmd: str = (
             f" {_python()} flows/s3_sensor_flow.py --no-pylint --datastore s3 aip run"
-            f" --no-s3-code-package --yaml-only --notify --pipeline-path {yaml_file_path}"
+            f" --no-s3-code-package --yaml-only --notify --pipeline-path {yaml_file_path} "
             f"--tag {pytestconfig.getoption('pipeline_tag')} "
         )
         flow_yaml = get_compiled_yaml(compile_to_yaml_cmd, yaml_file_path)
@@ -347,7 +347,7 @@ def test_kubernetes_service_account_compile_only(pytestconfig) -> None:
         compile_to_yaml_cmd: str = (
             f"export METAFLOW_KUBERNETES_SERVICE_ACCOUNT={service_account};"
             f" {_python()} flows/toleration_and_affinity_flow.py aip run"
-            f" --yaml-only --pipeline-path {yaml_file_path}"
+            f" --yaml-only --pipeline-path {yaml_file_path} "
             f"--tag {pytestconfig.getoption('pipeline_tag')} "
         )
 
@@ -372,7 +372,7 @@ def test_toleration_and_affinity_compile_only(pytestconfig) -> None:
 
         compile_to_yaml_cmd: str = (
             f"{_python()} flows/toleration_and_affinity_flow.py --datastore=s3 --with retry aip run"
-            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path}"
+            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path} "
             f"--tag {pytestconfig.getoption('pipeline_tag')} "
         )
 
