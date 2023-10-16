@@ -61,7 +61,34 @@ class FlowTriggeringFlow(FlowSpec):
             )
             logger.info(f"Creating workflow: {self.template_name}")
             subprocess.run(
-                ["python", __file__, "aip", "create", "--name", self.template_name],
+                [
+                    "python",
+                    __file__,
+                    "aip",
+                    "create",
+                    "--name",
+                    self.template_name,
+                    "--yaml-only",
+                    "--pipeline-path",
+                    "/tmp/ftf.yaml",
+                    "--kind",
+                    "WorkflowTemplate",
+                    "--max-run-concurrency",
+                    "0",
+                ],
+                check=True,
+            )
+            subprocess.run(["cat", "/tmp/ftf.yaml"])
+            print(f"{KUBERNETES_NAMESPACE=}")
+            subprocess.run(
+                [
+                    "argo",
+                    "template",
+                    "-n",
+                    KUBERNETES_NAMESPACE,
+                    "create",
+                    "/tmp/ftf.yaml",
+                ],
                 check=True,
             )
 

@@ -7,3 +7,6 @@ def pytest_addoption(parser):
     parser.addoption(
         "--opsgenie-api-token", dest="opsgenie_api_token", action="store", default=None
     )
+    parser.addoption(
+        "--pipeline-tag", dest="pipeline_tag", action="store", default=None
+    )

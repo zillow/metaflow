@@ -12,8 +12,8 @@ on:
     - feature/kfp
     - feature/aip
     - feature/kfp-argo
-    - tz/AIP-7385-aip-plugin
     - tz/AIP-7418-remove-create
+    - tz/AIP-7773-argo-ftf
   workflow_call:
   
 jobs:
