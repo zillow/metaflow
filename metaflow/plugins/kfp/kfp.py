@@ -302,7 +302,7 @@ class KubeflowPipelines(object):
         retry_deco = [deco for deco in node.decorators if deco.name == "retry"]
         if retry_deco:
             val = retry_deco[0].attributes.get("retry_backoff_factor")
-            return float(val)
+            return int(val)
         return None
 
     @staticmethod
