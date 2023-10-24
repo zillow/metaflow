@@ -284,7 +284,9 @@ class KubeflowPipelines(object):
             }
 
         # add Flow labels as Workflow labels to be searchable in the Argo UI
-        for key, value in self._get_flow_labels().items():
+        for key, value in KubeflowPipelines._get_flow_labels(
+            self.name, self.experiment, self.tags, self.sys_tags, self.username
+        ).items():
             workflow["metadata"]["labels"][key] = value
 
         KubeflowPipelines._add_archive_section_to_cards_artifacts(workflow)
@@ -876,18 +878,25 @@ class KubeflowPipelines(object):
         )
         return (resource, volume)
 
-    def _get_flow_labels(self) -> Dict[str, str]:
+    @staticmethod
+    def _get_flow_labels(
+        flow_name: str,
+        experiment: Optional[str],
+        tags: List[str],
+        sys_tags: List[str],
+        username: str,
+    ) -> Dict[str, str]:
         # function return variable
         ret_flow_labels: Dict[str, str] = {}
 
         prefix = "metaflow.org"
-        ret_flow_labels[f"{prefix}/flow_name"] = self.name
-        if self.experiment:
-            ret_flow_labels[f"{prefix}/experiment"] = self.experiment
+        ret_flow_labels[f"{prefix}/flow_name"] = flow_name
+        if experiment:
+            ret_flow_labels[f"{prefix}/experiment"] = experiment
 
         all_tags = list()
-        all_tags += self.tags if self.tags else []
-        all_tags += self.sys_tags if self.sys_tags else []
+        all_tags += tags if tags else []
+        all_tags += sys_tags if sys_tags else []
         for tag in all_tags:
             if ":" in tag:  # Metaflow commonly uses <name>:<value> as tag format
                 tag_info = tag.split(":", 1)
@@ -910,21 +919,19 @@ class KubeflowPipelines(object):
             regex_match = re.fullmatch(pattern, annotation_value)
             if not regex_match:
                 raise ValueError(
-                    f"Tag {annotation_name} value {annotation_value} must must"
-                    "consist of alphanumeric "
-                    "characters, '-', '_' or '.', and "
-                    "must start and end with an alphanumeric "
-                    "character. "
-                    "Example 'MyValue',  or 'my_value',  or '12345', regex used "
-                    "for validation is '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?'"
+                    f"Tag {annotation_name} value {annotation_value} must "
+                    "consist of alphanumeric characters, '-', '_' or '.', and "
+                    "must start and end with an alphanumeric character.  Example "
+                    "'MyValue',  or 'my_value',  or '12345', regex used for "
+                    "validation is '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?'"
                 )
 
             ret_flow_labels[annotation_name] = annotation_value
 
-        # - In context of Zillow CICD self.username == "cicd_compile"
-        # - In the context of a Zillow NB self.username == METAFLOW_USER (user_alias)
-        # - In the context of Metaflow integration tests self.username == USER=$GITLAB_USER_EMAIL
-        owner = self.username
+        # - In context of Zillow CICD username == "cicd_compile"
+        # - In the context of a Zillow NB username == METAFLOW_USER (user_alias)
+        # - In the context of Metaflow integration tests username == USER=$GITLAB_USER_EMAIL
+        owner = username
         if "@" in owner:
             owner = owner.split("@")[0]
         ret_flow_labels["zodiac.zillowgroup.net/owner"] = owner
@@ -948,7 +955,9 @@ class KubeflowPipelines(object):
         container_op.add_pod_label("sidecar.istio.io/inject", "false")
 
         # add Flow labels as container labels
-        for key, value in self._get_flow_labels().items():
+        for key, value in KubeflowPipelines._get_flow_labels(
+            self.name, self.experiment, self.tags, self.sys_tags, self.username
+        ).items():
             container_op.add_pod_label(key, value)
 
         prefix = "metaflow.org"

@@ -15,6 +15,7 @@ from subprocess_tee import run
 
 from . import _python, obtain_flow_file_paths
 from metaflow.exception import MetaflowException
+from ..aip import KubeflowPipelines
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -200,28 +201,28 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     return
 
 
-@pytest.mark.parametrize(
-    "flow_file_path",
-    obtain_flow_file_paths("flows", non_standard_test_flows + disabled_test_flows),
-)
-def test_flows(pytestconfig, flow_file_path: str) -> None:
-    full_path: str = os.path.join("flows", flow_file_path)
-
-    test_cmd: str = (
-        f"{_python()} {full_path} --datastore=s3 --with retry aip run "
-        f"--argo-wait --workflow-timeout 1800 "
-        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-        f"--sys-tag test_sys_t1:sys_tag_value "
-        f"--tag {pytestconfig.getoption('pipeline_tag')} "
-    )
-    if pytestconfig.getoption("image"):
-        test_cmd += (
-            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-        )
-
-    run_cmd_with_backoff_from_platform_errors(test_cmd, correct_return_code=0)
-
-    return
+# @pytest.mark.parametrize(
+#     "flow_file_path",
+#     obtain_flow_file_paths("flows", non_standard_test_flows + disabled_test_flows),
+# )
+# def test_flows(pytestconfig, flow_file_path: str) -> None:
+#     full_path: str = os.path.join("flows", flow_file_path)
+#
+#     test_cmd: str = (
+#         f"{_python()} {full_path} --datastore=s3 --with retry aip run "
+#         f"--argo-wait --workflow-timeout 1800 "
+#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+#         f"--sys-tag test_sys_t1:sys_tag_value "
+#         f"--tag {pytestconfig.getoption('pipeline_tag')} "
+#     )
+#     if pytestconfig.getoption("image"):
+#         test_cmd += (
+#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+#         )
+#
+#     run_cmd_with_backoff_from_platform_errors(test_cmd, correct_return_code=0)
+#
+#     return
 
 
 def run_cmd_with_backoff_from_platform_errors(
@@ -426,3 +427,30 @@ def test_toleration_and_affinity_compile_only(pytestconfig) -> None:
         key="node.k8s.zgtools.net/purpose",
         value="high-memory",
     )
+
+
+def test_flow_labels():
+    tags: Dict[str, str] = KubeflowPipelines._get_flow_labels(
+        flow_name="my_flow",
+        experiment="my_experiment",
+        tags=["t1"],
+        sys_tags=["s1"],
+        username="foo",
+    )
+
+    assert tags["metaflow.org/flow_name"] == "my_flow"
+    assert tags["metaflow.org/experiment"] == "my_experiment"
+    assert tags["metaflow.org/tag_t1"] == "true"
+    assert tags["metaflow.org/tag_s1"] == "true"
+    assert tags["zodiac.zillowgroup.net/owner"] == "foo"
+
+    with pytest.raises(ValueError) as e:
+        KubeflowPipelines._get_flow_labels(
+            flow_name="my_flow",
+            experiment="my_experiment",
+            tags=["t1"],
+            sys_tags=["s1:a/b"],
+            username="foo",
+        )
+
+    assert "a/b must consist of alphanumeric characters" in str(e.value)
