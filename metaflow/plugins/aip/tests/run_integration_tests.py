@@ -201,28 +201,28 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     return
 
 
-# @pytest.mark.parametrize(
-#     "flow_file_path",
-#     obtain_flow_file_paths("flows", non_standard_test_flows + disabled_test_flows),
-# )
-# def test_flows(pytestconfig, flow_file_path: str) -> None:
-#     full_path: str = os.path.join("flows", flow_file_path)
-#
-#     test_cmd: str = (
-#         f"{_python()} {full_path} --datastore=s3 --with retry aip run "
-#         f"--argo-wait --workflow-timeout 1800 "
-#         f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
-#         f"--sys-tag test_sys_t1:sys_tag_value "
-#         f"--tag {pytestconfig.getoption('pipeline_tag')} "
-#     )
-#     if pytestconfig.getoption("image"):
-#         test_cmd += (
-#             f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
-#         )
-#
-#     run_cmd_with_backoff_from_platform_errors(test_cmd, correct_return_code=0)
-#
-#     return
+@pytest.mark.parametrize(
+    "flow_file_path",
+    obtain_flow_file_paths("flows", non_standard_test_flows + disabled_test_flows),
+)
+def test_flows(pytestconfig, flow_file_path: str) -> None:
+    full_path: str = os.path.join("flows", flow_file_path)
+
+    test_cmd: str = (
+        f"{_python()} {full_path} --datastore=s3 --with retry aip run "
+        f"--argo-wait --workflow-timeout 1800 "
+        f"--max-parallelism 3 --experiment metaflow_test --tag test_t1 "
+        f"--sys-tag test_sys_t1:sys_tag_value "
+        f"--tag {pytestconfig.getoption('pipeline_tag')} "
+    )
+    if pytestconfig.getoption("image"):
+        test_cmd += (
+            f"--no-s3-code-package --base-image {pytestconfig.getoption('image')}"
+        )
+
+    run_cmd_with_backoff_from_platform_errors(test_cmd, correct_return_code=0)
+
+    return
 
 
 def run_cmd_with_backoff_from_platform_errors(
