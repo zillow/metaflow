@@ -12,7 +12,7 @@ setup(
     author="Machine Learning Infrastructure Team at Netflix",
     author_email="help@metaflow.org",
     license="Apache License 2.0",
-    packages=find_packages(exclude=["metaflow_test", "kfp"]),
+    packages=find_packages(exclude=["metaflow_test"]),
     py_modules=["metaflow", "kfp"],
     package_data={"metaflow": ["tutorials/*/*"]},
     entry_points="""
