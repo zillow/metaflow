@@ -29,7 +29,7 @@ setup(
         "docstring-parser>=0.7.3,<1",
         "fire>=0.3.1,<1",
         "googleapis-common-protos>=1.6.0,<2",
-        "jsonschema>=3.0.1,<4",
+        "jsonschema>=4.19.2,<5",
         "kfp-pipeline-spec>=0.1.13,<0.2.0",
         "kfp-server-api>=1.1.2,<2.0.0",
         "kubernetes>=8.0.0,<25",
