@@ -1136,7 +1136,7 @@ class KubeflowPipelines(object):
                         aip_component.total_retries,
                         policy="Always",
                         backoff_duration=aip_component.minutes_between_retries,
-                        backoff_factor=kfp_component.retry_backoff_factor,
+                        backoff_factor=aip_component.retry_backoff_factor,
                     )
 
                 if preceding_kfp_component_op:
