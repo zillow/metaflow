@@ -16,17 +16,15 @@ from metaflow.metaflow_config import (
     AIP_MAX_RUN_CONCURRENCY,
 )
 from metaflow.package import MetaflowPackage
-from metaflow.plugins.aip.aip_udf_exit_handler import invoke_user_defined_exit_handler
-from metaflow.plugins.aws.step_functions.step_functions_cli import (
-    check_metadata_service_version,
-)
+from metaflow.plugins.aip.aip_decorator import AIPException
 from metaflow.plugins.aip.argo_utils import (
     run_id_to_url,
     run_id_to_metaflow_url,
     to_metaflow_run_id,
 )
-from metaflow.plugins.aip.aip_decorator import AIPException
-from metaflow.plugins.aip.aip_step_init import save_step_environment_variables
+from metaflow.plugins.aws.step_functions.step_functions_cli import (
+    check_metadata_service_version,
+)
 from metaflow.util import get_username
 
 
@@ -41,60 +39,8 @@ def cli():
 
 @cli.group(name="aip", help="Commands related to Workflow SDK.")
 @click.pass_obj
-def kubeflow_pipelines(obj):
+def aip(obj):
     pass
-
-
-@kubeflow_pipelines.command(
-    help="Internal step command to invoke user defined exit handler"
-)
-@click.option("--flow_name")
-@click.option("--status")
-@click.option("--run_id")
-@click.option("--env_variables_json")
-@click.option("--flow_parameters_json")
-@click.option("--metaflow_configs_json")
-@click.option("--retries")
-@click.pass_obj
-def user_defined_exit_handler(
-    obj,
-    flow_name: str,
-    status: str,
-    run_id: str,
-    env_variables_json: str,
-    flow_parameters_json: str,
-    metaflow_configs_json: str,
-    retries: int,
-):
-    # call user defined exit handler
-    invoke_user_defined_exit_handler(
-        obj.graph,
-        flow_name,
-        status,
-        run_id,
-        env_variables_json,
-        flow_parameters_json,
-        metaflow_configs_json,
-        retries,
-    )
-
-
-@kubeflow_pipelines.command(help="Internal step command to initialize parent taskIds")
-@click.option("--run-id")
-@click.option("--step_name")
-@click.option("--passed_in_split_indexes")
-@click.option("--task_id")
-@click.pass_obj
-def step_init(obj, run_id, step_name, passed_in_split_indexes, task_id):
-    save_step_environment_variables(
-        obj.flow_datastore,
-        obj.graph,
-        run_id,
-        step_name,
-        passed_in_split_indexes,
-        task_id,
-        obj.logger,
-    )
 
 
 def common_create_run_options(default_yaml_kind: str):
@@ -257,6 +203,15 @@ def common_create_run_options(default_yaml_kind: str):
             "If not set, the default iam role associated with the pod will be used",
             show_default=True,
         )
+        @click.option(
+            "--scalene-profiling", "scalene_profiling", is_flag=True, default=False
+        )
+        @click.option(
+            "--scalene-options",
+            "scalene_options",
+            default="--profile-all --html --no-browser --outfile /tmp/outputs/scalene/profile.html",
+            show_default=True,
+        )
         @functools.wraps(func)
         def wrapper_common_options(*args, **kwargs):
             return func(*args, **kwargs)
@@ -293,7 +248,7 @@ def common_wait_options(func):
 
 
 @parameters.add_custom_parameters(deploy_mode=True)
-@kubeflow_pipelines.command(help="Submit this flow to run in the cluster.")
+@aip.command(help="Submit this flow to run in the cluster.")
 @common_create_run_options(default_yaml_kind="Workflow")
 @common_wait_options
 @click.pass_obj
@@ -318,6 +273,8 @@ def run(
     notify_on_success=None,
     sqs_url_on_error=None,
     sqs_role_arn_on_error=None,
+    scalene_profiling=False,
+    scalene_options=None,
     argo_wait=False,
     wait_for_completion_timeout=None,
     **kwargs,
@@ -350,6 +307,8 @@ def run(
         notify_on_success=notify_on_success,
         sqs_url_on_error=sqs_url_on_error,
         sqs_role_arn_on_error=sqs_role_arn_on_error,
+        scalene_profiling=scalene_profiling,
+        scalene_options=scalene_options,
     )
 
     if yaml_only:
@@ -459,7 +418,7 @@ def _argo_wait(
 
 
 @parameters.add_custom_parameters(deploy_mode=True)
-@kubeflow_pipelines.command(help="Deploy a new version of this flow to the cluster.")
+@aip.command(help="Deploy a new version of this flow to the cluster.")
 @common_create_run_options(default_yaml_kind="WorkflowTemplate")
 @click.option(
     "--recurring-run-enable/--no-recurring-run-enable",
@@ -508,6 +467,8 @@ def create(
     notify_on_success=None,
     sqs_url_on_error=None,
     sqs_role_arn_on_error=None,
+    scalene_profiling=False,
+    scalene_options=None,
     recurring_run_enable=None,
     recurring_run_cron=None,
     recurring_run_concurrency=None,
@@ -544,6 +505,8 @@ def create(
         notify_on_success=notify_on_success,
         sqs_url_on_error=sqs_url_on_error,
         sqs_role_arn_on_error=sqs_role_arn_on_error,
+        scalene_profiling=scalene_profiling,
+        scalene_options=scalene_options,
     )
 
     if yaml_only:
@@ -567,7 +530,7 @@ def create(
 
 
 @parameters.add_custom_parameters(deploy_mode=False)
-@kubeflow_pipelines.command(help="Trigger the workflow on Argo Workflows.")
+@aip.command(help="Trigger the workflow on Argo Workflows.")
 @click.option(
     "--name",
     "name",
@@ -664,6 +627,8 @@ def make_flow(
     notify_on_success,
     sqs_url_on_error,
     sqs_role_arn_on_error,
+    scalene_profiling,
+    scalene_options,
 ):
     """
     Analogous to step_functions_cli.py
@@ -720,4 +685,6 @@ def make_flow(
         notify_on_success=notify_on_success,
         sqs_url_on_error=sqs_url_on_error,
         sqs_role_arn_on_error=sqs_role_arn_on_error,
+        scalene_profiling=scalene_profiling,
+        scalene_options=scalene_options,
     )

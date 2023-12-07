@@ -110,6 +110,7 @@ class MetaflowEnvironment(object):
     ):
         mflog_bash_cmd = BASH_MFLOG if not is_aip_plugin else BASH_MFLOG_AIP
         cmds = [
+            "set -x",
             mflog_bash_cmd,
             "mflog 'Setting up task environment.'",
             "%s -m pip install requests boto3 -qqq" % self._python(),

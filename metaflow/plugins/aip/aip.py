@@ -172,6 +172,8 @@ class KubeflowPipelines(object):
         notify_on_success=None,
         sqs_url_on_error=None,
         sqs_role_arn_on_error=None,
+        scalene_profiling=False,
+        scalene_options=None,
         **kwargs,
     ):
         """
@@ -203,6 +205,8 @@ class KubeflowPipelines(object):
         self.notify_on_success = notify_on_success
         self.sqs_url_on_error = sqs_url_on_error
         self.sqs_role_arn_on_error = sqs_role_arn_on_error
+        self.scalene_profiling = scalene_profiling
+        self.scalene_options = scalene_options
         self._client = None
         self._exit_handler_created = False
 
@@ -1116,6 +1120,7 @@ class KubeflowPipelines(object):
                 # Disable caching because Metaflow doesn't have memoization
                 op.execution_options.caching_strategy.max_cache_staleness = "P0D"
                 env_vars = {
+                    "NODE_IP": "status.hostIP",
                     "MF_POD_NAME": "metadata.name",
                     "MF_POD_NAMESPACE": "metadata.namespace",
                     "MF_ARGO_NODE_NAME": "metadata.annotations['workflows.argoproj.io/node-name']",
@@ -1454,8 +1459,9 @@ class KubeflowPipelines(object):
         # double json.dumps() to ensure we have the correct quotation marks
         # on the outside of the string to be passed as a command line environment
         # and still be a valid JSON string when loaded by the Python module.
+        script_name = os.path.basename(sys.argv[0])
         metaflow_execution_cmd: str = (
-            " && python -m metaflow.plugins.aip.aip_metaflow_step"
+            " && pip install ddtrace " + f" && python {script_name} aip-internal step "
             f' --volume_dir "{step_variables.volume_dir}"'
             f" --environment {flow_variables.environment}"
             f" --event_logger {flow_variables.event_logger}"
@@ -1466,7 +1472,7 @@ class KubeflowPipelines(object):
             f' --passed_in_split_indexes "{passed_in_split_indexes}"'
             f" --preceding_component_inputs_json {json.dumps(json.dumps(preceding_component_inputs))}"
             f" --preceding_component_outputs_json {json.dumps(json.dumps(aip_component.preceding_component_outputs))}"
-            f" --script_name {os.path.basename(sys.argv[0])}"
+            f" --script_name {script_name}"
             f" --step_name {step_variables.step_name}"
             f" --tags_json {json.dumps(json.dumps(flow_variables.tags))}"
             f" --sys_tags_json {json.dumps(json.dumps(flow_variables.sys_tags))}"
@@ -1478,6 +1484,11 @@ class KubeflowPipelines(object):
                 else " --not-interruptible "
             )
             + " --workflow_name {{workflow.name}}"
+            + (
+                f' --scalene-profiling --scalene-options "{self.scalene_options}"'
+                if self.scalene_profiling  # and step_variables.step_name == "join"
+                else ""
+            )
         )
 
         if node.name == "start":
@@ -1518,6 +1529,9 @@ class KubeflowPipelines(object):
         file_outputs: Dict[str, str] = {
             "cards_default": "/tmp/outputs/cards/default_card.html",
         }
+        if self.scalene_profiling:
+            file_outputs["scalene"] = "/tmp/outputs/scalene/"
+
         if node.type == "foreach":
             file_outputs["foreach_splits"] = "/tmp/outputs/foreach_splits/data"
         for preceding_component_input in preceding_component_inputs:
@@ -1532,6 +1546,15 @@ class KubeflowPipelines(object):
             artifact_argument_paths=artifact_argument_paths,
             file_outputs=file_outputs,
         ).set_display_name(node.name)
+
+        # add all metaflow_configs as env vars
+        for key, value in metaflow_configs.items():
+            container_op.container.add_env_variable(
+                V1EnvVar(
+                    name=key,
+                    value=value,
+                )
+            )
         return container_op
 
     def _create_workflow_uid_op(
@@ -1801,7 +1824,7 @@ class KubeflowPipelines(object):
             "-ec",
             (
                 f"{package_commands}"
-                f" && METAFLOW_USER=aip-user python {os.path.basename(sys.argv[0])} {top_level} aip user-defined-exit-handler"
+                f" && METAFLOW_USER=aip-user python {os.path.basename(sys.argv[0])} {top_level} aip-internal user-defined-exit-handler"
                 f" --flow_name {self.name}"
                 " --run_id {{workflow.name}}"
                 f" --env_variables_json {json.dumps(json.dumps(env_variables))}"

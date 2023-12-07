@@ -5,7 +5,6 @@ import pathlib
 from subprocess import Popen
 from typing import Dict, List
 
-from metaflow._vendor import click
 from metaflow.mflog import (
     BASH_SAVE_LOGS,
     bash_capture_logs,
@@ -63,6 +62,7 @@ def _get_cards_cli(
 
 
 def _step_cli(
+    flow_name: str,
     step_name: str,
     task_id: str,
     run_id: str,
@@ -76,12 +76,14 @@ def _step_cli(
     max_user_code_retries: int,
     workflow_name: str,
     script_name: str,
+    scalene_profiling: bool,
+    scalene_options: str,
 ) -> str:
     """
     Analogous to step_functions.py
     This returns the command line to run the internal Metaflow step click entrypiont.
     """
-    cmds: List[str] = []
+    cmds: List[str] = ["set -x"]
 
     executable: str = "python3" if R.use_r() else "python"
 
@@ -159,7 +161,7 @@ def _step_cli(
             entrypoint
             + top_level
             + [
-                "aip step-init",
+                "aip-internal step-init",
                 "--run-id %s" % run_id,
                 "--step_name %s" % step_name,
                 '--passed_in_split_indexes "{passed_in_split_indexes}"',
@@ -195,6 +197,19 @@ def _step_cli(
     if namespace:
         step.append("--namespace %s" % namespace)
 
+    if scalene_profiling:
+        entrypoint = [
+            f"memray3.9 run --aggregate --follow-fork -o /tmp/outputs/scalene/output.bin",
+            script_name,
+        ]
+        entrypoint = [
+            "DD_PROFILING_ENABLED=true",
+            "DD_ENV=dev",
+            f"DD_SERVICE={flow_name}:{step_name}",
+            "DD_VERSION=1.0.3",
+            "ddtrace-run python",
+            script_name,
+        ]
     cmds.append(" ".join(entrypoint + top_level + step))
     step_cli_string = " && ".join(cmds)
     return step_cli_string
@@ -258,30 +273,6 @@ def _command(
     return cmd_str
 
 
-@click.command()
-@click.option("--volume_dir")
-@click.option("--environment")
-@click.option("--is_foreach_step/--not_foreach_step", default=False)
-@click.option("--flow_name")
-@click.option("--flow_parameters_json", required=False, default="")
-@click.option("--event_logger")
-@click.option("--metaflow_configs_json")
-@click.option("--metaflow_run_id")
-@click.option("--monitor")
-@click.option("--namespace", required=False, default="")
-@click.option("--is_split_index/--no-need_split_index", default=False)
-@click.option("--passed_in_split_indexes")
-@click.option("--preceding_component_inputs_json")
-@click.option("--preceding_component_outputs_json")
-@click.option("--preceding_component_outputs_dict")
-@click.option("--script_name")
-@click.option("--step_name")
-@click.option("--tags_json")
-@click.option("--sys_tags_json")
-@click.option("--task_id")
-@click.option("--user_code_retries", type=int)
-@click.option("--workflow_name")
-@click.option("--is-interruptible/--not-interruptible", default=False)
 def aip_metaflow_step(
     volume_dir: str,
     environment: str,
@@ -306,6 +297,8 @@ def aip_metaflow_step(
     user_code_retries: int,
     workflow_name: str,
     is_interruptible: bool,
+    scalene_profiling: bool,
+    scalene_options: str,
 ) -> None:
     """
     (1) Renders and runs the Metaflow package_commands and Metaflow step
@@ -324,6 +317,7 @@ def aip_metaflow_step(
         volume_dir = None
 
     step_cli: str = _step_cli(
+        flow_name,
         step_name,
         task_id,
         metaflow_run_id,
@@ -337,6 +331,8 @@ def aip_metaflow_step(
         user_code_retries,
         workflow_name,
         script_name,
+        scalene_profiling,
+        scalene_options,
     )
 
     # expose passed KFP passed in arguments as environment variables to
@@ -373,11 +369,13 @@ def aip_metaflow_step(
     ):
         metaflow_configs_new["METAFLOW_USER"] = "aip-user"
 
+    print(f"{os.environ.get('NODE_IP')=}")
     env: Dict[str, str] = {
         **os.environ,
         **metaflow_configs_new,
         "PRECEDING_COMPONENT_INPUTS": json.dumps(preceding_component_inputs),
         "PRECEDING_COMPONENT_OUTPUTS": json.dumps(preceding_component_outputs),
+        "DD_AGENT_HOST": os.environ.get("NODE_IP"),
         **preceding_component_outputs_env,
     }
     if flow_parameters_json is not None:
@@ -386,6 +384,7 @@ def aip_metaflow_step(
     # TODO: Map username to KFP specific user/profile/namespace
     # Running Metaflow
     # KFP orchestrator -> running MF runtime (runs user code, handles state)
+    pathlib.Path("/tmp/outputs/scalene/").mkdir(parents=True, exist_ok=True)
     with Popen(
         cmd, shell=True, universal_newlines=True, executable="/bin/bash", env=env
     ) as process:
@@ -456,7 +455,3 @@ def aip_metaflow_step(
         logging.info(cmd.replace(" && ", "\n"))
         logging.info("----")
         raise Exception("Returned: %s" % process.returncode)
-
-
-if __name__ == "__main__":
-    aip_metaflow_step()
