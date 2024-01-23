@@ -22,6 +22,7 @@ variables:
   DEPLOY_SANDBOX: "false"
   PUBLISH: "true"
   CI_TRACE_DEBUG: "true"
+  NAMESPACE_PREFIX: "metaflow-integration-testing"
 
 stages:
   - build
