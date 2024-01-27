@@ -55,10 +55,12 @@ stages:
     - export IMAGE_REPOSITORY_TAG_AIP_STEP=$( cat ${IMAGE_REPOSITORY_TAG_PATH_AIP_STEP} )
     - !reference [.kubernetes_environment, before_script]
   script:
+    - env
     - docker run
         --rm
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube
-        -v ${SHARED_PATH}/public:/home/zservice/public  
+        -v ${SHARED_PATH}/public:/home/zservice/public
+        -v ${SHARED_PATH}/.aws:/home/zservice/.aws
         -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID 
         -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY 
         -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN 
@@ -106,14 +108,18 @@ build:docker:
       }
 
     - |
-      export IMAGE_REPOSITORY_TAG=${DOCKER_REPO_URL}/${CI_PROJECT_NAMESPACE}/${PY_LIBRARY_NAME}:${IMAGE_TAG}
-      build_image $IMAGE_REPOSITORY_TAG $IMAGE_REPOSITORY_TAG_PATH
+      # export IMAGE_REPOSITORY_TAG=${DOCKER_REPO_URL}/${CI_PROJECT_NAMESPACE}/${PY_LIBRARY_NAME}:${IMAGE_TAG}
+      export IMAGE_REPOSITORY_TAG=analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/sdks/zillow-metaflow:2.0.2548
+      # build_image $IMAGE_REPOSITORY_TAG $IMAGE_REPOSITORY_TAG_PATH
+      echo $IMAGE_REPOSITORY_TAG > $IMAGE_REPOSITORY_TAG_PATH
 
     # Create another image specifically to test aip_flow.py, this sets the image name within the built image
     # such that the test can assert that for specific steps it is using this overridden image
     - |
-      export IMAGE_REPOSITORY_TAG_AIP_STEP=${DOCKER_REPO_URL}/${CI_PROJECT_NAMESPACE}/${PY_LIBRARY_NAME}:${IMAGE_TAG}_aip_step
-      build_image $IMAGE_REPOSITORY_TAG_AIP_STEP $IMAGE_REPOSITORY_TAG_PATH_AIP_STEP
+      # export IMAGE_REPOSITORY_TAG_AIP_STEP=${DOCKER_REPO_URL}/${CI_PROJECT_NAMESPACE}/${PY_LIBRARY_NAME}:${IMAGE_TAG}_aip_step
+      export IMAGE_REPOSITORY_TAG_AIP_STEP=analytics-docker.artifactory.zgtools.net/analytics/artificial-intelligence/ai-platform/sdks/zillow-metaflow:2.0.2548_aip_step
+      # build_image $IMAGE_REPOSITORY_TAG_AIP_STEP $IMAGE_REPOSITORY_TAG_PATH_AIP_STEP
+      echo $IMAGE_REPOSITORY_TAG_AIP_STEP > $IMAGE_REPOSITORY_TAG_PATH_AIP_STEP
   artifacts:
     paths:
       - ${IMAGE_REPOSITORY_TAG_PATH}
