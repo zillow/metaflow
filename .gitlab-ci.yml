@@ -1,6 +1,7 @@
 include:
   - project: 'analytics/artificial-intelligence/ai-platform/aip-infrastructure/ci-templates/ci-cd-template'
-    ref: &include_ref 'v4'
+#    ref: &include_ref 'v4'
+    ref: &include_ref 'v4.0.3075'
 #    ref: &include_ref '4e25c7200369aec17fcf8de723db360a7726151a'
     file: 'environments/devex.yml'
   - project: 'analytics/artificial-intelligence/ai-platform/aip-infrastructure/ci-templates/ci-cd-template'
@@ -125,28 +126,28 @@ build:docker:
       - ${IMAGE_REPOSITORY_TAG_PATH}
       - ${IMAGE_REPOSITORY_TAG_PATH_AIP_STEP}
 
-build:publish:
-  extends: .aip_python_debian_image
-  stage: build
-  script:
-  - *version
-  # Now write back the zillow-metaflow version back to the original location we found the original so
-  # python package managers can reference it as they need the version stored internally.
-  - sed -i "s/\(version = ['\"]\)[^'\"]*\(['\"]\)/\1${PY_LIBRARY_VERSION}\2/" $METAFLOW_VERSION_PATH
-  - python setup.py sdist
-  # Set up the configuration for Artifactory to publish the python package internally.
-  - |
-    cat >~/.pypirc <<EOL
-    [distutils]
-    index-servers = local
-    [local]
-    repository: ${ANALYTICS_PYPI_REPOSITORY}
-    username: ${PYPI_USERNAME}
-    password: ${PYPI_PASSWORD}
-    EOL
-  - python setup.py sdist upload --repository "${ANALYTICS_PYPI_REPOSITORY}"
-  rules:
-    - if: '$PUBLISH == "true"'
+#build:publish:
+#  extends: .aip_python_debian_image
+#  stage: build
+#  script:
+#  - *version
+#  # Now write back the zillow-metaflow version back to the original location we found the original so
+#  # python package managers can reference it as they need the version stored internally.
+#  - sed -i "s/\(version = ['\"]\)[^'\"]*\(['\"]\)/\1${PY_LIBRARY_VERSION}\2/" $METAFLOW_VERSION_PATH
+#  - python setup.py sdist
+#  # Set up the configuration for Artifactory to publish the python package internally.
+#  - |
+#    cat >~/.pypirc <<EOL
+#    [distutils]
+#    index-servers = local
+#    [local]
+#    repository: ${ANALYTICS_PYPI_REPOSITORY}
+#    username: ${PYPI_USERNAME}
+#    password: ${PYPI_PASSWORD}
+#    EOL
+#  - python setup.py sdist upload --repository "${ANALYTICS_PYPI_REPOSITORY}"
+#  rules:
+#    - if: '$PUBLISH == "true"'
 
 test:sandbox:
   extends: 
