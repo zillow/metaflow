@@ -1,7 +1,7 @@
 include:
   - project: 'analytics/artificial-intelligence/ai-platform/aip-infrastructure/ci-templates/ci-cd-template'
 #    ref: &include_ref 'v4'
-    ref: &include_ref 'v4.0.3075'
+    ref: &include_ref 'tz/cicd-fix-wfsdk'
 #    ref: &include_ref '4e25c7200369aec17fcf8de723db360a7726151a'
     file: 'environments/devex.yml'
   - project: 'analytics/artificial-intelligence/ai-platform/aip-infrastructure/ci-templates/ci-cd-template'
@@ -57,6 +57,10 @@ stages:
     - !reference [.kubernetes_environment, before_script]
   script:
     - env
+    - |
+      echo "SHARED_PATH=${SHARED_PATH}"
+      echo "WORKING_DIR=${WORKING_DIR}"
+      echo "CI_PROJECT_PATH=${CI_PROJECT_PATH}"
     - docker run
         --rm
         -v ${SHARED_PATH}/.kube:/home/zservice/.kube
