@@ -1062,8 +1062,9 @@ class KubeflowPipelines(object):
         # the Zodiac service and team labels are added to the AIP pods and set. These labels are not added
         # by the AIP webhook to support user-supplied Zodiac service per AIP Notebook. Workflows launched
         # in project CICD profiles will still have these labels added via the AIP webhook.
-        if ZILLOW_ZODIAC_SERVICE and ZILLOW_ZODIAC_TEAM:
+        if ZILLOW_ZODIAC_SERVICE:
             ret_flow_labels[f"{zodiac_prefix}/service"] = ZILLOW_ZODIAC_SERVICE
+        if ZILLOW_ZODIAC_TEAM:
             ret_flow_labels[f"{zodiac_prefix}/team"] = ZILLOW_ZODIAC_TEAM
 
         ret_flow_labels[f"{zodiac_prefix}/product"] = "batch"
@@ -1098,7 +1099,7 @@ class KubeflowPipelines(object):
                 "tags.ledger.zgtools.net/ai-experiment-name", self.experiment
             )
 
-        if ZILLOW_ZODIAC_SERVICE and ZILLOW_ZODIAC_TEAM:
+        if ZILLOW_ZODIAC_SERVICE:
             # Add a logging topic annotation specific to the Zodiac service.
             # This is done to support user-supplied Zodiac service per AIP Notebook.
             # Please see comments on how and why ZILLOW_ZODIAC_SERVICE label for more.
