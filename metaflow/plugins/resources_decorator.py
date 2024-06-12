@@ -95,4 +95,6 @@ class ResourcesDecorator(StepDecorator):
         "volume_type": None,
         # Deprecated - kept only to show a meaningful error message
         "local_storage": None,
+        "nfs_path": None,
+        "nfs_server": None,
     }

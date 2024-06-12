@@ -19,6 +19,7 @@ from kubernetes.client import (
     V1EnvVar,
     V1EnvVarSource,
     V1EmptyDirVolumeSource,
+    V1NFSVolumeSource,
     V1NodeAffinity,
     V1NodeSelector,
     V1NodeSelectorRequirement,
@@ -344,11 +345,11 @@ class KubeflowPipelines(object):
         resource_requirements = {}
         for deco in node.decorators:
             if isinstance(deco, ResourcesDecorator):
-                if deco.attributes.get("local_storage") is not None:
-                    raise ValueError(  # Not using DeprecationWarning to hard block the run before triggering.
-                        "`local_storage` option is deprecated over cluster stability concerns. "
-                        "Please use `volume` for storage request."
-                    )
+                # if deco.attributes.get("local_storage") is not None:
+                #     raise ValueError(  # Not using DeprecationWarning to hard block the run before triggering.
+                #         "`local_storage` option is deprecated over cluster stability concerns. "
+                #         "Please use `volume` for storage request."
+                #     )
 
                 for attr_key, attr_value in deco.attributes.items():
                     if attr_value is not None:
@@ -589,6 +590,14 @@ class KubeflowPipelines(object):
                 resource_requirements["gpu"],
                 vendor=gpu_vendor if gpu_vendor else "nvidia",
             )
+        if "local_storage" in resource_requirements:
+            # TODO(talebz): remove, as this is for RMX EFS persisted GPU training
+            container_op.container.set_ephemeral_storage_request(
+                resource_requirements["local_storage"]
+            )
+            container_op.container.set_ephemeral_storage_limit(
+                resource_requirements["local_storage"]
+            )
 
         if "shared_memory" in resource_requirements:
             memory_volume = PipelineVolume(
@@ -604,6 +613,22 @@ class KubeflowPipelines(object):
                 )
             )
             container_op.add_pvolumes({"dev/shm": memory_volume})
+
+        if "nfs_server" in resource_requirements:
+            nfs_volume = PipelineVolume(
+                volume=V1Volume(
+                    # k8s volume name must consist of lower case alphanumeric characters or '-',
+                    # and must start and end with an alphanumeric character,
+                    # but step name is python function name that tends to be alphanumeric chars with '_'
+                    name=f"{kfp_component.step_name.lower().replace('_', '-')}-nfs",
+                    nfs=V1NFSVolumeSource(
+                        read_only=True,
+                        path=resource_requirements["nfs_path"],
+                        server=resource_requirements["nfs_server"],
+                    ),
+                )
+            )
+            container_op.add_pvolumes({"/mnt/nfs": nfs_volume})
 
         affinity_match_expressions: List[V1NodeSelectorRequirement] = []
 
@@ -769,6 +794,9 @@ class KubeflowPipelines(object):
                     f"Tag name {annotation_name} must be no more than 63 characters"
                 )
             container_op.add_pod_annotation(annotation_name, annotation_value)
+
+        # TODO(talebz): remove, as this is for RMX EFS persisted GPU training
+        container_op.add_pod_label("aip.zillowgroup.net/performance", "efs_test")
 
         # tags.ledger.zgtools.net/* pod labels required for the ZGCP Costs Ledger
         container_op.add_pod_label("tags.ledger.zgtools.net/ai-flow-name", self.name)
