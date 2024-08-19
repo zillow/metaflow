@@ -116,7 +116,8 @@ from .cards.card_decorator import CardDecorator
 from .frameworks.pytorch import PytorchParallelDecorator
 from .aip.aip_decorator import AIPInternalDecorator
 from .aip.accelerator_decorator import AcceleratorDecorator
-from .aip.interruptible_decorator import interruptibleDecorator
+from .aip.interruptible_decorator import InterruptibleDecorator
+from .aip.skip_decorator import SkipDecorator
 
 
 STEP_DECORATORS = [
@@ -134,8 +135,9 @@ STEP_DECORATORS = [
     PytorchParallelDecorator,
     InternalTestUnboundedForeachDecorator,
     AcceleratorDecorator,
-    interruptibleDecorator,
+    InterruptibleDecorator,
     AIPInternalDecorator,
+    SkipDecorator,
 ]
 _merge_lists(STEP_DECORATORS, _ext_plugins["STEP_DECORATORS"], "name")
 
@@ -159,6 +161,7 @@ from .conda.conda_flow_decorator import CondaFlowDecorator
 from .aws.step_functions.schedule_decorator import ScheduleDecorator
 from .project_decorator import ProjectDecorator
 from .aip.s3_sensor_decorator import S3SensorDecorator
+
 from .aip.exit_handler_decorator import ExitHandlerDecorator
 
 FLOW_DECORATORS = [

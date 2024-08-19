@@ -58,7 +58,7 @@ from metaflow.plugins.aip.aip_constants import (
 from metaflow.plugins.aip.aip_decorator import AIPException
 from .accelerator_decorator import AcceleratorDecorator
 from .argo_client import ArgoClient
-from .interruptible_decorator import interruptibleDecorator
+from .interruptible_decorator import InterruptibleDecorator
 from .aip_foreach_splits import graph_to_task_ids
 from ..aws.batch.batch_decorator import BatchDecorator
 from ..aws.step_functions.schedule_decorator import ScheduleDecorator
@@ -106,7 +106,7 @@ class AIPComponent(object):
         resource_requirements: Dict[str, str],
         aip_decorator: AIPInternalDecorator,
         accelerator_decorator: AcceleratorDecorator,
-        interruptible_decorator: interruptibleDecorator,
+        interruptible_decorator: InterruptibleDecorator,
         environment_decorator: EnvironmentDecorator,
         total_retries: int,
         minutes_between_retries: str,
@@ -741,7 +741,7 @@ class KubeflowPipelines(object):
                     (
                         deco
                         for deco in node.decorators
-                        if isinstance(deco, interruptibleDecorator)
+                        if isinstance(deco, InterruptibleDecorator)
                     ),
                     None,  # default
                 ),

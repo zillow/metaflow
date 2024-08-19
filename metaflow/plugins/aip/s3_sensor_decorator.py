@@ -1,5 +1,4 @@
 from types import FunctionType
-from typing import Tuple
 from urllib.parse import urlparse
 
 from metaflow.decorators import FlowDecorator
