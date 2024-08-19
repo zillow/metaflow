@@ -18,13 +18,14 @@ class SkipFlow(FlowSpec):
         raise Exception(
             "Unexpectedly ran the skipped_step step. This step should have been skipped."
         )
-        self.next(self.unreachable)
+        self.next(self.unreachable_step)
 
-    def unreachable(self):
+    @step
+    def unreachable_step(self):
         raise Exception(
             "Unexpectedly ran the unreachable step. This step should have been skipped."
         )
-        self.next(self.end)
+        self.next(self.desired_step)
 
     @skip(check="condition_false", next="end")
     @step
