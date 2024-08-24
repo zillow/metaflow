@@ -1,15 +1,20 @@
+import importlib.util
+import inspect
 import os
+import sys
 from tempfile import TemporaryDirectory
+import yaml
 
 import pytest
 import subprocess_tee
 
 from . import _python, obtain_flow_file_paths
-
+from metaflow import FlowSpec
 
 disabled_test_flows = [
     "aip_flow.py",  # kfp_preceding_component feature has been deprecated.
 ]
+sys.path.append("flows")
 
 
 @pytest.mark.parametrize(
@@ -52,6 +57,11 @@ def test_argo_flows(pytestconfig, flow_file_path: str) -> None:
                 validation_cmd = f"argo lint {output_path}"
             else:
                 validation_cmd = f"argo template lint {output_path}"
+                assert_workflow_template_contains_all_parameters(
+                    flow_base_name=flow_base_name,
+                    flow_path=full_path,
+                    workflow_template_path=output_path,
+                )
 
             assert (
                 subprocess_tee.run(
@@ -61,3 +71,31 @@ def test_argo_flows(pytestconfig, flow_file_path: str) -> None:
                 ).returncode
                 == 0
             )
+
+
+def assert_workflow_template_contains_all_parameters(
+    flow_base_name: str, flow_path: str, workflow_template_path: str
+) -> None:
+    spec = importlib.util.spec_from_file_location(flow_base_name, flow_path)
+    module = importlib.util.module_from_spec(spec)
+    flow = None
+    for name in dir(module):
+        var = getattr(module, name)
+        if inspect.isclass(var) and issubclass(var, FlowSpec) and var != FlowSpec:
+            flow = var  # Found valid flow class
+    assert flow is not None
+    flow_parameters = [
+        param
+        for param in dir(flow)
+        if not param.startswith("_") and not callable(getattr(flow, param))
+    ]
+    if not flow_parameters:
+        # No parameters found. Skipping.
+        return
+
+    with open(workflow_template_path) as workflow_template_file:
+        workflow_output = yaml.safe_load(workflow_template_file)
+        output_params = workflow_output["spec"]["arguments"].get("parameters")
+
+        for param in flow_parameters:
+            assert param in output_params

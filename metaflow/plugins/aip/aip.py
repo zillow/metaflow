@@ -300,6 +300,16 @@ class KubeflowPipelines(object):
 
             # Service account is added through webhooks.
             workflow["spec"].pop("serviceAccountName", None)
+
+            # Parameters with no defaults need to be added to WorkflowTemplates.
+            # This allows the parameters to be supplied by Workflow that reference the WorkflowTemplate.
+            workflow["spec"]["arguments"]["parameters"].extend(
+                [
+                    dict(name=param)
+                    for param in self.flow._get_parameters()
+                    if param not in flow_parameters
+                ]
+            )
         else:
             raise NotImplementedError(f"Unsupported output format {kind}.")
 
