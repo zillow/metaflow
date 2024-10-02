@@ -303,11 +303,17 @@ class KubeflowPipelines(object):
 
             # Parameters with no defaults need to be added to WorkflowTemplates.
             # This allows the parameters to be supplied by Workflow that reference the WorkflowTemplate.
+            if "arguments" in workflow["spec"]:
+                parameters = workflow["spec"]["arguments"].get("parameters", {})
+            else:
+                parameters = {}
+                workflow["spec"]["arguments"] = {"parameters": parameters}
+
             workflow["spec"]["arguments"]["parameters"].extend(
                 [
-                    dict(name=param)
+                    {"name": param}
                     for param in self.flow._get_parameters()
-                    if param not in flow_parameters
+                    if param not in parameters
                 ]
             )
         else:
