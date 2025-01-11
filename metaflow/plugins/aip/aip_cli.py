@@ -414,15 +414,14 @@ def run(
 
 
 def _get_flow_parameters(kwargs, obj) -> Dict[str, Any]:
+    # AIP-9061(talebz): Black lowercases kwargs parameter names, so we call lower()
     def _convert_value(param: parameters.Parameter):
-        # AIP-9061(talebz): Black lowercases kwargs parameter names
         v = kwargs.get(param.name.lower())
         return json.dumps(v) if param.kwargs.get("type") == JSONType else v
 
     flow_parameters = {
         param.name: _convert_value(param)
         for _, param in obj.flow._get_parameters()
-        # AIP-9061(talebz): Black lowercases kwargs parameter names
         if kwargs.get(param.name.lower()) is not None
     }
     return flow_parameters
