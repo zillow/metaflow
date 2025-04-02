@@ -26,6 +26,17 @@ class ArgoHelper:
         """
         self._client = ArgoClient(namespace=kubernetes_namespace)
 
+    def terminate_workflow(
+        self,
+        workflow_name: Optional[str] = None,
+        **kwarg,
+    ) -> Tuple[str, str]:
+        """
+        TODO: add description
+        """
+
+        pass
+
     def trigger_exact(
         self,
         template_name: Optional[str] = None,
