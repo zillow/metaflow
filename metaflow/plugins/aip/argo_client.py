@@ -142,6 +142,29 @@ class ArgoClient(object):
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
 
+    def patch_argo_object(self, name: str, plural: str, body: List):
+        
+        print(f"patching argo object:\n{self._group=}\n{self._version=}\n{self._namespace=}\n{plural=}\n{body=}")
+
+        # print("skipping the actual patching...")
+        client = self._client.get()
+        try:
+            return client.CustomObjectsApi().patch_namespaced_custom_object(
+                group=self._group,
+                version=self._version,
+                namespace=self._namespace,
+                plural=plural,
+                name=name,
+                body=body
+            )
+        except client.rest.ApiException as e:
+            if e.status == 404:
+                print("Workflow not found")
+                return None
+            raise ArgoClientException(
+                json.loads(e.body)["message"] if e.body is not None else e.reason
+            )
+    
     def delete_workflow_template(self, name: str):
         client = self._client.get()
         try:
