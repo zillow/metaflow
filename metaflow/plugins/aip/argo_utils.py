@@ -24,13 +24,10 @@ class ArgoHelper:
                 Required as the defaults provided in the ArgoClient is usually not what customers desire.
                 TODO: This namespace can be default to the current namespace if the script is ran within a cluster.
         """
-        logger.info(f"initiating ArgoHelper with {kubernetes_namespace=}")
+        logger.info(f"initiating ArgoHelper for Namespace: {kubernetes_namespace}")
         self._client = ArgoClient(namespace=kubernetes_namespace)
 
-    def stop_workflow(
-        self,
-        workflow_name: str,
-    ) -> None:
+    def stop_workflow(self, workflow_name: str) -> None:
         """
         Stop a workflow but still run exit handlers.
 
@@ -46,10 +43,7 @@ class ArgoHelper:
             body=body,
         )
 
-    def terminate_workflow(
-        self,
-        workflow_name: str,
-    ) -> None:
+    def terminate_workflow(self, workflow_name: str) -> None:
         """
         Immediately stop a workflow and do not run any exit handlers.
 
