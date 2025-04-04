@@ -35,7 +35,7 @@ class ArgoHelper:
         Stop a workflow but still run exit handlers.
 
         Args:
-            workflow_name: Name of the workflow to terminate.
+            workflow_name: Name of the workflow to stop.
         """
 
         logger.info(f"Stopping workflow: {workflow_name=}")
