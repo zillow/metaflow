@@ -8,7 +8,8 @@ from metaflow.metaflow_config import (
     METAFLOW_RUN_URL_PREFIX,
     KUBERNETES_NAMESPACE,
 )
-from metaflowTerm.metaflow.plugins.aip.argo_client import ArgoClient
+# from metaflowTerm.metaflow.plugins.aip.argo_client import ArgoClient  # this is for development on a notebook
+from metaflow.plugins.aip.argo_client import ArgoClient
 from metaflow.plugins.aip.aip_decorator import AIPException
 from metaflow.plugins.aip.aip_utils import _get_aip_logger
 
@@ -27,31 +28,21 @@ class ArgoHelper:
         print(f"initiating ArgoHelper with {kubernetes_namespace=}")
         self._client = ArgoClient(namespace=kubernetes_namespace)
 
-
     def terminate_workflow(
         self,
-        argo_run_id: str,
+        workflow_name: str,
     ) -> None:
         """
         TODO: add description
         """
 
-        print(f"terminating workflow with {argo_run_id=}")
-        run_status = self._client.get_workflow_run_status(argo_run_id)
-        print(f"got {run_status=}")
-
-        body = [{"op": "replace", "path": "/spec/exampleField", "value": "updatefield"}]
-
-        print(f"{argo_run_id=}")
-        print(f"{body=}")
-        
-        api_response = self._client.patch_argo_object(
-            name=argo_run_id,
+        logger.info(f"Terminating workflow: {workflow_name=}")
+        body = {"spec": {"shutdown": "Terminate"}}
+        self._client.patch_argo_object(
+            name=workflow_name,
             plural="workflows",
             body=body,
         )
-        print(f"{api_response=}")
-        
 
     def trigger_exact(
         self,

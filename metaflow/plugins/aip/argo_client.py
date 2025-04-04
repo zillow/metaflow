@@ -143,10 +143,6 @@ class ArgoClient(object):
             )
 
     def patch_argo_object(self, name: str, plural: str, body: List):
-        
-        print(f"patching argo object:\n{self._group=}\n{self._version=}\n{self._namespace=}\n{plural=}\n{body=}")
-
-        # print("skipping the actual patching...")
         client = self._client.get()
         try:
             return client.CustomObjectsApi().patch_namespaced_custom_object(
