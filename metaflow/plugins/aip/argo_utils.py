@@ -24,7 +24,7 @@ class ArgoHelper:
                 Required as the defaults provided in the ArgoClient is usually not what customers desire.
                 TODO: This namespace can be default to the current namespace if the script is ran within a cluster.
         """
-        print(f"initiating ArgoHelper with {kubernetes_namespace=}")
+        logger.info(f"initiating ArgoHelper with {kubernetes_namespace=}")
         self._client = ArgoClient(namespace=kubernetes_namespace)
 
     def stop_workflow(
