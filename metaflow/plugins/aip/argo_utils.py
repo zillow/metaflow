@@ -38,7 +38,7 @@ class ArgoHelper:
             workflow_name: Name of the workflow to terminate.
         """
 
-        logger.info(f"Terminating workflow: {workflow_name=}")
+        logger.info(f"Stopping workflow: {workflow_name=}")
         body = {"spec": {"shutdown": "Stop"}}
         self._client.patch_argo_object(
             name=workflow_name,
