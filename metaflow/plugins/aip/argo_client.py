@@ -154,9 +154,6 @@ class ArgoClient(object):
                 body=body,
             )
         except client.rest.ApiException as e:
-            if e.status == 404:
-                print("Workflow not found")
-                return None
             raise ArgoClientException(
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
