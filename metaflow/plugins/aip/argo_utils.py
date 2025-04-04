@@ -28,7 +28,8 @@ class ArgoHelper:
 
     def stop_workflow(self, workflow_name: str) -> None:
         """
-        Permanently and immediately stops workflow with status 'Failed'. 
+        Permanently stops workflow with status 'Failed'.
+        Currently running steps do NOT finish running.
         Exit handlers are allowed to run.
 
         Args:
@@ -45,7 +46,8 @@ class ArgoHelper:
 
     def terminate_workflow(self, workflow_name: str) -> None:
         """
-        Permanently and immediately stops workflow with status 'Failed'. 
+        Permanently stops workflow with status 'Failed'.
+        Currently running steps do NOT finish running.
         Exit handlers are NOT allowed to run.
 
         Args:
