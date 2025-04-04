@@ -8,8 +8,6 @@ from metaflow.metaflow_config import (
     METAFLOW_RUN_URL_PREFIX,
     KUBERNETES_NAMESPACE,
 )
-
-# from metaflowTerm.metaflow.plugins.aip.argo_client import ArgoClient  # this is for development on a notebook
 from metaflow.plugins.aip.argo_client import ArgoClient
 from metaflow.plugins.aip.aip_decorator import AIPException
 from metaflow.plugins.aip.aip_utils import _get_aip_logger
@@ -37,7 +35,7 @@ class ArgoHelper:
         Stop a workflow but still run exit handlers.
 
         Args:
-            workflow_name: Name of the workflow to terminate. 
+            workflow_name: Name of the workflow to terminate.
         """
 
         logger.info(f"Terminating workflow: {workflow_name=}")
@@ -56,7 +54,7 @@ class ArgoHelper:
         Immediately stop a workflow and do not run any exit handlers.
 
         Args:
-            workflow_name: Name of the workflow to terminate. 
+            workflow_name: Name of the workflow to terminate.
         """
 
         logger.info(f"Terminating workflow: {workflow_name=}")
