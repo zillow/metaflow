@@ -8,6 +8,7 @@ from metaflow.metaflow_config import (
     METAFLOW_RUN_URL_PREFIX,
     KUBERNETES_NAMESPACE,
 )
+
 # from metaflowTerm.metaflow.plugins.aip.argo_client import ArgoClient  # this is for development on a notebook
 from metaflow.plugins.aip.argo_client import ArgoClient
 from metaflow.plugins.aip.aip_decorator import AIPException

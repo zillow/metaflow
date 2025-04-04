@@ -151,7 +151,7 @@ class ArgoClient(object):
                 namespace=self._namespace,
                 plural=plural,
                 name=name,
-                body=body
+                body=body,
             )
         except client.rest.ApiException as e:
             if e.status == 404:
@@ -160,7 +160,7 @@ class ArgoClient(object):
             raise ArgoClientException(
                 json.loads(e.body)["message"] if e.body is not None else e.reason
             )
-    
+
     def delete_workflow_template(self, name: str):
         client = self._client.get()
         try:
