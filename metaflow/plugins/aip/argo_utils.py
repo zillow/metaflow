@@ -30,7 +30,9 @@ class ArgoHelper:
         """
         Permanently stops workflow with status 'Failed'.
         Currently running steps do NOT finish running.
-        Exit handlers are allowed to run.
+        Exit handlers are allowed to run. This includes the `notify-email-exit-handler`, which sends an email to the
+            address specified by notifyErrorEmail in the AIPEnvironment. The address provided is often OpsGenie, where
+            an email can raise an OpsGenie alert.
 
         Args:
             workflow_name: Name of the workflow to stop.
@@ -48,7 +50,9 @@ class ArgoHelper:
         """
         Permanently stops workflow with status 'Failed'.
         Currently running steps do NOT finish running.
-        Exit handlers are NOT allowed to run.
+        Exit handlers are NOT allowed to run. This includes the `notify-email-exit-handler`, which means no email will
+            be sent, even though the workflow 'Failed'. If your alerting setup depends on exit handler emails
+            (ex OpsGenie), you will not get alerted by a terminated workflow.
 
         Args:
             workflow_name: Name of the workflow to terminate.
