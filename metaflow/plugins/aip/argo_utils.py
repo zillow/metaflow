@@ -34,7 +34,7 @@ class ArgoHelper:
         workflow_name: str,
     ) -> None:
         """
-        Stops workflow immediately, but allows exit handlers to run. 
+        Stop a workflow but still run exit handlers.
 
         Args:
             workflow_name: Name of the workflow to terminate. 
@@ -53,7 +53,7 @@ class ArgoHelper:
         workflow_name: str,
     ) -> None:
         """
-        Terminates a workflow immediately. Exit handlers do not run. 
+        Immediately stop a workflow and do not run any exit handlers.
 
         Args:
             workflow_name: Name of the workflow to terminate. 
