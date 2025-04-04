@@ -29,12 +29,34 @@ class ArgoHelper:
         print(f"initiating ArgoHelper with {kubernetes_namespace=}")
         self._client = ArgoClient(namespace=kubernetes_namespace)
 
+    def stop_workflow(
+        self,
+        workflow_name: str,
+    ) -> None:
+        """
+        Stops workflow immediately, but allows exit handlers to run. 
+
+        Args:
+            workflow_name: Name of the workflow to terminate. 
+        """
+
+        logger.info(f"Terminating workflow: {workflow_name=}")
+        body = {"spec": {"shutdown": "Stop"}}
+        self._client.patch_argo_object(
+            name=workflow_name,
+            plural="workflows",
+            body=body,
+        )
+
     def terminate_workflow(
         self,
         workflow_name: str,
     ) -> None:
         """
-        TODO: add description
+        Terminates a workflow immediately. Exit handlers do not run. 
+
+        Args:
+            workflow_name: Name of the workflow to terminate. 
         """
 
         logger.info(f"Terminating workflow: {workflow_name=}")
