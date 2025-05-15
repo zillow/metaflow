@@ -349,6 +349,8 @@ class TaskDataStore(object):
         Iterator[(string, object)] :
             An iterator over objects retrieved.
         """
+        print(f"running load_artifacts() with {names=}")
+        
         if not self._info:
             raise DataException(
                 "Datastore for task '%s' does not have the required metadata to "
