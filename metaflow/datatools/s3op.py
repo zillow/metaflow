@@ -20,7 +20,6 @@ from boto3.exceptions import RetriesExceededError, S3UploadFailedError
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError, SSLError
 
-print("in s3op")
 
 try:
     # python2
@@ -1312,5 +1311,4 @@ def info(
 
 
 if __name__ == "__main__":
-    print("Running s3op with auto_envvar_prefix=S3OP")
     cli(auto_envvar_prefix="S3OP")
