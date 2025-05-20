@@ -191,7 +191,7 @@ if DEFAULT_CONTAINER_REGISTRY and DEFAULT_CONTAINER_IMAGE:
         f"{DEFAULT_CONTAINER_REGISTRY.rstrip('/')}/{DEFAULT_CONTAINER_IMAGE}"
     )
 else:
-    AIP_DEFAULT_CONTAINER_IMAGE = "ghcr.io/zillow/metaflow/metaflow-zillow:2.3"
+    AIP_DEFAULT_CONTAINER_IMAGE = "ghcr.io/zillow/metaflow/metaflow-zillow:2.2"
 AIP_TTL_SECONDS_AFTER_FINISHED = from_conf("AIP_TTL_SECONDS_AFTER_FINISHED", None)
 # Note: `ARGO_RUN_URL_PREFIX` is the URL prefix for ARGO runs on your ARGO cluster. The prefix includes
 # all parts of the URL except the run_id at the end which we append once the run is created.
