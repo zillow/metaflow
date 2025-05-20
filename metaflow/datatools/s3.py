@@ -21,6 +21,7 @@ from metaflow.metaflow_config import (
     S3_SERVER_SIDE_ENCRYPTION,
     S3_WORKER_COUNT,
     TEMPDIR,
+    from_conf,
 )
 from metaflow.util import (
     is_stringish,
