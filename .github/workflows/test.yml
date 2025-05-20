@@ -3,26 +3,22 @@ on:
   push:
     branches:
     - master
-    - feature/kfp
     - feature/aip
-    - feature/kfp-argo
   pull_request:
     branches:
     - master
-    - feature/kfp
     - feature/aip
-    - feature/kfp-argo
-    - tz/AIP-7418-remove-create
-    - tz/AIP-7773-argo-ftf
   workflow_call:
   
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-    - uses: pre-commit/action@v2.0.3
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.9' 
+    - uses: pre-commit/action@v3.0.1
 
   Python:
     name: core / Python ${{ matrix.ver }} on ${{ matrix.os }}
@@ -34,10 +30,10 @@ jobs:
         ver: ['3.9']
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3.0.1
       with:
         python-version: ${{ matrix.ver }}
 
