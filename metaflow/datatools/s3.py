@@ -520,7 +520,7 @@ class S3(object):
     @check_s3_deps
     def __init__(
         self,
-        tmproot: str = TEMPDIR,
+        tmproot: str = None,
         bucket: Optional[str] = None,
         prefix: Optional[str] = None,
         run: Optional[Union[FlowSpec, "metaflow.Run"]] = None,
@@ -528,6 +528,10 @@ class S3(object):
         encryption: Optional[str] = S3_SERVER_SIDE_ENCRYPTION,
         **kwargs
     ):
+        if tmproot is None:
+            artifact_localroot = from_conf("METAFLOW_ARTIFACT_LOCALROOT")
+            tmproot = artifact_localroot if artifact_localroot else TEMPDIR
+
         if run:
             # 1. use a (current) run ID with optional customizations
             if DATATOOLS_S3ROOT is None:
