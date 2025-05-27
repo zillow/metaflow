@@ -513,6 +513,7 @@ class S3(object):
             _, info_results = self._one_boto_op(_info, url, create_tmp_file=False)
         except MetaflowS3NotFound:
             if return_missing:
+                print(f"info() - SILENCING ERROR {MetaflowS3NotFound=}")
                 info_results = None
             else:
                 raise
@@ -558,6 +559,7 @@ class S3(object):
                         # We have an error, we check if it is a missing file
                         if info["error"] == s3op.ERROR_URL_NOT_FOUND:
                             if return_missing:
+                                print(f"info_many() - SILENCING ERROR {MetaflowS3NotFound=}")
                                 yield self._s3root, s3url, None
                             else:
                                 raise MetaflowS3NotFound()
@@ -616,6 +618,7 @@ class S3(object):
                     "metadata": resp["Metadata"],
                     "last_modified": get_timestamp(resp["LastModified"]),
                 }
+            print(f"no {return_info=}, yeiding None")
             return None
 
         addl_info = None
@@ -623,6 +626,7 @@ class S3(object):
             path, addl_info = self._one_boto_op(_download, url)
         except MetaflowS3NotFound:
             if return_missing:
+                print(f"get() - SILENCING ERROR {MetaflowS3NotFound=}")
                 path = None
             else:
                 raise
@@ -679,12 +683,14 @@ class S3(object):
                             "last_modified"
                         ]
                     else:
+                        print(f"yes {return_info=}, no {fname=}, yeiding None")
                         yield self._s3root, s3prefix, None
                 else:
                     if fname:
                         yield self._s3root, s3url, os.path.join(self._tmpdir, fname)
                     else:
                         # missing entries per return_missing=True
+                        print(f"no {return_info=}, no {fname=}, yeiding None")
                         yield self._s3root, s3prefix, None
 
         return list(starmap(S3Object, _get()))
@@ -809,6 +815,7 @@ class S3(object):
             try:
                 self._one_boto_op(_head, url, create_tmp_file=False)
             except MetaflowS3NotFound:
+                print(f"put() - SILENCING ERROR {MetaflowS3NotFound=}")
                 self._one_boto_op(_upload, url, create_tmp_file=False)
             finally:
                 real_close()
@@ -1045,6 +1052,7 @@ class S3(object):
                     )
                     return stdout, None
                 except subprocess.CalledProcessError as ex:
+                    print(f"_s3op_with_retries() SILENTLY FAILED - {ex=}")
                     stderr.seek(0)
                     err_out = stderr.read().decode("utf-8", errors="replace")
                     stderr.seek(0)
