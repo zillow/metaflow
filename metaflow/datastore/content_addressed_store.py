@@ -135,8 +135,9 @@ class ContentAddressedStore(object):
 
         print(f"running load_blobs(), with {load_paths=}")
         with self._storage_impl.load_bytes([p for _, p in load_paths]) as loaded:
-            print(f"running load_blobs(), with {loaded=}")
+            print("running load_blobs()...")
             for (path_key, file_path, meta) in loaded:
+                print(f"    loaded thing: {path_key=}, {file_path=}, {meta=}")
                 key = self._storage_impl.path_split(path_key)[-1]
                 # At this point, we either return the object as is (if raw) or
                 # decode it according to the encoding version
