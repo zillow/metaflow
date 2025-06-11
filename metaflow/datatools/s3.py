@@ -497,6 +497,7 @@ class S3(object):
             or not the file exists
         """
         url = self._url(key)
+        print(f"info() - got {url=} with {key=} using self._url()")
         src = urlparse(url)
 
         def _info(s3, tmp):
@@ -510,10 +511,12 @@ class S3(object):
 
         info_results = None
         try:
+            print(f"info() - trying self._one_boto_op() with {url=}")
             _, info_results = self._one_boto_op(_info, url, create_tmp_file=False)
-        except MetaflowS3NotFound:
+        except MetaflowS3NotFound as exception_metaflow_s3_not_found:
             if return_missing:
-                print(f"info() - SILENCING ERROR {MetaflowS3NotFound=}")
+                print(f"info() - SILENCING ERROR {exception_metaflow_s3_not_found=}")
+                print(exception_metaflow_s3_not_found)
                 info_results = None
             else:
                 raise
@@ -594,6 +597,7 @@ class S3(object):
             an S3Object corresponding to the object requested.
         """
         url, r = self._url_and_range(key)
+        print(f"get() - got {url=} and {r=} with {key=} using self._url_and_range()")
         src = urlparse(url)
 
         def _download(s3, tmp):
@@ -628,6 +632,7 @@ class S3(object):
 
         addl_info = None
         try:
+            print(f"get() - trying self._one_boto_op() with {url=}")
             path, addl_info = self._one_boto_op(_download, url)
         except MetaflowS3NotFound as exception_metaflow_s3_not_found:
             if return_missing:
@@ -939,6 +944,7 @@ class S3(object):
 
                 error_code = s3op.normalize_client_error(err)
                 if error_code == 404:
+                    print(f"_one_boto_op() - raising MetaflowS3NotFound with {url=}")
                     raise MetaflowS3NotFound(url)
                 elif error_code == 403:
                     raise MetaflowS3AccessDenied(url)
@@ -946,6 +952,7 @@ class S3(object):
                     raise MetaflowS3URLException("Specified S3 bucket doesn't exist.")
                 print(f"_one_boto_op() - {error_code=}, {err=}")
                 error = str(err)
+                print(f"_one_boto_op() - {error=}")
             except Exception as ex:
                 # TODO specific error message for out of disk space
                 error = str(ex)
@@ -955,6 +962,7 @@ class S3(object):
             self._s3_client.reset_client()
             # add some jitter to make sure retries are not synchronized
             time.sleep(2 ** i + random.randint(0, 10))
+        print(f"_one_boto_op() - raising MetaflowS3Exception with {url=}, {error=}")
         raise MetaflowS3Exception(
             "S3 operation failed.\n" "Key requested: %s\n" "Error: %s" % (url, error)
         )
