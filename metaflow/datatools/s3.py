@@ -612,21 +612,27 @@ class S3(object):
             else:
                 with open(tmp, mode="wb") as t:
                     read_in_chunks(t, resp["Body"], sz, DOWNLOAD_MAX_CHUNK)
+            
+            print("_download() - resp items")
+            for item in resp:
+                print(f"    {item=}, {resp[item]=}")
+
             if return_info:
                 return {
                     "content_type": resp["ContentType"],
                     "metadata": resp["Metadata"],
                     "last_modified": get_timestamp(resp["LastModified"]),
                 }
-            print(f"no {return_info=}, yeiding None")
+            print(f"_download() - no {return_info=}, yeiding None")
             return None
 
         addl_info = None
         try:
             path, addl_info = self._one_boto_op(_download, url)
-        except MetaflowS3NotFound:
+        except MetaflowS3NotFound as exception_metaflow_s3_not_found:
             if return_missing:
-                print(f"get() - SILENCING ERROR {MetaflowS3NotFound=}")
+                print(f"get() - SILENCING ERROR {exception_metaflow_s3_not_found=}")
+                print(exception_metaflow_s3_not_found)
                 path = None
             else:
                 raise
@@ -814,8 +820,9 @@ class S3(object):
 
             try:
                 self._one_boto_op(_head, url, create_tmp_file=False)
-            except MetaflowS3NotFound:
-                print(f"put() - SILENCING ERROR {MetaflowS3NotFound=}")
+            except MetaflowS3NotFound as exception_metaflow_s3_not_found:
+                print(f"put() - SILENCING ERROR {exception_metaflow_s3_not_found=}")
+                print(exception_metaflow_s3_not_found)
                 self._one_boto_op(_upload, url, create_tmp_file=False)
             finally:
                 real_close()
@@ -916,6 +923,7 @@ class S3(object):
         return self._put_many_files(_check(), overwrite)
 
     def _one_boto_op(self, op, url, create_tmp_file=True):
+        print(f"_one_boto_op() - {op=}, {url=}")
         error = ""
         for i in range(S3_RETRY_COUNT + 1):
             tmp = None
@@ -936,10 +944,12 @@ class S3(object):
                     raise MetaflowS3AccessDenied(url)
                 elif error_code == "NoSuchBucket":
                     raise MetaflowS3URLException("Specified S3 bucket doesn't exist.")
+                print(f"_one_boto_op() - {error_code=}, {err=}")
                 error = str(err)
             except Exception as ex:
                 # TODO specific error message for out of disk space
                 error = str(ex)
+                print(f"_one_boto_op() - {error=}")
             if tmp:
                 os.unlink(tmp.name)
             self._s3_client.reset_client()
