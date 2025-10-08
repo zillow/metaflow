@@ -305,7 +305,6 @@ logger = logging.getLogger()
 logger.addFilter(Filter())
 
 
-# TODO: remove pkg_resources
 def get_version(pkg):
     return version(pkg)
 

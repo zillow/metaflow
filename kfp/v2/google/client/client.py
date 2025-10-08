@@ -190,6 +190,7 @@ class AIPlatformClient(object):
         
         discovery_doc_path = files('kfp.v2.google.client').joinpath(
             'discovery/aiplatform_public_google_rest_v1beta1.json')
+
         with open(discovery_doc_path) as f:
             discovery_doc = f.read()
 
