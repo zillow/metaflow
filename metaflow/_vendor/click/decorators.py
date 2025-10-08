@@ -281,7 +281,9 @@ def version_option(version=None, *param_decls, **attrs):
             ver = version
             if ver is None:
                 try:
+                    print("BEFORE decorators.py: from importlib.metadata import distributions")
                     from importlib.metadata import distributions
+                    print("AFTER decorators.py: from importlib.metadata import distributions")
                 except ImportError:
                     pass
                 else:
