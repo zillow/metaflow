@@ -4,8 +4,7 @@ import os
 import sys
 import types
 
-# TODO: remove pkg_resources
-import pkg_resources
+from importlib.metadata import version
 
 from metaflow.exception import MetaflowException
 
@@ -308,7 +307,7 @@ logger.addFilter(Filter())
 
 # TODO: remove pkg_resources
 def get_version(pkg):
-    return pkg_resources.get_distribution(pkg).version
+    return version(pkg)
 
 
 # PINNED_CONDA_LIBS are the libraries that metaflow depends on for execution

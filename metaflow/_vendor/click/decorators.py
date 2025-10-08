@@ -281,18 +281,20 @@ def version_option(version=None, *param_decls, **attrs):
             ver = version
             if ver is None:
                 try:
-                    # TODO: remove pkg_resources
-                    import pkg_resources
+                    from importlib.metadata import distributions
                 except ImportError:
                     pass
                 else:
-                    # TODO: remove pkg_resources
-                    for dist in pkg_resources.working_set:
-                        scripts = dist.get_entry_map().get("console_scripts") or {}
-                        for _, entry_point in iteritems(scripts):
-                            if entry_point.module_name == module:
-                                ver = dist.version
-                                break
+                    for dist in distributions():
+                        for entry_point in dist.entry_points:
+                            if entry_point.group == "console_scripts":
+                                # entry_point.value is in format "module.submodule:function"
+                                module_part = entry_point.value.split(':')[0]
+                                if module_part == module:
+                                    ver = dist.version
+                                    break
+                        if ver is not None:
+                            break
                 if ver is None:
                     raise RuntimeError("Could not determine version")
             echo(message % {"prog": prog, "version": ver}, color=ctx.color)

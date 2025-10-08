@@ -191,7 +191,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("metaflow")
-except:
+except PackageNotFoundError:
     # this happens on remote environments since the job package
     # does not have a version
     __version__ = None
