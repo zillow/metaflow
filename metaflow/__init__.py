@@ -187,6 +187,7 @@ for _n in [
         pass
 del globals()["_n"]
 
+# TODO: remove pkg_resources
 import pkg_resources
 
 try:

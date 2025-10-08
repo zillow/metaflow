@@ -15,6 +15,7 @@
 
 import datetime
 import json
+# TODO: remove pkg_resources
 import pkg_resources
 import re
 import subprocess
@@ -187,6 +188,7 @@ class AIPlatformClient(object):
         self._region = region
         self._parent = _PARENT_PATTERN.format(project_id, region)
 
+        # TODO: remove pkg_resources
         discovery_doc_path = pkg_resources.resource_filename(
             'kfp.v2.google.client',
             'discovery/aiplatform_public_google_rest_v1beta1.json')

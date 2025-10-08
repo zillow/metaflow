@@ -281,10 +281,12 @@ def version_option(version=None, *param_decls, **attrs):
             ver = version
             if ver is None:
                 try:
+                    # TODO: remove pkg_resources
                     import pkg_resources
                 except ImportError:
                     pass
                 else:
+                    # TODO: remove pkg_resources
                     for dist in pkg_resources.working_set:
                         scripts = dist.get_entry_map().get("console_scripts") or {}
                         for _, entry_point in iteritems(scripts):
