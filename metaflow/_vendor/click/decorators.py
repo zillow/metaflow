@@ -281,22 +281,18 @@ def version_option(version=None, *param_decls, **attrs):
             ver = version
             if ver is None:
                 try:
-                    print("BEFORE decorators.py: from importlib.metadata import distributions")
-                    from importlib.metadata import distributions
-                    print("AFTER decorators.py: from importlib.metadata import distributions")
+                    import pkg_resources
                 except ImportError:
+                    print("pkg_resources not found; upgrade to importlib.resources instead")
+                    raise
                     pass
                 else:
-                    for dist in distributions():
-                        for entry_point in dist.entry_points:
-                            if entry_point.group == "console_scripts":
-                                # entry_point.value is in format "module.submodule:function"
-                                module_part = entry_point.value.split(':')[0]
-                                if module_part == module:
-                                    ver = dist.version
-                                    break
-                        if ver is not None:
-                            break
+                    for dist in pkg_resources.working_set:
+                        scripts = dist.get_entry_map().get("console_scripts") or {}
+                        for _, entry_point in iteritems(scripts):
+                            if entry_point.module_name == module:
+                                ver = dist.version
+                                break
                 if ver is None:
                     raise RuntimeError("Could not determine version")
             echo(message % {"prog": prog, "version": ver}, color=ctx.color)
