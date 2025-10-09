@@ -283,7 +283,8 @@ def version_option(version=None, *param_decls, **attrs):
                 try:
                     import pkg_resources
                 except ImportError:
-                    pass
+                    print("pkg_resources not found; upgrade to importlib.resources instead")
+                    raise
                 else:
                     for dist in pkg_resources.working_set:
                         scripts = dist.get_entry_map().get("console_scripts") or {}
@@ -292,7 +293,7 @@ def version_option(version=None, *param_decls, **attrs):
                                 ver = dist.version
                                 break
                 if ver is None:
-                    raise RuntimeError("Could not determine version; pkg_resources not found; upgrade to importlib.resources instead")
+                    raise RuntimeError("Could not determine version")
             echo(message % {"prog": prog, "version": ver}, color=ctx.color)
             ctx.exit()
 
