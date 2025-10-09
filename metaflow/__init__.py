@@ -187,10 +187,9 @@ for _n in [
         pass
 del globals()["_n"]
 
-
+from importlib.metadata import version
 
 try:
-    from importlib.metadata import version
     __version__ = version("metaflow")
 except:
     # this happens on remote environments since the job package
