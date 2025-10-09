@@ -4,9 +4,7 @@ import os
 import sys
 import types
 
-print("BEFORE metaflow_config.py: from importlib.metadata import version")
 from importlib.metadata import version
-print("AFTER metaflow_config.py: from importlib.metadata import version")
 
 from metaflow.exception import MetaflowException
 

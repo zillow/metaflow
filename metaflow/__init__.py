@@ -190,9 +190,7 @@ del globals()["_n"]
 
 
 try:
-    print("BEFORE __init__.py: from importlib.metadata import version")
     from importlib.metadata import version
-    print("AFTER __init__.py: from importlib.metadata import version")
     __version__ = version("metaflow")
 except:
     # this happens on remote environments since the job package
