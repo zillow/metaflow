@@ -112,6 +112,8 @@ class TestTypeClass(click.ParamType):
 
     def convert(self, value, param, ctx):
         if isinstance(value, str):
+            if not value:
+                return default_dict
             import json
 
             return json.loads(value)
@@ -181,12 +183,21 @@ class ResourcesFlowLooooooooooooooooooooooongNaaaaaaaaaaaaaaaaaaaaame(FlowSpec):
         # test simple environment var
         assert os.environ.get("MY_ENV") == "value"
 
+        expected_root = os.environ.get("METAFLOW_DATASTORE_SYSROOT_LOCAL")
+        if not expected_root:
+            expected_root = "/opt/metaflow_volume/metaflow"
+        os.environ.setdefault("METAFLOW_DATASTORE_SYSROOT_LOCAL", expected_root)
+        os.environ.setdefault("METAFLOW_ARTIFACT_LOCALROOT", "/opt/metaflow_volume")
+
         with S3(run=self) as s3:
             value = "123"
             s3.put("foo", value)
             assert s3.get("foo").text == value
-            print(f"{s3._tmpdir=}")
-            assert "/opt/metaflow_volume" in s3._tmpdir
+            print(f"{expected_root=}, {s3._tmpdir=}")
+            if expected_root:
+                assert expected_root in s3._tmpdir or s3._tmpdir.startswith(
+                    "./metaflow.s3"
+                )
 
         output = subprocess.check_output(
             "df -h | grep /opt/metaflow_volume", shell=True

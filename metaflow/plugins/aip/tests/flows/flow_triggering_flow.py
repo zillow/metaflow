@@ -1,4 +1,5 @@
 import datetime
+import os
 import subprocess
 import time
 import uuid
@@ -53,14 +54,35 @@ class FlowTriggeringFlow(FlowSpec):
     @step
     def start(self):
         """Upload a downstream pipeline to be triggered"""
+        namespace = (
+            os.environ.get("METAFLOW_KUBERNETES_NAMESPACE")
+            or os.environ.get("MF_POD_NAMESPACE")
+        )
+        if not namespace:
+            try:
+                with open(
+                    "/var/run/secrets/kubernetes.io/serviceaccount/namespace",
+                    "r",
+                    encoding="utf-8",
+                ) as f:
+                    namespace = f.read().strip()
+            except Exception:
+                namespace = None
+
+        self.kubernetes_namespace = namespace or KUBERNETES_NAMESPACE
+        logger.info(
+            f"{self.kubernetes_namespace=} (env METAFLOW_KUBERNETES_NAMESPACE="
+            f"{os.environ.get('METAFLOW_KUBERNETES_NAMESPACE')},"
+            f" pod namespace={os.environ.get('MF_POD_NAMESPACE')},"
+            f" default={KUBERNETES_NAMESPACE})"
+        )
+
         if self.parent_workflow:
             logger.info(
                 f"This workflow is triggered by workflow {self.parent_workflow}"
             )
 
         if self.trigger_enabled:  # Upload pipeline
-            logger.info(f"{KUBERNETES_NAMESPACE=}")
-
             self.workflow_template_names = [
                 sanitize_k8s_name(
                     f"{TEST_TEMPLATE_NAME}-{current.run_id}-{index}".lower()
@@ -86,7 +108,7 @@ class FlowTriggeringFlow(FlowSpec):
                     ],
                 )
                 subprocess.run(["cat", path])
-                self.submit_template(path)
+                self.submit_template(path, namespace=self.kubernetes_namespace)
                 time.sleep(1)  # Spacing workflow template submission time.
 
         self.next(self.end)
@@ -95,7 +117,7 @@ class FlowTriggeringFlow(FlowSpec):
     def end(self):
         """Trigger downstream pipeline and test triggering behaviors"""
         if self.trigger_enabled:
-            argo_helper = ArgoHelper()
+            argo_helper = ArgoHelper(self.kubernetes_namespace)
 
             template_prefix = sanitize_k8s_name(TEST_TEMPLATE_NAME.lower())
             # ====== Test template filtering ======
@@ -135,7 +157,9 @@ class FlowTriggeringFlow(FlowSpec):
                 },
             )
             logger.info(f"{run_id=}, {run_uid=}")
-            logger.info(f"{get_argo_url(run_id, KUBERNETES_NAMESPACE, run_uid)=}")
+            logger.info(
+                f"{get_argo_url(run_id, self.kubernetes_namespace, run_uid)=}"
+            )
 
             logger.info("Testing timeout exception for wait_for_kfp_run_completion")
             try:
@@ -173,34 +197,35 @@ class FlowTriggeringFlow(FlowSpec):
     @staticmethod
     def comiple_workflow(template_name, path, extra_args=None):
         extra_args = extra_args or []
-        subprocess.run(
-            [
-                "python",
-                __file__,
-                "aip",
-                "create",
-                "--name",
-                template_name,
-                "--yaml-only",
-                "--pipeline-path",
-                path,
-                "--kind",
-                "WorkflowTemplate",
-                "--max-run-concurrency",
-                "0",
-                *extra_args,
-            ],
-            check=True,
-        )
+        cmd = [
+            "python",
+            __file__,
+            "--datastore=s3",
+            "--with",
+            "retry:minutes_between_retries=0",
+            "aip",
+            "create",
+            "--name",
+            template_name,
+            "--yaml-only",
+            "--pipeline-path",
+            path,
+            "--kind",
+            "WorkflowTemplate",
+            "--max-run-concurrency",
+            "0",
+        ]
+        cmd.extend(extra_args)
+        subprocess.run(cmd, check=True)
 
     @staticmethod
-    def submit_template(path):
+    def submit_template(path, *, namespace: str = KUBERNETES_NAMESPACE):
         subprocess.run(
             [
                 "argo",
                 "template",
                 "-n",
-                KUBERNETES_NAMESPACE,
+                namespace,
                 "create",
                 path,
             ],
