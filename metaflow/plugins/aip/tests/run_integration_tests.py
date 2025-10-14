@@ -220,21 +220,19 @@ def _normalize_cmd(parts: Sequence[str]) -> str:
     return " ".join(normalized)
 
 
-def _kubectl(
+def _argo_template(
     namespace: str,
     args: Sequence[str],
     *,
-    capture_output: bool = False,
     check: bool = True,
-):
-    cmd: List[str] = ["kubectl", "-n", namespace] + list(args)
-    result = subprocess.run(
-        cmd,
-        check=check,
-        capture_output=capture_output,
-        text=True,
-    )
-    return result.stdout if capture_output else None
+) -> None:
+    cmd: List[str] = ["argo", "template", "-n", namespace] + list(args)
+    try:
+        subprocess.run(cmd, check=check, text=True, capture_output=not check)
+    except subprocess.CalledProcessError as exc:
+        if not check and exc.returncode != 0:
+            return
+        raise
 
 
 def _apply_eventing_overrides(template_obj: Dict[str, Any]) -> None:
@@ -324,12 +322,8 @@ def _create_template_and_trigger(
             yaml.safe_dump(workflowtemplate_obj, f)
 
         namespace = namespace_override or "metaflow"
-        _kubectl(
-            namespace,
-            ["delete", "workflowtemplate", template_name, "--ignore-not-found"],
-            check=False,
-        )
-        _kubectl(namespace, ["apply", "-f", yaml_file_path])
+        _argo_template(namespace, ["delete", template_name], check=False)
+        _argo_template(namespace, ["create", yaml_file_path])
 
         trigger_parts: List[str] = [
             _python(),
@@ -354,11 +348,7 @@ def _create_template_and_trigger(
                 trigger_cmd, correct_return_code=expected_return_code
             )
         finally:
-            _kubectl(
-                namespace,
-                ["delete", "workflowtemplate", template_name, "--ignore-not-found"],
-                check=False,
-            )
+            _argo_template(namespace, ["delete", template_name], check=False)
 
 
 def test_error_propagation_with_eventing_webhook(pytestconfig) -> None:
@@ -409,12 +399,8 @@ def test_eventing_webhook_injection_validation(pytestconfig) -> None:
             yaml.safe_dump(template_obj, f)
 
         namespace = os.environ.get("METAFLOW_KUBERNETES_NAMESPACE") or "metaflow"
-        _kubectl(
-            namespace,
-            ["delete", "workflowtemplate", template_name, "--ignore-not-found"],
-            check=False,
-        )
-        _kubectl(namespace, ["apply", "-f", yaml_path])
+        _argo_template(namespace, ["delete", template_name], check=False)
+        _argo_template(namespace, ["create", yaml_path])
 
         client = ArgoClient(namespace=namespace)
         mutated = client.get_workflow_template(template_name)
@@ -429,11 +415,7 @@ def test_eventing_webhook_injection_validation(pytestconfig) -> None:
         assert "SPLUNK_HEC_TOKEN" in env_var_names
         assert "SPLUNK_HEC_ENDPOINT" in env_var_names
 
-        _kubectl(
-            namespace,
-            ["delete", "workflowtemplate", template_name, "--ignore-not-found"],
-            check=False,
-        )
+        _argo_template(namespace, ["delete", template_name], check=False)
 
 
 @pytest.mark.parametrize(
