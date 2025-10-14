@@ -357,6 +357,7 @@ def test_error_propagation_with_eventing_webhook(pytestconfig) -> None:
         pytestconfig,
         expected_return_code=1,
         create_args=["--experiment", "metaflow_test", "--tag", "test_t1"],
+        trigger_args=["--experiment", "metaflow_test", "--tag", "test_t1"],
     )
 
 
@@ -436,6 +437,14 @@ def test_batch_flows_with_eventing_webhook(pytestconfig, flow_file_path: str) ->
         create_args=[
             "--max-parallelism",
             "3",
+            "--experiment",
+            "metaflow_test",
+            "--tag",
+            "test_t1",
+            "--sys-tag",
+            "test_sys_t1:sys_tag_value",
+        ],
+        trigger_args=[
             "--experiment",
             "metaflow_test",
             "--tag",
