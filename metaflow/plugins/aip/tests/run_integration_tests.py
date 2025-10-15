@@ -225,14 +225,26 @@ def _argo_template(
     args: Sequence[str],
     *,
     check: bool = True,
-) -> None:
+) -> Optional[str]:
     cmd: List[str] = ["argo", "template", "-n", namespace] + list(args)
     try:
-        subprocess.run(cmd, check=check, text=True, capture_output=not check)
-    except subprocess.CalledProcessError as exc:
-        if not check and exc.returncode != 0:
-            return
-        raise
+        completed = subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+        )
+    except FileNotFoundError as exc:
+        raise MetaflowException(
+            "`argo` command not found; ensure it is installed and on PATH."
+        ) from exc
+
+    if check and completed.returncode != 0:
+        stderr = completed.stderr.strip()
+        raise MetaflowException(
+            f"Argo CLI command failed ({' '.join(cmd)}): {stderr}"
+        )
+
+    return completed.stdout if completed.stdout else None
 
 
 def _apply_eventing_overrides(template_obj: Dict[str, Any]) -> None:
@@ -336,7 +348,16 @@ def _create_template_and_trigger(
             template_name,
         ]
         if trigger_args:
-            trigger_parts.extend([str(arg) for arg in trigger_args])
+            unsupported_flags = {"--experiment", "--tag", "--sys-tag"}
+            skip_next = False
+            for arg in trigger_args:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if str(arg) in unsupported_flags:
+                    skip_next = True
+                    continue
+                trigger_parts.append(str(arg))
         if namespace_override:
             trigger_parts.extend(["--kubernetes-namespace", namespace_override])
         trigger_parts.append("--argo-wait")
@@ -356,8 +377,22 @@ def test_error_propagation_with_eventing_webhook(pytestconfig) -> None:
         "flows/raise_error_flow.py",
         pytestconfig,
         expected_return_code=1,
-        create_args=["--experiment", "metaflow_test", "--tag", "test_t1"],
-        trigger_args=["--experiment", "metaflow_test", "--tag", "test_t1"],
+        create_args=[
+            "--experiment",
+            "metaflow_test",
+            "--tag",
+            "metaflow_test",
+            "--tag",
+            "test_t1",
+        ],
+        trigger_args=[
+            "--experiment",
+            "metaflow_test",
+            "--tag",
+            "metaflow_test",
+            "--tag",
+            "test_t1",
+        ],
     )
 
 
@@ -440,12 +475,16 @@ def test_batch_flows_with_eventing_webhook(pytestconfig, flow_file_path: str) ->
             "--experiment",
             "metaflow_test",
             "--tag",
+            "metaflow_test",
+            "--tag",
             "test_t1",
             "--sys-tag",
             "test_sys_t1:sys_tag_value",
         ],
         trigger_args=[
             "--experiment",
+            "metaflow_test",
+            "--tag",
             "metaflow_test",
             "--tag",
             "test_t1",
