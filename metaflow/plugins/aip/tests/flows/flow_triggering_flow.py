@@ -58,17 +58,6 @@ class FlowTriggeringFlow(FlowSpec):
             os.environ.get("METAFLOW_KUBERNETES_NAMESPACE")
             or os.environ.get("MF_POD_NAMESPACE")
         )
-        if not namespace:
-            try:
-                with open(
-                    "/var/run/secrets/kubernetes.io/serviceaccount/namespace",
-                    "r",
-                    encoding="utf-8",
-                ) as f:
-                    namespace = f.read().strip()
-            except Exception:
-                namespace = None
-
         self.kubernetes_namespace = namespace or KUBERNETES_NAMESPACE
         logger.info(
             f"{self.kubernetes_namespace=} (env METAFLOW_KUBERNETES_NAMESPACE="
