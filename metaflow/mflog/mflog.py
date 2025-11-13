@@ -9,7 +9,7 @@ from metaflow.util import to_bytes, to_fileobj, to_unicode
 
 VERSION = b"0"
 
-RE = b"(\[!)?" b"\[MFLOG\|" b"(0)\|" b"(.+?)Z\|" b"(.+?)\|" b"(.+?)\]" b"(.*)"
+RE = rb"(\[!)?" rb"\[MFLOG\|" rb"(0)\|" rb"(.+?)Z\|" rb"(.+?)\|" rb"(.+?)\]" rb"(.*)"
 
 # the RE groups defined above must match the MFLogline fields below
 # except utc_timestamp, which is filled in by the parser based on utc_tstamp_str

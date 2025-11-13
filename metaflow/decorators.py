@@ -121,7 +121,7 @@ class Decorator(object):
             name, attrspec = top
             attrs = dict(
                 map(lambda x: x.strip(), a.split("="))
-                for a in re.split(""",(?=[\s\w]+=)""", attrspec.strip("\"'"))
+                for a in re.split(r""",(?=[\s\w]+=)""", attrspec.strip("\"'"))
             )
             return cls(attributes=attrs)
 
