@@ -1,8 +1,7 @@
 from io import BytesIO
 import os
+import shutil
 import tarfile
-
-from distutils.dir_util import copy_tree
 
 from metaflow import util
 from metaflow.datastore.local_storage import LocalStorage
@@ -28,8 +27,8 @@ def sync_local_metadata_from_datastore(metadata_local_dir, task_ds):
     with util.TempDir() as td:
         with tarfile.open(fileobj=BytesIO(tarball), mode="r:gz") as tar:
             tar.extractall(td)
-        copy_tree(
+        shutil.copytree(
             os.path.join(td, metadata_local_dir),
             LocalStorage.get_datastore_root_from_config(echo_none),
-            update=True,
+            dirs_exist_ok=True,
         )

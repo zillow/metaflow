@@ -1114,9 +1114,9 @@ def _module_is_builtin_or_standard(module_name: str) -> bool:
     import sys
     if module_name in sys.builtin_module_names:
         return True
-    import distutils.sysconfig as sysconfig
+    import sysconfig
     import os
-    std_lib_dir = sysconfig.get_python_lib(standard_lib=True)
+    std_lib_dir = sysconfig.get_path("stdlib")
     module_name_parts = module_name.split('.')
     expected_module_path = os.path.join(std_lib_dir, *module_name_parts)
     return os.path.exists(expected_module_path) or os.path.exists(

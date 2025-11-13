@@ -3,7 +3,7 @@ import os
 import json
 import subprocess
 import time
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 from metaflow.exception import MetaflowException
 from metaflow.metaflow_config import CONDA_DEPENDENCY_RESOLVER
@@ -40,7 +40,7 @@ class Conda(object):
         # Check for a minimum version for conda when conda or mamba is used
         # for dependency resolution.
         if dependency_solver == "conda" or dependency_solver == "mamba":
-            if LooseVersion(self._info()["conda_version"]) < LooseVersion("4.6.0"):
+            if Version(self._info()["conda_version"]) < Version("4.6.0"):
                 msg = "Conda version 4.6.0 or newer is required."
                 if dependency_solver == "mamba":
                     msg += " Visit https://mamba.readthedocs.io/en/latest/installation.html for installation instructions."

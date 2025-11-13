@@ -3,7 +3,7 @@ from metaflow._vendor import click
 from hashlib import sha1
 import json
 import re
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 from metaflow import current, decorators, parameters, JSONType
 from metaflow.metaflow_config import SFN_STATE_MACHINE_PREFIX
@@ -184,7 +184,7 @@ def check_metadata_service_version(obj):
     version = metadata.version()
     if version == "local":
         return
-    elif version is not None and LooseVersion(version) >= LooseVersion("2.0.2"):
+    elif version is not None and Version(version) >= Version("2.0.2"):
         # Metaflow metadata service needs to be at least at version 2.0.2
         return
     else:

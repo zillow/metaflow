@@ -23,6 +23,7 @@ setup(
         "requests",
         "boto3",
         "pylint",
+        "packaging",  # required for Python 3.12 (replaces distutils.version)
         # required for KFP
         "Deprecated>=1.2.7,<2",
         "docstring-parser>=0.7.3,<1",
