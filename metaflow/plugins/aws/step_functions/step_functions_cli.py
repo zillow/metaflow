@@ -3,7 +3,7 @@ from metaflow._vendor import click
 from hashlib import sha1
 import json
 import re
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 from metaflow import current, decorators, parameters, JSONType
 from metaflow.metaflow_config import SFN_STATE_MACHINE_PREFIX
@@ -15,7 +15,7 @@ from metaflow.util import get_username, to_bytes, to_unicode
 from .step_functions import StepFunctions
 from .production_token import load_token, store_token, new_token
 
-VALID_NAME = re.compile("[^a-zA-Z0-9_\-\.]")
+VALID_NAME = re.compile(r"[^a-zA-Z0-9_\-\.]")
 
 
 class IncorrectProductionToken(MetaflowException):
@@ -184,7 +184,7 @@ def check_metadata_service_version(obj):
     version = metadata.version()
     if version == "local":
         return
-    elif version is not None and LooseVersion(version) >= LooseVersion("2.0.2"):
+    elif version is not None and Version(version) >= Version("2.0.2"):
         # Metaflow metadata service needs to be at least at version 2.0.2
         return
     else:

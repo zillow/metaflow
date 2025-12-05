@@ -69,8 +69,14 @@ def _serialize_bool(bool_value: bool) -> str:
 
 
 def _deserialize_bool(s) -> bool:
-    from distutils.util import strtobool
-    return strtobool(s) == 1
+    # Replacement for distutils.util.strtobool (removed in Python 3.12)
+    s_lower = str(s).lower()
+    if s_lower in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif s_lower in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        raise ValueError(f"invalid truth value {s!r}")
 
 
 _bool_deserializer_definitions = inspect.getsource(_deserialize_bool)

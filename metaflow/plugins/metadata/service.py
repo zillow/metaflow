@@ -2,7 +2,7 @@ import os
 import requests
 import time
 
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 from metaflow.exception import MetaflowException
 from metaflow.metaflow_config import (
@@ -105,7 +105,7 @@ class ServiceMetadataProvider(MetadataProvider):
             # single run heartbeat or a single task heartbeat can be started
             raise Exception("heartbeat already started")
         # start sidecar
-        if self.version() is None or LooseVersion(self.version()) < LooseVersion(
+        if self.version() is None or Version(self.version()) < Version(
             "2.0.4"
         ):
             # if old version of the service is running
@@ -175,9 +175,9 @@ class ServiceMetadataProvider(MetadataProvider):
         if attempt is not None:
             if cls._supports_attempt_gets is None:
                 version = cls._version(None)
-                cls._supports_attempt_gets = version is not None and LooseVersion(
+                cls._supports_attempt_gets = version is not None and Version(
                     version
-                ) >= LooseVersion("2.0.6")
+                ) >= Version("2.0.6")
             if not cls._supports_attempt_gets:
                 raise ServiceException(
                     "Getting specific attempts of Tasks or Artifacts requires "
