@@ -1,11 +1,13 @@
 import json
 import re
+import shlex
+import subprocess
 import tempfile
 import time
 import uuid
 import os
 from subprocess import CompletedProcess
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import pytest
 import requests
@@ -16,6 +18,7 @@ from subprocess_tee import run
 from . import _python, obtain_flow_file_paths
 from metaflow.exception import MetaflowException
 from ..aip import KubeflowPipelines
+from metaflow.plugins.aip.argo_client import ArgoClient  # type: ignore
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -206,6 +209,289 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     )
 
     return
+
+def _normalize_cmd(parts: Sequence[str]) -> str:
+    normalized: List[str] = []
+    for part in parts:
+        if part == WITH_RETRY:
+            normalized.append(part)
+        else:
+            normalized.append(shlex.quote(part))
+    return " ".join(normalized)
+
+
+def _argo_template(
+    namespace: str,
+    args: Sequence[str],
+    *,
+    check: bool = True,
+) -> Optional[str]:
+    cmd: List[str] = ["argo", "template", "-n", namespace] + list(args)
+    try:
+        completed = subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+        )
+    except FileNotFoundError as exc:
+        raise MetaflowException(
+            "`argo` command not found; ensure it is installed and on PATH."
+        ) from exc
+
+    if check and completed.returncode != 0:
+        stderr = completed.stderr.strip()
+        raise MetaflowException(
+            f"Argo CLI command failed ({' '.join(cmd)}): {stderr}"
+        )
+
+    return completed.stdout if completed.stdout else None
+
+
+def _apply_eventing_overrides(template_obj: Dict[str, Any]) -> None:
+    metadata = template_obj.setdefault("metadata", {})
+    labels = metadata.setdefault("labels", {})
+    labels["zodiac.zillowgroup.net/product"] = "eventing"
+
+    datastore_env = os.environ.get("METAFLOW_DATASTORE_SYSROOT_S3")
+    service_url = os.environ.get("METAFLOW_SERVICE_URL")
+    default_metadata = os.environ.get("METAFLOW_DEFAULT_METADATA")
+
+    def _ensure_env(env_entries: List[Dict[str, Any]], name: str, value: Optional[str]):
+        if not value:
+            return
+        if not any(env.get("name") == name for env in env_entries):
+            env_entries.append({"name": name, "value": value})
+
+    for template in template_obj.get("spec", {}).get("templates", []):
+        container = template.get("container")
+        if not container:
+            continue
+        env_entries: List[Dict[str, Any]] = container.setdefault("env", [])
+        _ensure_env(env_entries, "METAFLOW_DATASTORE_SYSROOT_S3", datastore_env)
+        _ensure_env(env_entries, "METAFLOW_SERVICE_URL", service_url)
+        _ensure_env(env_entries, "METAFLOW_DEFAULT_METADATA", default_metadata)
+
+
+def _create_template_and_trigger(
+    flow_path: str,
+    pytestconfig,
+    expected_return_code: int,
+    *,
+    create_args: Optional[Sequence[str]] = None,
+    trigger_args: Optional[Sequence[str]] = None,
+) -> None:
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_file_path = os.path.join(yaml_tmp_dir, "workflow.yaml")
+
+        pipeline_tag = pytestconfig.getoption("pipeline_tag")
+        namespace_override = os.environ.get("METAFLOW_KUBERNETES_NAMESPACE")
+
+        os.environ.setdefault(
+            "METAFLOW_DATASTORE_SYSROOT_LOCAL", "/opt/metaflow_volume/metaflow"
+        )
+
+        create_parts: List[str] = [
+            _python(),
+            flow_path,
+            "--datastore=s3",
+            WITH_RETRY,
+            "aip",
+            "create",
+        ]
+        if create_args:
+            create_parts.extend([str(arg) for arg in create_args])
+        if namespace_override:
+            create_parts.extend(["--kubernetes-namespace", namespace_override])
+        create_parts.extend(
+            [
+                "--yaml-only",
+                "--pipeline-path",
+                yaml_file_path,
+            ]
+        )
+        if pipeline_tag:
+            create_parts.extend(["--tag", pipeline_tag])
+        if pytestconfig.getoption("image"):
+            create_parts.extend(
+                [
+                    "--no-s3-code-package",
+                    "--base-image",
+                    pytestconfig.getoption("image"),
+                ]
+            )
+
+        create_cmd = _normalize_cmd(create_parts)
+        get_compiled_yaml(create_cmd, yaml_file_path)
+
+        with open(yaml_file_path, "r") as f:
+            workflowtemplate_obj = yaml.safe_load(f)
+
+        template_name: str = workflowtemplate_obj["metadata"]["name"]
+
+        _apply_eventing_overrides(workflowtemplate_obj)
+
+        with open(yaml_file_path, "w") as f:
+            yaml.safe_dump(workflowtemplate_obj, f)
+
+        namespace = namespace_override or "metaflow"
+        _argo_template(namespace, ["delete", template_name], check=False)
+        _argo_template(namespace, ["create", yaml_file_path])
+
+        trigger_parts: List[str] = [
+            _python(),
+            flow_path,
+            "--datastore=s3",
+            WITH_RETRY,
+            "aip",
+            "trigger",
+            "--name",
+            template_name,
+        ]
+        if trigger_args:
+            unsupported_flags = {"--experiment", "--tag", "--sys-tag"}
+            skip_next = False
+            for arg in trigger_args:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if str(arg) in unsupported_flags:
+                    skip_next = True
+                    continue
+                trigger_parts.append(str(arg))
+        if namespace_override:
+            trigger_parts.extend(["--kubernetes-namespace", namespace_override])
+        trigger_parts.append("--argo-wait")
+
+        trigger_cmd = _normalize_cmd(trigger_parts)
+
+        try:
+            run_cmd_with_backoff_from_platform_errors(
+                trigger_cmd, correct_return_code=expected_return_code
+            )
+        finally:
+            _argo_template(namespace, ["delete", template_name], check=False)
+
+
+def test_error_propagation_with_eventing_webhook(pytestconfig) -> None:
+    _create_template_and_trigger(
+        "flows/raise_error_flow.py",
+        pytestconfig,
+        expected_return_code=1,
+        create_args=[
+            "--experiment",
+            "metaflow_test",
+            "--tag",
+            "metaflow_test",
+            "--tag",
+            "test_t1",
+        ],
+        trigger_args=[
+            "--experiment",
+            "metaflow_test",
+            "--tag",
+            "metaflow_test",
+            "--tag",
+            "test_t1",
+        ],
+    )
+
+
+def test_eventing_webhook_injection_validation(pytestconfig) -> None:
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_path = os.path.join(yaml_tmp_dir, "resilient_flow.yaml")
+
+        compile_parts: List[str] = [
+            _python(),
+            "flows/resilient_flow.py",
+            "--datastore=s3",
+            WITH_RETRY,
+            "aip",
+            "create",
+            "--yaml-only",
+            "--pipeline-path",
+            yaml_path,
+            "--tag",
+            pytestconfig.getoption("pipeline_tag"),
+        ]
+        if pytestconfig.getoption("image"):
+            compile_parts.extend(
+                [
+                    "--no-s3-code-package",
+                    "--base-image",
+                    pytestconfig.getoption("image"),
+                ]
+            )
+
+        compile_cmd = _normalize_cmd(compile_parts)
+        get_compiled_yaml(compile_cmd, yaml_path)
+
+        with open(yaml_path, "r") as f:
+            template_obj = yaml.safe_load(f)
+
+        template_name = template_obj["metadata"]["name"]
+        _apply_eventing_overrides(template_obj)
+
+        with open(yaml_path, "w") as f:
+            yaml.safe_dump(template_obj, f)
+
+        namespace = os.environ.get("METAFLOW_KUBERNETES_NAMESPACE") or "metaflow"
+        _argo_template(namespace, ["delete", template_name], check=False)
+        _argo_template(namespace, ["create", yaml_path])
+
+        client = ArgoClient(namespace=namespace)
+        mutated = client.get_workflow_template(template_name)
+
+        parameters = mutated["spec"]["arguments"]["parameters"]
+        parameter_names = [p["name"] for p in parameters]
+        assert "cloudevents_id" in parameter_names
+        assert "cloudevents_source_time" in parameter_names
+
+        container_spec = mutated["spec"]["templates"][0]["container"]
+        env_var_names = [env["name"] for env in container_spec.get("env", [])]
+        assert "SPLUNK_HEC_TOKEN" in env_var_names
+        assert "SPLUNK_HEC_ENDPOINT" in env_var_names
+
+        _argo_template(namespace, ["delete", template_name], check=False)
+
+
+@pytest.mark.parametrize(
+    "flow_file_path",
+    [
+        "flows/resilient_flow.py",
+        "flows/resources_flow.py",
+        "flows/merge_artifacts.py",
+        "flows/metadata_flow.py",
+        "flows/flow_triggering_flow.py",
+    ],
+)
+def test_batch_flows_with_eventing_webhook(pytestconfig, flow_file_path: str) -> None:
+    _create_template_and_trigger(
+        flow_file_path,
+        pytestconfig,
+        expected_return_code=0,
+        create_args=[
+            "--max-parallelism",
+            "3",
+            "--experiment",
+            "metaflow_test",
+            "--tag",
+            "metaflow_test",
+            "--tag",
+            "test_t1",
+            "--sys-tag",
+            "test_sys_t1:sys_tag_value",
+        ],
+        trigger_args=[
+            "--experiment",
+            "metaflow_test",
+            "--tag",
+            "metaflow_test",
+            "--tag",
+            "test_t1",
+            "--sys-tag",
+            "test_sys_t1:sys_tag_value",
+        ],
+    )
 
 
 @pytest.mark.parametrize(
