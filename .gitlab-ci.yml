@@ -157,6 +157,8 @@ test:sandbox:
   extends:
     - .devex_sandbox_eks
     - .test
+  environment:
+    name: sandbox
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.sandbox-k8s.zg-aip.net/"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.sandbox-k8s.zg-aip.net"
@@ -171,6 +173,8 @@ test:internal:
   extends: 
     - .devex_internal_eks
     - .test
+  environment:
+    name: internal
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.dev-k8s.zg-aip.net/"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.dev-k8s.zg-aip.net"
@@ -184,6 +188,8 @@ test:nonprod:
   extends: 
     - .devex_nonprod_eks
     - .test
+  environment:
+    name: nonprod
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.stage-k8s.zg-aip.net/"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.stage-k8s.zg-aip.net"
@@ -197,6 +203,8 @@ test:prod:
   extends: 
   - .devex_prod_eks
   - .test
+  environment:
+    name: prod
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.prod-k8s.zg-aip.net/"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.prod-k8s.zg-aip.net"
