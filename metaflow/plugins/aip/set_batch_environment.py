@@ -26,7 +26,7 @@ def parameters(output_file: str):
             dumps = json.dumps(params[k])
             value = f"'{dumps}'" if isinstance(params[k], dict) else dumps
             f.write(f"export METAFLOW_INIT_{normalized_name}={value}\n")
-    os.chmod(output_file, 509)
+    os.chmod(output_file, 0o755)
 
 
 if __name__ == "__main__":
