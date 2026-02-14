@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pathlib
+import sys
 import time
 from subprocess import Popen
 from typing import Dict, List
@@ -124,6 +125,10 @@ def _step_cli(
     if step_name == "start":
         # We need a separate unique ID for the special _parameters task
         task_id_params = "1-params"
+
+        # Debug: cwd when building the parameters command (remove after resolving parameters.sh permission issue)
+        sys.stderr.write("[aip_metaflow_step] cwd=%r\n" % os.getcwd())
+        sys.stderr.flush()
 
         # Export user-defined parameters into runtime environment
         param_file = "parameters.sh"

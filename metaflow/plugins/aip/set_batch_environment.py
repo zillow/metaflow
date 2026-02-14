@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 from metaflow._vendor import click
 
@@ -17,6 +18,15 @@ def parameters(output_file: str):
     input_parameters = {param["name"]: param["value"] for param in metaflow_parameters}
     params = json.loads(os.environ.get("METAFLOW_DEFAULT_PARAMETERS", "{}"))
     params.update(input_parameters)
+    # Debug: where we're writing and whether it's writable (remove after resolving parameters.sh permission issue)
+    _cwd = os.getcwd()
+    _abs = os.path.abspath(output_file)
+    _dir = os.path.dirname(_abs)
+    sys.stderr.write(
+        "[set_batch_environment] cwd=%r output_file=%r abspath=%r dir_exists=%s dir_writable=%s\n"
+        % (_cwd, output_file, _abs, os.path.exists(_dir), os.access(_dir, os.W_OK))
+    )
+    sys.stderr.flush()
     with open(output_file, "w") as f:
         for k in params:
             # Replace `-` with `_` is parameter names since `-` isn't an
