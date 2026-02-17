@@ -130,13 +130,15 @@ def _step_cli(
         sys.stderr.write("[aip_metaflow_step] cwd=%r\n" % os.getcwd())
         sys.stderr.flush()
 
-        # Export user-defined parameters into runtime environment
-        param_file = "parameters.sh"
+        # Export user-defined parameters into runtime environment.
+        # Use /tmp so the file is always writable regardless of cwd (avoids permission errors
+        # when cwd is a project dir that may be root-owned in the image or mounted read-only).
+        param_file = "/tmp/parameters.sh"
         # TODO: move to AIP plugin
         export_params = (
             "python -m "
             "metaflow.plugins.aip.set_batch_environment "
-            "parameters --output_file %s && . `pwd`/%s" % (param_file, param_file)
+            "parameters --output_file %s && . %s" % (param_file, param_file)
         )
         params: List[str] = entrypoint + [
             "--quiet",
