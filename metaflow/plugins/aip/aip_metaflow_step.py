@@ -126,10 +126,6 @@ def _step_cli(
         # We need a separate unique ID for the special _parameters task
         task_id_params = "1-params"
 
-        # Debug: cwd when building the parameters command (remove after resolving parameters.sh permission issue)
-        sys.stderr.write("[aip_metaflow_step] cwd=%r\n" % os.getcwd())
-        sys.stderr.flush()
-
         # Export user-defined parameters into runtime environment.
         # Use /tmp so the file is always writable regardless of cwd (avoids permission errors
         # when cwd is a project dir that may be root-owned in the image or mounted read-only).
