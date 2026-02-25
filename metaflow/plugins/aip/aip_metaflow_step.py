@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import time
+import uuid
 from subprocess import Popen
 from typing import Dict, List
 
@@ -128,7 +129,9 @@ def _step_cli(
         # Export user-defined parameters into runtime environment.
         # Use /tmp so the file is always writable regardless of cwd (avoids permission errors
         # when cwd is a project dir that may be root-owned in the image or mounted read-only).
-        param_file = "/tmp/parameters.sh"
+        # Use run_id + UUID so the path is unique across runs and steps (avoids conflicts when
+        # multiple workflows run on the same host, e.g. a notebook instance).
+        param_file = f"/tmp/parameters-{run_id}-{uuid.uuid4().hex}.sh"
         # TODO: move to AIP plugin
         export_params = (
             "python -m "
