@@ -4,7 +4,7 @@ from metaflow.exception import MetaflowException
 
 
 def get_docker_registry(image_uri):
-    """
+    r"""
     Explanation:
         (.+?(?:[:.].+?)\/)? - [GROUP 0] REGISTRY
             .+?                 - A registry must start with at least one character

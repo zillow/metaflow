@@ -61,7 +61,7 @@ def save_step_environment_variables(
         with open(STEP_ENVIRONMENT_VARIABLES, "w") as file:
             for key, value in environment_exports.items():
                 file.write(f"export {key}={value}\n")
-        os.chmod(STEP_ENVIRONMENT_VARIABLES, 644)
+        os.chmod(STEP_ENVIRONMENT_VARIABLES, 0o644)
 
 
 def _compute_input_paths(

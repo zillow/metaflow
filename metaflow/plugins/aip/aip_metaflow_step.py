@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import time
+import uuid
 from subprocess import Popen
 from typing import Dict, List
 
@@ -125,13 +126,17 @@ def _step_cli(
         # We need a separate unique ID for the special _parameters task
         task_id_params = "1-params"
 
-        # Export user-defined parameters into runtime environment
-        param_file = "parameters.sh"
+        # Export user-defined parameters into runtime environment.
+        # Use /tmp so the file is always writable regardless of cwd (avoids permission errors
+        # when cwd is a project dir that may be root-owned in the image or mounted read-only).
+        # Use run_id + UUID so the path is unique across runs and steps (avoids conflicts when
+        # multiple workflows run on the same host, e.g. a notebook instance).
+        param_file = f"/tmp/parameters-{run_id}-{uuid.uuid4().hex}.sh"
         # TODO: move to AIP plugin
         export_params = (
             "python -m "
             "metaflow.plugins.aip.set_batch_environment "
-            "parameters --output_file %s && . `pwd`/%s" % (param_file, param_file)
+            "parameters --output_file %s && . %s" % (param_file, param_file)
         )
         params: List[str] = entrypoint + [
             "--quiet",
