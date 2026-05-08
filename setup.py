@@ -32,7 +32,7 @@ setup(
         "jsonschema>=4.19.2,<5",
         "kfp-pipeline-spec>=0.1.13,<0.2.0",
         "kfp-server-api>=1.1.2,<2.0.0",
-        "kubernetes>=32",
+        "kubernetes>=30.1",
         "protobuf>=3.13.0,<4",
         "pyyaml>=5.3,<7",
         # AIP-8457(talebz): WFSDK requests-toolbelt dependency breaks KFNB "pip install poetry"
