@@ -124,8 +124,7 @@ def test_s3_sensor_flow(pytestconfig) -> None:
     )
 
 
-# This test ensures that a flow fails correctly,
-# and when it fails, an OpsGenie email is sent.
+# This test ensures that a flow fails correctly.
 def test_error_and_opsgenie_alert(pytestconfig) -> None:
     raise_error_flow_cmd: str = (
         f"{_python()} flows/raise_error_flow.py --datastore=s3 aip run "
@@ -146,52 +145,55 @@ def test_error_and_opsgenie_alert(pytestconfig) -> None:
     error_flow_id, error_flow_workflow_name = run_cmd_with_backoff_from_platform_errors(
         raise_error_flow_cmd, correct_return_code=1
     )
-    opsgenie_auth_headers: Dict[str, str] = {
-        "Content-Type": "application/json",
-        "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
-    }
-
-    # Look for the alert with the correct run_id in the description.
-    list_alerts_endpoint: str = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
-    list_alerts_response: Response = requests.get(
-        list_alerts_endpoint, headers=opsgenie_auth_headers
-    )
-    assert list_alerts_response.status_code == 200
-
-    list_alerts_response_json: dict = json.loads(list_alerts_response.text)
-    # assert we have found the alert (there should only be one alert with that run_id)
-    assert len(list_alerts_response_json["data"]) == 1
-    alert_alias = list_alerts_response_json["data"][0]["alias"]
-
-    close_alert_data: str = {
-        "user": "AIP Integration Testing Service",
-        "source": "AIP Integration Testing Service",
-        "note": "Closing ticket because the test is complete.",
-    }
-    close_alert_endpoint: str = (
-        f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
-    )
-
-    def is_valid_status_code(close_alert_response):
-        # Sometimes the response status code is 202, signaling
-        # the request has been accepted and is being queued for processing.
-        return (
-            close_alert_response.status_code == 200
-            or close_alert_response.status_code == 202
-        )
-
-    # retry 3 times with a sleep of 3s until the alert is closed
-    for _ in range(3):
-        close_alert_response: Response = requests.post(
-            close_alert_endpoint,
-            data=json.dumps(close_alert_data),
-            headers=opsgenie_auth_headers,
-        )
-        if is_valid_status_code(close_alert_response):
-            break
-        time.sleep(3)
-
-    assert is_valid_status_code(close_alert_response)
+    # TODO AIP-10271: 
+    # OpsGenie has been deprecated. 
+    # Update the commented-out alert-verification block below to use Rootly instead.
+    # opsgenie_auth_headers: Dict[str, str] = {
+    #     "Content-Type": "application/json",
+    #     "Authorization": f"GenieKey {pytestconfig.getoption('opsgenie_api_token')}",
+    # }
+    #
+    # # Look for the alert with the correct run_id in the description.
+    # list_alerts_endpoint: str = f"https://api.opsgenie.com/v2/alerts?query=description:{error_flow_id}&limit=1&sort=createdAt&order=des"
+    # list_alerts_response: Response = requests.get(
+    #     list_alerts_endpoint, headers=opsgenie_auth_headers
+    # )
+    # assert list_alerts_response.status_code == 200
+    #
+    # list_alerts_response_json: dict = json.loads(list_alerts_response.text)
+    # # assert we have found the alert (there should only be one alert with that run_id)
+    # assert len(list_alerts_response_json["data"]) == 1
+    # alert_alias = list_alerts_response_json["data"][0]["alias"]
+    #
+    # close_alert_data: str = {
+    #     "user": "AIP Integration Testing Service",
+    #     "source": "AIP Integration Testing Service",
+    #     "note": "Closing ticket because the test is complete.",
+    # }
+    # close_alert_endpoint: str = (
+    #     f"https://api.opsgenie.com/v2/alerts/{alert_alias}/close?identifierType=alias"
+    # )
+    #
+    # def is_valid_status_code(close_alert_response):
+    #     # Sometimes the response status code is 202, signaling
+    #     # the request has been accepted and is being queued for processing.
+    #     return (
+    #         close_alert_response.status_code == 200
+    #         or close_alert_response.status_code == 202
+    #     )
+    #
+    # # retry 3 times with a sleep of 3s until the alert is closed
+    # for _ in range(3):
+    #     close_alert_response: Response = requests.post(
+    #         close_alert_endpoint,
+    #         data=json.dumps(close_alert_data),
+    #         headers=opsgenie_auth_headers,
+    #     )
+    #     if is_valid_status_code(close_alert_response):
+    #         break
+    #     time.sleep(3)
+    #
+    # assert is_valid_status_code(close_alert_response)
 
     # Test logging of raise_error_flow
     check_error_handling_flow_cmd: str = (
