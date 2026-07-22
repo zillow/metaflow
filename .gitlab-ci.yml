@@ -64,6 +64,7 @@ stages:
         -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN 
         -e AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION 
         -e ARGO_RUN_URL_PREFIX=$ARGO_RUN_URL_PREFIX
+        -e ARGO_UI_ROUTE_MODE=$ARGO_UI_ROUTE_MODE
         -e METAFLOW_RUN_URL_PREFIX=$METAFLOW_RUN_URL_PREFIX 
         -e METAFLOW_KUBERNETES_NAMESPACE=$METAFLOW_KUBERNETES_NAMESPACE 
         -e METAFLOW_DATASTORE_SYSROOT_S3=$METAFLOW_DATASTORE_SYSROOT_S3 
@@ -161,6 +162,7 @@ test:sandbox:
     name: sandbox
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.sandbox-k8s.zg-aip.net/"
+    ARGO_UI_ROUTE_MODE: "auto"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.sandbox-k8s.zg-aip.net"
     METAFLOW_KUBERNETES_NAMESPACE: "metaflow-integration-testing-sandbox"
   rules:
@@ -177,6 +179,7 @@ test:internal:
     name: internal
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.dev-k8s.zg-aip.net/"
+    ARGO_UI_ROUTE_MODE: "auto"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.dev-k8s.zg-aip.net"
     METAFLOW_KUBERNETES_NAMESPACE: "metaflow-integration-testing-internal"
   rules:
@@ -192,6 +195,7 @@ test:nonprod:
     name: nonprod
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.stage-k8s.zg-aip.net/"
+    ARGO_UI_ROUTE_MODE: "auto"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.stage-k8s.zg-aip.net"
     METAFLOW_KUBERNETES_NAMESPACE: "metaflow-integration-testing-stage"
   rules:
@@ -207,6 +211,7 @@ test:prod:
     name: prod
   variables:
     ARGO_RUN_URL_PREFIX: "https://argo-server.int.prod-k8s.zg-aip.net/"
+    ARGO_UI_ROUTE_MODE: "auto"
     METAFLOW_RUN_URL_PREFIX: "https://metaflow.int.prod-k8s.zg-aip.net"
     METAFLOW_KUBERNETES_NAMESPACE: "metaflow-integration-testing-prod"
   rules:
