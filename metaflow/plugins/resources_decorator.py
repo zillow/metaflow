@@ -39,6 +39,12 @@ class ResourcesDecorator(StepDecorator):
             Support millicpu requests using float or string ending in 'm'.
             Requests with decimal points, like 0.1, are converted to 100m by aip
             Precision finer than 1m is not allowed.
+    cpu_limits : Union[int, float, str]
+        AIP: CPU limit for this step. Defaults to the `cpu` request when not set.
+            Same accepted formats as `cpu`.
+            Set this larger than `cpu` to allow a step to burst above its request,
+            for example @resources(cpu=1, cpu_limits=4).
+            Must not be smaller than `cpu`.
     gpu : int
         AWS Batch: Number of GPUs required for this step. Defaults to 0.
         AIP: GPU limit for this step. Defaults to 0.
@@ -80,6 +86,7 @@ class ResourcesDecorator(StepDecorator):
         "memory": None,
         "shared_memory": None,
         # Only AIP supported attributes
+        "cpu_limits": None,
         "gpu_vendor": None,
         "volume": None,
         "volume_dir": "/opt/metaflow_volume",

@@ -7,6 +7,7 @@ import time
 import uuid
 import os
 from subprocess import CompletedProcess
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import pytest
@@ -19,6 +20,7 @@ from . import _python, obtain_flow_file_paths
 from metaflow.exception import MetaflowException
 from ..aip import KubeflowPipelines
 from metaflow.plugins.aip.argo_client import ArgoClient  # type: ignore
+from metaflow.plugins.resources_decorator import ResourcesDecorator
 
 """
 To run these tests from your terminal, go to the tests directory and run: 
@@ -840,3 +842,81 @@ def test_flow_labels():
         )
 
     assert "a/b must consist of alphanumeric characters" in str(e.value)
+
+
+def _resource_requirements(**resources) -> Dict[str, str]:
+    node = SimpleNamespace(decorators=[ResourcesDecorator(attributes=resources)])
+    return KubeflowPipelines._get_resource_requirements(node)
+
+
+def test_cpu_limits_defaults_to_cpu_request():
+    # only cpu given: the limit follows the request, the pre cpu_limits behavior
+    requirements = _resource_requirements(cpu="0.6")
+    assert requirements["cpu"] == "0.6"
+    assert requirements["cpu_limits"] == "0.6"
+
+    # only cpu_limits given: the request follows the limit
+    requirements = _resource_requirements(cpu_limits=2)
+    assert requirements["cpu"] == "2"
+    assert requirements["cpu_limits"] == "2"
+
+    # both given: a limit above the request is passed through as is
+    requirements = _resource_requirements(cpu="500m", cpu_limits=4)
+    assert requirements["cpu"] == "500m"
+    assert requirements["cpu_limits"] == "4"
+
+    # neither given: no cpu request or limit is set, so the cluster default applies
+    requirements = _resource_requirements(memory="1G")
+    assert "cpu" not in requirements
+    assert "cpu_limits" not in requirements
+
+
+def test_cpu_requests_and_limits_compile_only(pytestconfig) -> None:
+    step_templates: Dict[str, Dict] = {}
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_file_path: str = os.path.join(yaml_tmp_dir, "resources_flow.yaml")
+
+        compile_to_yaml_cmd: str = (
+            f"{_python()} flows/resources_flow.py --no-pylint --datastore=s3 aip run"
+            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path} "
+            f"--tag {pytestconfig.getoption('pipeline_tag')} "
+        )
+        flow_yaml = get_compiled_yaml(compile_to_yaml_cmd, yaml_file_path)
+
+        for step in flow_yaml["spec"]["templates"]:
+            # step name in yaml use "-" in place of "_"
+            step_templates[step["name"].replace("-", "_")] = step
+
+    # @resources(cpu="0.6", cpu_limits="1.2", memory="1G") - the cpu limit is
+    # allowed to exceed the request, whereas memory is always request == limit
+    start_resources = step_templates["start"]["container"]["resources"]
+    assert start_resources["requests"]["cpu"] == "0.6"
+    assert start_resources["limits"]["cpu"] == "1.2"
+    assert start_resources["requests"]["memory"] == "1G"
+    assert start_resources["limits"]["memory"] == "1G"
+
+    # a step with no cpu in @resources gets neither a cpu request nor a limit
+    join_step_resources = step_templates["join_step"]["container"]["resources"]
+    assert "cpu" not in join_step_resources.get("requests", {})
+    assert "cpu" not in join_step_resources.get("limits", {})
+
+
+def test_cpu_limits_below_cpu_request_compile_only(pytestconfig) -> None:
+    with tempfile.TemporaryDirectory() as yaml_tmp_dir:
+        yaml_file_path: str = os.path.join(yaml_tmp_dir, "flow_triggering_flow.yaml")
+
+        compile_to_yaml_cmd: str = (
+            f"{_python()} flows/flow_triggering_flow.py --no-pylint"
+            f" --with resources:cpu=2,cpu_limits=1 aip run"
+            f" --no-s3-code-package --yaml-only --pipeline-path {yaml_file_path} "
+            f"--tag {pytestconfig.getoption('pipeline_tag')} --notify"
+        )
+        compile_process: CompletedProcess = run(
+            compile_to_yaml_cmd,
+            universal_newlines=True,
+            shell=True,
+        )
+
+    compile_output: str = f"{compile_process.stdout}{compile_process.stderr}"
+    assert compile_process.returncode != 0
+    assert "cpu_limits=1 lower than cpu=2" in compile_output

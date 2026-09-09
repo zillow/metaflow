@@ -136,6 +136,7 @@ class ResourcesFlowLooooooooooooooooooooooongNaaaaaaaaaaaaaaaaaaaaame(FlowSpec):
     @accelerator(type=None)  # AIP-6604 DCR: Allow @accelerator(type=None)
     @resources(
         cpu="0.6",
+        cpu_limits="1.2",  # the cpu limit is allowed to exceed the cpu request
         memory="1G",
     )
     @environment(  # pylint: disable=E1102
@@ -153,7 +154,7 @@ class ResourcesFlowLooooooooooooooooooooooongNaaaaaaaaaaaaaaaaaaaaame(FlowSpec):
         # test kubernetes_vars
         assert "resourcesflow" in os.environ.get("MY_POD_NAME")
         assert os.environ.get("CPU") == "600"
-        assert os.environ.get("CPU_LIMIT") == "600"
+        assert os.environ.get("CPU_LIMIT") == "1200"
         assert os.environ.get("MEMORY") == "1000000000"
         assert os.environ.get("MEMORY_LIMIT") == "1000000000"
 
