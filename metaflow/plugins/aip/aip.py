@@ -601,18 +601,19 @@ class KubeflowPipelines(object):
         """
         Get resources for a Metaflow step (node) set by @resources decorator.
 
-        Supported parameters: 'cpu', 'gpu', 'gpu_vendor', 'memory'
+        Supported parameters: 'cpu', 'cpu_limits', 'gpu', 'gpu_vendor', 'memory'
 
         Eventually resource request and limits link back to kubernetes, see
         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 
-        For 'cpu' and 'memory', the provided value becomes both the
-        resource request and resource limit.
+        For 'memory', the provided value becomes both the resource request and
+        resource limit. Same for 'cpu', unless 'cpu_limits' is given, in which
+        case 'cpu' is the request and 'cpu_limits' the limit.
 
         Default unit for memory is megabyte, aligning with existing resource decorator usage.
 
         Example using resource decorator:
-            @resource(cpu=0.5, gpu=1, memory=300)
+            @resource(cpu=0.5, cpu_limits=2, gpu=1, memory=300)
             @step
             def my_aip_step(): ...
         """
@@ -632,6 +633,15 @@ class KubeflowPipelines(object):
                         ] = KubeflowPipelines._to_k8s_resource_format(
                             attr_key, attr_value
                         )
+
+        # The cpu request and limit each default to the other, so that specifying
+        # only one of them yields a guaranteed (request == limit) cpu allocation.
+        cpu: Optional[str] = resource_requirements.get("cpu")
+        cpu_limits: Optional[str] = resource_requirements.get("cpu_limits")
+        if cpu is None and cpu_limits is not None:
+            resource_requirements["cpu"] = cpu_limits
+        elif cpu_limits is None and cpu is not None:
+            resource_requirements["cpu_limits"] = cpu
 
         return resource_requirements
 
@@ -847,8 +857,20 @@ class KubeflowPipelines(object):
             container_op.container.set_memory_request(resource_requirements["memory"])
             container_op.container.set_memory_limit(resource_requirements["memory"])
         if "cpu" in resource_requirements:
-            container_op.container.set_cpu_request(resource_requirements["cpu"])
-            container_op.container.set_cpu_limit(resource_requirements["cpu"])
+            cpu: str = resource_requirements["cpu"]
+            # `cpu_limits` defaults to `cpu`, see _get_resource_requirements()
+            cpu_limits: str = resource_requirements["cpu_limits"]
+            # set_cpu_request/set_cpu_limit validate the value format
+            container_op.container.set_cpu_request(cpu)
+            container_op.container.set_cpu_limit(cpu_limits)
+            # Fail early on a cpu limit below the cpu request, which Kubernetes
+            # would otherwise only reject when creating the pod.
+            if _get_cpu_number(cpu_limits) < _get_cpu_number(cpu):
+                raise ValueError(
+                    f"@resources of step {aip_component.step_name} has "
+                    f"cpu_limits={cpu_limits} lower than cpu={cpu}. "
+                    "The cpu limit must be at least the cpu request."
+                )
         if "gpu" in resource_requirements:
             # TODO(yunw)(AIP-2048): Support mixture of GPU from different vendors.
             gpu_vendor = resource_requirements.get("gpu_vendor", None)
