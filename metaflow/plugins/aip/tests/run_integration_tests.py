@@ -896,7 +896,7 @@ def test_cpu_requests_and_limits_compile_only(pytestconfig) -> None:
     assert start_resources["limits"]["memory"] == "1G"
 
     # a step with no cpu in @resources gets neither a cpu request nor a limit
-    join_step_resources = step_templates["join_step"]["container"]["resources"]
+    join_step_resources = step_templates["join_step"]["container"].get("resources", {})
     assert "cpu" not in join_step_resources.get("requests", {})
     assert "cpu" not in join_step_resources.get("limits", {})
 
