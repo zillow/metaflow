@@ -115,6 +115,8 @@ class S3Storage(DataStoreStorage):
                     s3.put(key, obj, overwrite=overwrite, metadata=metadata)
 
     def load_bytes(self, paths):
+        print(f"running load_bytes() with {paths=}")
+        
         if len(paths) == 0:
             return CloseAfterUse(iter([]))
 
@@ -127,19 +129,21 @@ class S3Storage(DataStoreStorage):
         def iter_results():
             # We similarly do things in parallel for many files. This is again
             # a hack.
-            if len(paths) > 10:
-                results = s3.get_many(paths, return_missing=True, return_info=True)
-                for r in results:
-                    if r.exists:
-                        yield r.key, r.path, r.metadata
-                    else:
-                        yield r.key, None, None
+            if len(paths) < 0:
+                raise Exception("THIS SHOULD NEVER HAPPEN")
+                # results = s3.get_many(paths, return_missing=True, return_info=True)
+                # for r in results:
+                #     if r.exists:
+                #         yield r.key, r.path, r.metadata
+                #     else:
+                #         yield r.key, None, None
             else:
                 for p in paths:
                     r = s3.get(p, return_missing=True, return_info=True)
                     if r.exists:
                         yield r.key, r.path, r.metadata
                     else:
+                        print(f"failed to get data with {p=}")
                         yield r.key, None, None
 
         return CloseAfterUse(iter_results(), closer=s3)

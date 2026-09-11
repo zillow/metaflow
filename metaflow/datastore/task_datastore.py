@@ -349,6 +349,8 @@ class TaskDataStore(object):
         Iterator[(string, object)] :
             An iterator over objects retrieved.
         """
+        print(f"running load_artifacts() with {names=}")
+        
         if not self._info:
             raise DataException(
                 "Datastore for task '%s' does not have the required metadata to "
@@ -374,12 +376,15 @@ class TaskDataStore(object):
         # We assume that if we have one "old" style artifact, all of them are
         # like that which is an easy assumption to make since artifacts are all
         # stored by the same implementation of the datastore for a given task.
+        print(f"running load_artifacts() with {to_load.keys()=}")
         for (key, blob) in self._ca_store.load_blobs(to_load.keys()):
+            print(f"    {key=}, {blob=}")
             names = to_load[key]
             for name in names:
                 # We unpickle everytime to have fully distinct objects (the user
                 # would not expect two artifacts with different names to actually
                 # be aliases of one another)
+                print(f"running load_artifacts(), yielding {name=}, {pickle.loads(blob)=}")
                 yield name, pickle.loads(blob)
 
     @require_mode("r")
