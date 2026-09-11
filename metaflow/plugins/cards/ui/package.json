@@ -45,7 +45,7 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "@iconify/svelte": "^2.1.1",
+    "@iconify/svelte": "^2.2.1",
     "chart.js": "^3.7.0",
     "svelte-markdown": "^0.2.1"
   }
