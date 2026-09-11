@@ -1767,6 +1767,7 @@ class KubeflowPipelines(object):
                 "  --status {{workflow.status}}"
                 f" --metaflow_configs_json {json.dumps(json.dumps(metaflow_configs))}"
                 " --retries {{retries}}"
+                " --failures {{workflow.failures}}"
             ),
         ]
 

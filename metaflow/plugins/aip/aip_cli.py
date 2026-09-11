@@ -56,6 +56,7 @@ def kubeflow_pipelines(obj):
 @click.option("--flow_parameters_json")
 @click.option("--metaflow_configs_json")
 @click.option("--retries")
+@click.option("--failures")
 @click.pass_obj
 def user_defined_exit_handler(
     obj,
@@ -67,6 +68,7 @@ def user_defined_exit_handler(
     flow_parameters_json: str,
     metaflow_configs_json: str,
     retries: int,
+    failures: str,
 ):
     # call user defined exit handler
     invoke_user_defined_exit_handler(
@@ -79,6 +81,7 @@ def user_defined_exit_handler(
         flow_parameters_json,
         metaflow_configs_json,
         retries,
+        failures,
     )
 
 

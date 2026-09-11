@@ -19,6 +19,7 @@ def invoke_user_defined_exit_handler(
     flow_parameters_json: str,
     metaflow_configs_json: str,
     retries: int,
+    failures: str,
 ):
     """
     The environment variables that this depends on:
@@ -36,6 +37,8 @@ def invoke_user_defined_exit_handler(
     """
     import json
     import os
+
+    print(f"{failures=}")
 
     env_variables: Dict[str, str] = json.loads(env_variables_json)
 
@@ -74,4 +77,5 @@ def invoke_user_defined_exit_handler(
         metaflow_run_id=run_id,
         argo_ui_url=argo_ui_url,
         retries=int(retries),
+        failures=failures,
     )
