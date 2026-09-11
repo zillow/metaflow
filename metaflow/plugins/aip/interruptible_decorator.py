@@ -11,7 +11,7 @@ def _get_ec2_metadata(path: str) -> Optional[str]:
     return response.text
 
 
-class interruptibleDecorator(StepDecorator):
+class InterruptibleDecorator(StepDecorator):
     """
     For AIP orchestrator plugin only.
 
