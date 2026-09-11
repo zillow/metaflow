@@ -96,11 +96,56 @@ CARD_NO_WARNING = from_conf("METAFLOW_CARD_NO_WARNING", False)
 S3_ENDPOINT_URL = from_conf("METAFLOW_S3_ENDPOINT_URL", None)
 S3_VERIFY_CERTIFICATE = from_conf("METAFLOW_S3_VERIFY_CERTIFICATE", None)
 
+# Set ServerSideEncryption for S3 uploads
+S3_SERVER_SIDE_ENCRYPTION = from_conf("S3_SERVER_SIDE_ENCRYPTION")
+
 # S3 retry configuration
 # This is useful if you want to "fail fast" on S3 operations; use with caution
 # though as this may increase failures. Note that this is the number of *retries*
 # so setting it to 0 means each operation will be tried once.
 S3_RETRY_COUNT = int(from_conf("METAFLOW_S3_RETRY_COUNT", 7))
+
+# Number of concurrent S3 processes for parallel operations.
+S3_WORKER_COUNT = from_conf("S3_WORKER_COUNT", 64)
+
+# Number of retries on *transient* failures (such as SlowDown errors). Note
+# that if after S3_TRANSIENT_RETRY_COUNT times, all operations haven't been done,
+# it will try up to S3_RETRY_COUNT again so the total number of tries can be up to
+# (S3_RETRY_COUNT + 1) * (S3_TRANSIENT_RETRY_COUNT + 1)
+# You typically want this number fairly high as transient retires are "cheap" (only
+# operations that have not succeeded retry as opposed to all operations for the
+# top-level retries)
+S3_TRANSIENT_RETRY_COUNT = from_conf("S3_TRANSIENT_RETRY_COUNT", 20)
+
+# S3 retry configuration used in the aws client
+# Use the adaptive retry strategy by default
+S3_CLIENT_RETRY_CONFIG = from_conf(
+    "S3_CLIENT_RETRY_CONFIG", {"max_attempts": 10, "mode": "adaptive"}
+)
+
+# Threshold to start printing warnings for an AWS retry
+RETRY_WARNING_THRESHOLD = 3
+
+# S3 datatools root location
+DATATOOLS_SUFFIX = from_conf("DATATOOLS_SUFFIX", "data")
+DATATOOLS_S3ROOT = from_conf(
+    "DATATOOLS_S3ROOT",
+    (
+        os.path.join(DATASTORE_SYSROOT_S3, DATATOOLS_SUFFIX)
+        if DATASTORE_SYSROOT_S3
+        else None
+    ),
+)
+
+TEMPDIR = from_conf("TEMPDIR", ".")
+
+DATATOOLS_CLIENT_PARAMS = from_conf("DATATOOLS_CLIENT_PARAMS", {})
+if S3_ENDPOINT_URL:
+    DATATOOLS_CLIENT_PARAMS["endpoint_url"] = S3_ENDPOINT_URL
+if S3_VERIFY_CERTIFICATE:
+    DATATOOLS_CLIENT_PARAMS["verify"] = S3_VERIFY_CERTIFICATE
+
+DATATOOLS_SESSION_VARS = from_conf("DATATOOLS_SESSION_VARS", {})
 
 ###
 # Datastore local cache
