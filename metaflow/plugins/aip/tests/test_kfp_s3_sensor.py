@@ -2,12 +2,9 @@ import base64
 import marshal
 import os
 import tempfile
-from unittest import mock
-from unittest.mock import Mock, PropertyMock, call, patch
 
 import boto3
 import pytest
-from botocore.exceptions import ClientError
 from moto import mock_s3
 
 from metaflow.plugins.aip.aip_s3_sensor import wait_for_s3_path
