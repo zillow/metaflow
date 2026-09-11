@@ -37,6 +37,7 @@ from kubernetes.client import (
 
 from metaflow.decorators import FlowDecorator, flow_decorators
 from metaflow.metaflow_config import (
+    ARGO_RUN_URL_PREFIX,
     DATASTORE_SYSROOT_S3,
     AIP_TTL_SECONDS_AFTER_FINISHED,
     AIP_PVC_CREATE_RETRY_COUNT,
@@ -58,6 +59,7 @@ from metaflow.plugins.aip.aip_constants import (
 from metaflow.plugins.aip.aip_decorator import AIPException
 from .accelerator_decorator import AcceleratorDecorator
 from .argo_client import ArgoClient
+from .argo_utils import resolve_argo_ui_route_mode
 from .interruptible_decorator import interruptibleDecorator
 from .aip_foreach_splits import graph_to_task_ids
 from ..aws.batch.batch_decorator import BatchDecorator
@@ -1242,6 +1244,12 @@ class KubeflowPipelines(object):
                     METAFLOW_DATASTORE_SYSROOT_S3=DATASTORE_SYSROOT_S3,
                     METAFLOW_USER=METAFLOW_USER,
                 )
+                # Bake Argo URL settings at create-time so step pods don't HTTP-probe
+                # the Argo UI (unreliable/slow in-cluster and caused FlowTriggeringFlow
+                # end-step timeouts).
+                if ARGO_RUN_URL_PREFIX:
+                    metaflow_configs["ARGO_RUN_URL_PREFIX"] = ARGO_RUN_URL_PREFIX
+                metaflow_configs["ARGO_UI_ROUTE_MODE"] = resolve_argo_ui_route_mode()
 
                 metaflow_step_op: ContainerOp = self._create_metaflow_step_op(
                     node,
@@ -1616,6 +1624,8 @@ class KubeflowPipelines(object):
             ]
             if from_conf(key)
         }
+        # Resolve once at create-time so exit-handler pods reuse the same route mode.
+        env_variables["ARGO_UI_ROUTE_MODE"] = resolve_argo_ui_route_mode()
 
         if self.sqs_role_arn_on_error:
             env_variables["METAFLOW_SQS_ROLE_ARN_ON_ERROR"] = self.sqs_role_arn_on_error
@@ -1647,6 +1657,8 @@ class KubeflowPipelines(object):
             ]
             if from_conf(key)
         }
+        # Resolve once at create-time so exit-handler pods reuse the same route mode.
+        env_variables["ARGO_UI_ROUTE_MODE"] = resolve_argo_ui_route_mode()
 
         if self.notify_on_error:
             env_variables["METAFLOW_NOTIFY_ON_ERROR"] = self.notify_on_error
@@ -1680,6 +1692,8 @@ class KubeflowPipelines(object):
             ]
             if from_conf(key)
         }
+        # Resolve once at create-time so exit-handler pods reuse the same route mode.
+        env_variables["ARGO_UI_ROUTE_MODE"] = resolve_argo_ui_route_mode()
 
         return self._get_user_defined_exit_handler_op(
             udf_handler,

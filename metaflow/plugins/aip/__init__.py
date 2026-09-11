@@ -7,6 +7,7 @@ from .argo_utils import (
     get_argo_url,
     get_metaflow_url,
     get_metaflow_run_id,
+    resolve_argo_ui_route_mode,
 )
 
 from .exit_handler_decorator import (

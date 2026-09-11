@@ -1,10 +1,15 @@
 import math
+import os
+import re
+import sys
 import time
 import datetime
 from typing import Optional, Union, Dict, Any, Tuple, Callable
+from urllib.request import urlopen
 
 from metaflow.metaflow_config import (
     ARGO_RUN_URL_PREFIX,
+    ARGO_UI_ROUTE_MODE,
     METAFLOW_RUN_URL_PREFIX,
     KUBERNETES_NAMESPACE,
 )
@@ -14,6 +19,15 @@ from metaflow.plugins.aip.aip_utils import _get_aip_logger
 
 
 logger = _get_aip_logger()
+
+# Cached route mode after first resolution (explicit or detected).
+_resolved_argo_ui_route_mode: Optional[str] = None
+
+
+def _log_argo_route(message: str) -> None:
+    """Log to logger and stderr so messages show up in CI (Metaflow echo uses stderr)."""
+    logger.info(message)
+    print(f"[argo_ui_route] {message}", file=sys.stderr, flush=True)
 
 
 class ArgoHelper:
@@ -339,13 +353,86 @@ def get_metaflow_run_id(argo_run_uid: str):
     )
 
 
+def _detect_argo_ui_route_via_base_href() -> Optional[str]:
+    """
+    Probe Argo UI index HTML for <base href="...">.
+
+    No cluster RBAC required — only needs network access to ARGO_RUN_URL_PREFIX.
+    Returns "legacy" when href contains argo-ui, otherwise "modern".
+    """
+    base = os.environ.get("ARGO_RUN_URL_PREFIX", ARGO_RUN_URL_PREFIX).rstrip("/")
+    if not base:
+        return None
+    try:
+        with urlopen(base + "/", timeout=5) as resp:
+            html = resp.read(2048).decode("utf-8", errors="replace")
+    except Exception as exc:
+        _log_argo_route(f"Argo UI base-href probe failed for {base}/: {exc}")
+        return None
+
+    match = re.search(r'<base\s+href="([^"]+)"', html, flags=re.IGNORECASE)
+    if not match:
+        _log_argo_route("Argo UI HTML had no <base href>; cannot infer route mode")
+        return None
+
+    href = match.group(1).strip()
+    _log_argo_route(f"Argo UI <base href>={href!r}")
+    if "argo-ui" in href:
+        return "legacy"
+    # Typical modern root base href is "/" .
+    return "modern"
+
+
+def resolve_argo_ui_route_mode() -> str:
+    """
+    Resolve Argo UI route mode.
+
+    Precedence:
+      1. Explicit ARGO_UI_ROUTE_MODE=legacy|modern
+      2. ARGO_UI_ROUTE_MODE=auto (default): probe Argo UI <base href>
+      3. Fallback to legacy when detection fails
+    """
+    global _resolved_argo_ui_route_mode
+    if _resolved_argo_ui_route_mode is not None:
+        return _resolved_argo_ui_route_mode
+
+    configured = (
+        os.environ.get("ARGO_UI_ROUTE_MODE", ARGO_UI_ROUTE_MODE) or "auto"
+    ).strip().lower()
+
+    if configured in ("legacy", "modern"):
+        _log_argo_route(f"Using explicit ARGO_UI_ROUTE_MODE={configured}")
+        _resolved_argo_ui_route_mode = configured
+        return _resolved_argo_ui_route_mode
+
+    _log_argo_route("ARGO_UI_ROUTE_MODE=auto; probing Argo UI <base href>")
+    href_mode = _detect_argo_ui_route_via_base_href()
+    if href_mode in ("legacy", "modern"):
+        _log_argo_route(f"Using ARGO_UI_ROUTE_MODE={href_mode} from <base href>")
+        _resolved_argo_ui_route_mode = href_mode
+        return _resolved_argo_ui_route_mode
+
+    _log_argo_route(
+        "ARGO_UI_ROUTE_MODE=auto but base-href detection failed; defaulting to legacy"
+    )
+    _resolved_argo_ui_route_mode = "legacy"
+    return _resolved_argo_ui_route_mode
+
+
 def get_argo_url(
     argo_run_id: str,
     kubernetes_namespace: str,
     argo_workflow_uid: str,
 ):
-    argo_ui_url = f"{ARGO_RUN_URL_PREFIX}/argo-ui/workflows/{kubernetes_namespace}/{argo_run_id}?uid={argo_workflow_uid}"
-    return argo_ui_url
+    route_mode = resolve_argo_ui_route_mode()
+    base = os.environ.get("ARGO_RUN_URL_PREFIX", ARGO_RUN_URL_PREFIX).rstrip("/")
+
+    if route_mode == "modern":
+        return f"{base}/workflows/{kubernetes_namespace}/{argo_run_id}?uid={argo_workflow_uid}"
+
+    return (
+        f"{base}/argo-ui/workflows/{kubernetes_namespace}/{argo_run_id}?uid={argo_workflow_uid}"
+    )
 
 
 def get_metaflow_url(flow_name: str, argo_run_id: str):

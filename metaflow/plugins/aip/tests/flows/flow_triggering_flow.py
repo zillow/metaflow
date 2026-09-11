@@ -146,9 +146,17 @@ class FlowTriggeringFlow(FlowSpec):
                 },
             )
             logger.info(f"{run_id=}, {run_uid=}")
-            logger.info(
-                f"{get_argo_url(run_id, self.kubernetes_namespace, run_uid)=}"
-            )
+            argo_url = get_argo_url(run_id, self.kubernetes_namespace, run_uid)
+            logger.info(f"{argo_url=}")
+
+            # Assert URL shape from the generated URL (create-time route mode is
+            # baked into step env; avoid a second live Argo UI probe in-pod).
+            if "/argo-ui/" in argo_url:
+                assert "/argo-ui/workflows/" in argo_url
+                assert f"?uid={run_uid}" in argo_url
+            else:
+                assert "/workflows/" in argo_url
+                assert "?uid=" not in argo_url
 
             logger.info("Testing timeout exception for wait_for_kfp_run_completion")
             try:

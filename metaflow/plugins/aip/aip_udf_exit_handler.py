@@ -39,6 +39,12 @@ def invoke_user_defined_exit_handler(
 
     env_variables: Dict[str, str] = json.loads(env_variables_json)
 
+    # Apply create-time Argo URL settings so get_argo_url() uses the resolved route mode.
+    for key in ("ARGO_RUN_URL_PREFIX", "ARGO_UI_ROUTE_MODE"):
+        value = env_variables.get(key)
+        if value:
+            os.environ[key] = value
+
     def get_env(name, default=None) -> str:
         return env_variables.get(name, os.environ.get(name, default=default))
 
