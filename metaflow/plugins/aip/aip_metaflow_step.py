@@ -261,7 +261,13 @@ def _command(
     )
 
     if volume_dir and not is_interruptible:
-        clean_volume_cmd: str = f"rm -rf {os.path.join(volume_dir, '*')}"
+        # Removes the same entries as the previous `rm -rf {volume_dir}/*`, except lost+found,
+        # which is root-owned and can't be removed by the non-root zservice user.
+        # Avoid literal braces: aip_metaflow_step() runs this through str.format().
+        clean_volume_cmd: str = (
+            f"( [ ! -d {volume_dir} ] || find {volume_dir} -mindepth 1 -maxdepth 1 "
+            f"! -name lost+found ! -name '.*' -print0 | xargs -0 -r rm -rf )"
+        )
     else:
         clean_volume_cmd: str = "true"
 

@@ -157,6 +157,9 @@ AIP_MAX_PARALLELISM = int(from_conf("AIP_MAX_PARALLELISM", 10))
 AIP_MAX_RUN_CONCURRENCY = int(from_conf("AIP_MAX_RUN_CONCURRENCY", 10))
 AIP_SHOW_METAFLOW_UI_URL = bool(from_conf("AIP_SHOW_METAFLOW_UI_URL", False))
 AIP_PVC_CREATE_RETRY_COUNT = int(from_conf("AIP_PVC_CREATE_RETRY_COUNT", 3))
+# Group that owns volumes mounted into workflow pods, so the non-root `zservice` user
+# (gid 100) in AIP v7+ images can write to them. Set to 0 to disable.
+AIP_POD_FS_GROUP = int(from_conf("AIP_POD_FS_GROUP", 100))
 AIP_S3_SENSOR_RETRY_COUNT = int(from_conf("AIP_S3_SENSOR_RETRY_COUNT", 3))
 ZILLOW_ZODIAC_SERVICE = from_conf("ZODIAC_SERVICE")
 ZILLOW_ZODIAC_TEAM = from_conf("ZODIAC_TEAM")
