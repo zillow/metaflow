@@ -39,6 +39,7 @@ from metaflow.decorators import FlowDecorator, flow_decorators
 from metaflow.metaflow_config import (
     DATASTORE_SYSROOT_S3,
     AIP_TTL_SECONDS_AFTER_FINISHED,
+    AIP_POD_FS_GROUP,
     AIP_PVC_CREATE_RETRY_COUNT,
     AIP_S3_SENSOR_RETRY_COUNT,
     KUBERNETES_SERVICE_ACCOUNT,
@@ -249,6 +250,17 @@ class KubeflowPipelines(object):
             if "metadata" in template:
                 remove_annotations_labels(template)
 
+    @staticmethod
+    def _set_pod_fs_group(workflow: Dict[Text, Any]):
+        """
+        PVCs (@resources(volume=...)) mount root-owned; fsGroup makes them writable by
+        the non-root zservice user (gid 100) in AIP v7+ images. Applies to all pods.
+        """
+        if AIP_POD_FS_GROUP <= 0:
+            return
+        security_context = workflow["spec"].setdefault("securityContext", {})
+        security_context.setdefault("fsGroup", AIP_POD_FS_GROUP)
+
     def _create_workflow_yaml(
         self,
         flow_parameters: Dict,
@@ -270,6 +282,8 @@ class KubeflowPipelines(object):
 
         # mutates and removes kubeflow labels and annotations
         KubeflowPipelines._remove_kfp_annotations_labels(workflow)
+
+        KubeflowPipelines._set_pod_fs_group(workflow)
 
         workflow["spec"]["arguments"]["parameters"] = [
             dict(name=k, value=json.dumps(v) if isinstance(v, dict) else v)

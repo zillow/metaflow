@@ -15,7 +15,11 @@ def save_logs():
         with open(path, "rb") as f:
             return f.read()
 
-    # these env vars are set by mflog.mflog_env
+    # these env vars are set by mflog.mflog_env. If the task failed before that ran
+    # (e.g. during volume setup), there are no logs to save; exit quietly so the
+    # original error stays visible.
+    if "MF_PATHSPEC" not in os.environ:
+        return
     pathspec = os.environ["MF_PATHSPEC"]
     attempt = os.environ["MF_ATTEMPT"]
     ds_type = os.environ["MF_DATASTORE"]
